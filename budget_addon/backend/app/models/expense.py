@@ -76,6 +76,9 @@ class Expense(TimestampMixin, Base):
         back_populates="expense",
         cascade="all, delete-orphan",
         order_by="ExpenseInstallment.installment_number",
+        # Asenkron oturumda tembel yukleme ortuk IO demektir ve MissingGreenlet
+        # hatasi verir; taksitler her zaman ust kayitla birlikte yuklenir.
+        lazy="selectin",
     )
 
     @property
