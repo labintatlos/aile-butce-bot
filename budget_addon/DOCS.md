@@ -98,11 +98,20 @@ Botta **⚙️ Ayarlar** yaz; kartlar numaralarıyla listelenir. Sonra:
 
 | Komut | Ne yapar |
 |---|---|
-| `/kartgun 2 26 10` | 2 numaralı kartın hesap kesimini 26, son ödemesini 10 yapar |
-| `/kartekle Aykut Kredi Kartı 2 \| 26 10` | Yeni kart ekler (ad ile günler `\|` ile ayrılır) |
+| `/kartgun 2 kesim 26 sonodeme 10` | 2 numaralı kartın günlerini düzeltir |
+| `/kartekle Aykut Kredi Kartı 2 \| kesim 26 sonodeme 10` | Yeni kart ekler (ad ile günler `\|` ile ayrılır) |
 | `/kartad 3 Yeni Kart Adı` | Kartın adını değiştirir |
 | `/kartsil 3` | Kartı siler |
 | `/kartpasif 3` · `/kartaktif 3` | Kartı gizler / geri açar |
+
+**kesim** = hesap kesim günü (ekstrenin kesildiği ayın günü), **sonodeme** =
+son ödeme günü. Bu iki değeri bankanın uygulamasından veya kart ekstrenden
+bulabilirsin. Etiketleri yazmadan kısa biçim de çalışır (`/kartgun 2 26 10`),
+sırası kesim → son ödemedir.
+
+Örnek: kesim 26, son ödeme 10 olan bir kartla 8 Eylül'de 3.000 TL / 3 taksit
+harcama yaparsan taksitler 26 Eylül, 26 Ekim ve 26 Kasım ekstrelerine düşer;
+son ödemeleri sırasıyla 10 Ekim, 10 Kasım ve 10 Aralık olur.
 
 Kategoriler için `/kategori` yaz; aynı mantıkla `/kategoriekle 🎬 Sinema`,
 `/kategoriad`, `/kategorisil`, `/kategoripasif` ve `/kategoriaktif` çalışır.

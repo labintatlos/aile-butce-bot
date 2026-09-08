@@ -284,3 +284,29 @@ def test_analysis_handles_an_empty_month():
         total_minor=0, transaction_count=0, by_user=[], by_category=[]
     )
     assert messages.EMPTY_MONTH in messages.analysis_report(empty, None)
+
+
+# ---------------------------------------------------------------------------
+# Kart gunlerinin anlasilirligi
+# ---------------------------------------------------------------------------
+
+
+def test_card_days_are_explained_in_plain_turkish():
+    """İki çıplak sayı yerine ne anlama geldikleri yazılmalıdır."""
+    text = messages.card_days_explained(26, 10)
+    assert "26" in text and "10" in text
+    assert "ekstre kesilir" in text
+    assert "takip eden ayın" in text
+
+
+def test_due_day_after_statement_day_stays_in_the_same_month():
+    text = messages.card_days_explained(10, 20)
+    assert "aynı ayın" in text
+
+
+def test_card_add_usage_labels_the_two_numbers():
+    text = messages.card_add_usage()
+    assert "kesim" in text
+    assert "sonodeme" in text
+    assert "hesap kesim günü" in text
+    assert "son ödeme günü" in text

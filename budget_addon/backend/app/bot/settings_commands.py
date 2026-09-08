@@ -72,21 +72,61 @@ async def _find_category(session: AsyncSession, raw_id: str) -> Category | None:
 # ---------------------------------------------------------------------------
 
 
+STATEMENT_LABELS = ("kesim", "hesapkesim", "kesimgunu")
+DUE_LABELS = ("sonodeme", "sonödeme", "odeme", "ödeme")
+
+
+def parse_card_days(text: str) -> tuple[int, int] | None:
+    """`26 10` veya `kesim 26 sonodeme 10` yazımını okur.
+
+    Etiketli yazım desteklenir çünkü iki çıplak sayının hangisinin hesap
+    kesim, hangisinin son ödeme günü olduğu ilk bakışta anlaşılmıyor.
+    Etiket kullanılırsa sıra önemsizdir.
+    """
+    tokens = text.lower().split()
+    if not tokens:
+        return None
+
+    labelled: dict[str, int] = {}
+    index = 0
+    while index < len(tokens) - 1:
+        label, value = tokens[index], tokens[index + 1]
+        if not value.isdigit():
+            index += 1
+            continue
+        if label in STATEMENT_LABELS:
+            labelled["statement"] = int(value)
+            index += 2
+            continue
+        if label in DUE_LABELS:
+            labelled["due"] = int(value)
+            index += 2
+            continue
+        index += 1
+
+    if "statement" in labelled and "due" in labelled:
+        return labelled["statement"], labelled["due"]
+
+    numbers = [token for token in tokens if token.isdigit()]
+    if len(numbers) == CARD_DAY_COUNT and not labelled:
+        return int(numbers[0]), int(numbers[1])
+    return None
+
+
 @router.message(Command("kartekle"))
 async def add_card(message: Message, user: User, session: AsyncSession) -> None:
     arguments = _arguments(message)
     name, separator, days = (part.strip() for part in arguments.partition(NAME_SEPARATOR))
-    parts = days.split()
 
-    if not separator or not name or len(parts) != CARD_DAY_COUNT:
+    if not separator or not name:
         await message.answer(messages.card_add_usage(), parse_mode="HTML")
         return
 
-    try:
-        statement_day, due_day = (int(part) for part in parts)
-    except ValueError:
-        await message.answer("Hesap kesim ve son ödeme günleri sayı olmalıdır.")
+    parsed = parse_card_days(days)
+    if parsed is None:
+        await message.answer(messages.card_add_usage(), parse_mode="HTML")
         return
+    statement_day, due_day = parsed
 
     try:
         method = await settings_service.create_payment_method(
@@ -102,8 +142,8 @@ async def add_card(message: Message, user: User, session: AsyncSession) -> None:
         return
 
     await message.answer(
-        f"✅ <b>{method.name}</b> eklendi (no: {method.id}).\n"
-        f"Hesap kesim {statement_day}, son ödeme {due_day}.",
+        f"✅ <b>{method.name}</b> eklendi (no: {method.id}).\n\n"
+        + messages.card_days_explained(statement_day, due_day),
         parse_mode="HTML",
     )
 
@@ -144,18 +184,13 @@ async def rename_card(message: Message, user: User, session: AsyncSession) -> No
 async def set_card_days_command(
     message: Message, user: User, session: AsyncSession
 ) -> None:
-    parts = _arguments(message).split()
-    if len(parts) != 3:
-        await message.answer(
-            "Kullanım: <code>/kartgun &lt;no&gt; &lt;kesim&gt; &lt;sonodeme&gt;</code>",
-            parse_mode="HTML",
-        )
+    raw_id, _, rest = _arguments(message).partition(" ")
+    parsed = parse_card_days(rest)
+    if not raw_id.isdigit() or parsed is None:
+        await message.answer(messages.card_days_usage(), parse_mode="HTML")
         return
-    try:
-        method_id, statement_day, due_day = (int(part) for part in parts)
-    except ValueError:
-        await message.answer("Kart numarası ve günler sayı olmalıdır.")
-        return
+    method_id = int(raw_id)
+    statement_day, due_day = parsed
 
     method = await session.get(PaymentMethod, method_id)
     if method is None:
@@ -174,8 +209,11 @@ async def set_card_days_command(
         return
 
     await message.answer(
-        f"✅ {method.name}: hesap kesim {statement_day}, son ödeme {due_day}.\n\n"
-        + HISTORY_UNCHANGED_NOTE
+        f"✅ <b>{method.name}</b> güncellendi.\n\n"
+        + messages.card_days_explained(statement_day, due_day)
+        + "\n\n"
+        + HISTORY_UNCHANGED_NOTE,
+        parse_mode="HTML",
     )
 
 

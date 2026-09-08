@@ -261,11 +261,39 @@ def expense_detail(expense) -> str:
 
 
 def card_add_usage() -> str:
+    """Kart ekleme yardımı.
+
+    İki çıplak sayının ne olduğu ilk bakışta anlaşılmadığı için etiketli
+    yazım önce gösterilir; kısa yazım da çalışmaya devam eder.
+    """
     return (
-        "Kart eklemek için ad ile günleri <code>|</code> ile ayır:\n\n"
+        "🆕 <b>Kart ekle</b>\n\n"
+        "  <code>/kartekle Aykut Kredi Kartı 2 | kesim 26 sonodeme 10</code>\n\n"
+        "<b>kesim</b> — hesap kesim günü, ekstrenin kesildiği ayın günü\n"
+        "<b>sonodeme</b> — son ödeme günü\n\n"
+        "Kısa yazım da olur; sırayla kesim, sonra son ödeme:\n"
         "  <code>/kartekle Aykut Kredi Kartı 2 | 26 10</code>\n\n"
-        "Sırasıyla hesap kesim ve son ödeme günü. Ayraç gerekiyor çünkü kart"
-        " adları boşluk içerebiliyor."
+        "Ayraç (<code>|</code>) gerekiyor çünkü kart adları boşluk içerebiliyor."
+    )
+
+
+def card_days_usage() -> str:
+    return (
+        "📅 <b>Kart günlerini düzelt</b>\n\n"
+        "  <code>/kartgun 2 kesim 26 sonodeme 10</code>\n\n"
+        "<b>kesim</b> — hesap kesim günü, ekstrenin kesildiği ayın günü\n"
+        "<b>sonodeme</b> — son ödeme günü\n\n"
+        "Kısa yazım: <code>/kartgun 2 26 10</code>\n"
+        "Kart numaralarını ⚙️ Ayarlar ekranında görebilirsin."
+    )
+
+
+def card_days_explained(statement_day: int, due_day: int) -> str:
+    """Kaydedilen günlerin ne anlama geldiğini düz cümleyle gösterir."""
+    month = "aynı ayın" if due_day > statement_day else "takip eden ayın"
+    return (
+        f"Her ayın <b>{statement_day}</b>. günü ekstre kesilir,"
+        f" son ödeme {month} <b>{due_day}</b>. günüdür."
     )
 
 
