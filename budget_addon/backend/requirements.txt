@@ -1,5 +1,8 @@
 fastapi==0.118.0
-uvicorn[standard]==0.37.0
+# [standard] eklentisi uvloop, httptools ve watchfiles cekiyor; bunlarin
+# musl/aarch64 icin hazir tekerlegi her zaman bulunmuyor ve derlenmeleri
+# gerekiyor. Iki kisilik bir kurulumda saglayacaklari hiz farki yok.
+uvicorn==0.37.0
 aiogram==3.22.0
 SQLAlchemy==2.0.43
 aiosqlite==0.21.0
