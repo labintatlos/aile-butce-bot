@@ -37,3 +37,8 @@ desktop.ini
 
 # Alembic autogenerate gecici veritabanlari
 .tmp-*.db
+
+# Elle yapilan duman testlerinin gecici ciktilari
+.smoke*
+.r[0-9].json
+.rep[0-9].json
