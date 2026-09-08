@@ -25,12 +25,25 @@ class Base(DeclarativeBase):
 
 
 class TimestampMixin:
+    """Oluşturulma ve güncellenme zamanları.
+
+    Değer hem Python tarafında (`default`) hem veritabanı tarafında
+    (`server_default`) üretilir. İkisi de gereklidir: `server_default` şemayı
+    Alembic göçü kurduğunda tablo tanımına yazılmak zorundadır ve bir göçte
+    atlanırsa kayıt eklenemez hâle gelir. Python tarafındaki `default` bu tür
+    bir şema kaymasında da doğru değeri sağlar.
+    """
+
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
+        DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        server_default=func.now(),
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
+        default=utc_now,
         server_default=func.now(),
         onupdate=utc_now,
     )

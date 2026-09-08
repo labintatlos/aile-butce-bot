@@ -3,11 +3,13 @@
 #
 # Home Assistant seçeneklerini ortam değişkenlerine aktarır ve uygulamayı
 # başlatır. Bot token'ı hiçbir zaman ekrana veya loga yazılmaz.
-set -euo pipefail
+set -e
 
 readonly INGRESS_PORT=8099
 readonly PUBLIC_PORT=8100
 readonly DATA_DIR="/data"
+
+cd /app
 
 # --- Zorunlu ayarlar ---------------------------------------------------------
 TELEGRAM_BOT_TOKEN="$(bashio::config 'telegram_bot_token')"
@@ -38,15 +40,22 @@ export ALLOW_DEV_AUTH="false"
 
 mkdir -p "${DATA_DIR}/backups"
 
+# --- Ön kontrol --------------------------------------------------------------
+# Uygulamayi ice aktarmayi once denemek, bir import hatasinin uvicorn'un
+# yigin izinin altinda kaybolmasini engeller.
+bashio::log.info "Uygulama yükleniyor..."
+if ! python -c "import app.main" 2>&1; then
+  bashio::exit.nok "Uygulama yüklenemedi. Yukarıdaki hata mesajına bakın."
+fi
+
 # --- Veritabanı göçleri ------------------------------------------------------
 bashio::log.info "Veritabanı göçleri uygulanıyor..."
-cd /app
 if ! python -m alembic upgrade head; then
   bashio::exit.nok "Veritabanı göçü başarısız. Eklenti başlatılmadı, verilerinize dokunulmadı."
 fi
 
 # --- Uygulama ----------------------------------------------------------------
-# İki ayrı süreç çalışır ve aralarındaki fark kasıtlıdır:
+# İki farklı sunucu çalışabilir ve aralarındaki fark kasıtlıdır:
 #
 #   8099 (Ingress) : yalnızca Supervisor ağından erişilir, X-Remote-User-Id
 #                    başlığına güvenir, Telegram botunu da bu süreç çalıştırır.
@@ -55,17 +64,11 @@ fi
 #
 # Bot yalnızca ilk süreçte açıktır: Telegram aynı bot için tek bir getUpdates
 # tüketicisine izin verir, ikinci süreç sürekli çakışma hatası üretirdi.
-
-terminate() {
-  bashio::log.info "Eklenti durduruluyor..."
-  kill 0
-}
-trap terminate SIGTERM SIGINT
-
-bashio::log.info "Ingress arayüzü başlatılıyor (port ${INGRESS_PORT})"
-TRUST_INGRESS_HEADERS="true" ENABLE_BOT="true" \
-  python -m uvicorn app.main:app \
-  --host 0.0.0.0 --port "${INGRESS_PORT}" --log-level "${LOG_LEVEL}" &
+#
+# Genel sunucu arka planda, Ingress sunucusu `exec` ile ön planda çalışır.
+# Böylece uvicorn'un hatası ve çıkış kodu doğrudan eklenti günlüğüne düşer;
+# her ikisini de arka plana alıp `wait` ile beklemek, gerçek hatayı gizleyip
+# her başarısızlığı anlamsız bir "exit code 1" hâline getiriyordu.
 
 if bashio::var.has_value "${WEBAPP_PUBLIC_URL}"; then
   bashio::log.info "Telegram Mini App sunucusu başlatılıyor (port ${PUBLIC_PORT})"
@@ -76,6 +79,8 @@ else
   bashio::log.info "webapp_public_url boş; Mini App sunucusu başlatılmadı. Arayüz Home Assistant panelinden kullanılabilir."
 fi
 
-wait -n
-bashio::log.warning "Süreçlerden biri sonlandı; eklenti kapanıyor."
-terminate
+bashio::log.info "Ingress arayüzü başlatılıyor (port ${INGRESS_PORT})"
+export TRUST_INGRESS_HEADERS="true"
+export ENABLE_BOT="true"
+exec python -m uvicorn app.main:app \
+  --host 0.0.0.0 --port "${INGRESS_PORT}" --log-level "${LOG_LEVEL}"

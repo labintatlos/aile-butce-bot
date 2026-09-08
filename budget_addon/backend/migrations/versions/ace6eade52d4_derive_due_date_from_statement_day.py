@@ -41,8 +41,21 @@ def _payment_methods_table(*, with_due_day: bool) -> sa.Table:
         sa.Column("credit_limit_minor", sa.BigInteger(), nullable=True),
         sa.Column("notes", sa.Text(), nullable=True),
         sa.Column("is_active", sa.Boolean(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        # server_default burada tekrar yazilmak zorunda: SQLite tabloyu
+        # yeniden olusturdugu icin atlanirsa varsayilan kaybolur ve her ekleme
+        # "NOT NULL constraint failed: created_at" ile duser.
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("(CURRENT_TIMESTAMP)"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("(CURRENT_TIMESTAMP)"),
+            nullable=False,
+        ),
     ]
     if with_due_day:
         columns.insert(6, sa.Column("due_day", sa.Integer(), nullable=True))

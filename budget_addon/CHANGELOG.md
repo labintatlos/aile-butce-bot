@@ -1,5 +1,10 @@
 # Değişiklik Günlüğü
 
+## 1.3.1
+
+- Eklentinin açılışta çökmesine yol açan hata giderildi: bir göç, tabloyu
+  yeniden oluştururken zaman damgası sütununun varsayılanını taşımıyordu.
+
 ## 1.3.0
 
 - Son ödeme tarihi artık kullanıcı tarafından girilmez; hesap kesim gününden
