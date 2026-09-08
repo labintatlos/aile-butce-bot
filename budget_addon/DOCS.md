@@ -189,6 +189,17 @@ kimliğini bul ve ekle.
 Veritabanı göçü başarısız olmuştur ve eklenti bilerek başlatılmamıştır;
 verilerine dokunulmamıştır. Günlüğü paylaş.
 
+**Eklenti sürekli yeniden başlıyor, Supervisor günlüğü sadece "exit code 1" diyor.**
+Supervisor günlüğü eklentinin kendi çıktısını göstermez. Eklentinin sayfasındaki
+**Günlük** sekmesine bak; gerçek hata orada yazar. Açılışta bir yapılandırma
+denetimi çalışır ve hatalı alanın adını söyler (örneğin
+`'user_display_names' ayarındaki 'Aykut' girdisi hatalı`).
+
+**Günlükte "Telegram bot token geçersiz" yazıyor.**
+Token yanlış veya eksik girilmiş. BotFather'dan aldığın değeri
+`telegram_bot_token` alanına yapıştır ve eklentiyi yeniden başlat. Bu durumda
+bot çalışmaz ama Home Assistant panelindeki form çalışmaya devam eder.
+
 **Taksit tarihleri yanlış görünüyor.**
 Kartın hesap kesim ve son ödeme günlerini kontrol et. Kurulumdaki yer tutucu
 değerler (1 ve 15) düzeltilmemiş olabilir. Kart ayarını değiştirmek **geçmiş

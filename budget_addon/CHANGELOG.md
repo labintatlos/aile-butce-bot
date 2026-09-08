@@ -1,5 +1,14 @@
 # Değişiklik Günlüğü
 
+## 1.3.2
+
+- Eklentinin açılışta çökmesine yol açan ikinci hata giderildi: Home Assistant
+  ayarlarında boş bırakılan isteğe bağlı alanlar uygulamaya `null` metni olarak
+  geliyordu ve yapılandırma okuyucusu bunu geçersiz girdi sayıyordu.
+- Açılışta yapılandırma denetimi eklendi; hatalı bir ayar artık hangi alanın
+  bozuk olduğunu söyleyen anlaşılır bir mesaj veriyor.
+- Geçersiz bot token'ı artık günlüğe açıkça yazılıyor ve arayüzü durdurmuyor.
+
 ## 1.3.1
 
 - Eklentinin açılışta çökmesine yol açan hata giderildi: bir göç, tabloyu

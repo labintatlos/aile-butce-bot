@@ -15,6 +15,8 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramUnauthorizedError
+from aiogram.utils.token import TokenValidationError
 
 from ..config import Settings
 from .authorization import AuthorizationMiddleware
@@ -39,6 +41,11 @@ def build_dispatcher(settings: Settings, session_factory) -> Dispatcher:
 
 
 def build_bot(settings: Settings) -> Bot:
+    """Bot nesnesini kurar.
+
+    Token bicimsel olarak gecersizse aiogram burada hata verir; cagiran taraf
+    bunu yakalayip anlasilir bir mesaja cevirir.
+    """
     return Bot(
         token=settings.telegram_bot_token,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
@@ -46,18 +53,41 @@ def build_bot(settings: Settings) -> Bot:
 
 
 async def run_polling(settings: Settings, session_factory) -> None:
-    bot = build_bot(settings)
-    dispatcher = build_dispatcher(settings, session_factory)
+    """Telegram güncellemelerini dinler.
+
+    Bot bir arka plan görevidir ve **web sunucusunu düşürmez**: Home Assistant
+    paneli, token yanlış olsa bile çalışmaya devam etmelidir. Ancak hata
+    sessizce yutulmaz; aksi halde kullanıcı token'ını yanlış girdiğini hiçbir
+    yerden anlayamazdı.
+    """
+    # Bot nesnesi de try icinde kurulur: bicimsel olarak bozuk bir token
+    # hatasi burada olusur ve disarida kalsaydi yakalanamazdi.
+    bot: Bot | None = None
     try:
+        bot = build_bot(settings)
+        dispatcher = build_dispatcher(settings, session_factory)
         # Birikmis guncellemeler atlanir: yeniden baslatmada eski mesajlara
         # toplu yanit vermek kafa karistirici olurdu.
         await bot.delete_webhook(drop_pending_updates=True)
+        logger.info("Telegram botu dinlemeye başladı")
         await dispatcher.start_polling(bot, handle_signals=False)
     except asyncio.CancelledError:
         logger.info("Bot polling durduruldu")
         raise
+    except (TelegramUnauthorizedError, TokenValidationError):
+        logger.error(
+            "Telegram bot token geçersiz; bot devre dışı. Eklenti ayarlarından "
+            "'telegram_bot_token' alanını BotFather'dan aldığınız değerle "
+            "güncelleyin. Arayüz Home Assistant panelinden çalışmaya devam ediyor."
+        )
+    except Exception:
+        logger.exception(
+            "Telegram botu beklenmedik bir hatayla durdu; arayüz çalışmaya "
+            "devam ediyor."
+        )
     finally:
-        await bot.session.close()
+        if bot is not None:
+            await bot.session.close()
 
 
 def start_polling_task(settings: Settings, session_factory) -> asyncio.Task | None:

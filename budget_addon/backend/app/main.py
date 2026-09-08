@@ -90,13 +90,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url="/openapi.json" if settings.debug else None,
     )
 
-    if settings.webapp_public_url:
+    if settings.public_url:
         from fastapi.middleware.cors import CORSMiddleware
 
         app.add_middleware(
             CORSMiddleware,
             # Joker kullanilmaz: yalnizca yapilandirilmis adres kabul edilir.
-            allow_origins=[settings.webapp_public_url.rstrip("/")],
+            allow_origins=[settings.public_url.rstrip("/")],
             allow_credentials=True,
             allow_methods=["GET", "POST", "PATCH", "DELETE"],
             allow_headers=["Authorization", "Content-Type"],

@@ -48,8 +48,19 @@ def _seed() -> int:
 
 
 def _config() -> int:
-    """Yapılandırmayı özetler. Bot token gibi sırlar gösterilmez."""
-    for key, value in get_settings().safe_summary().items():
+    """Yapılandırmayı doğrular ve özetler. Bot token gibi sırlar gösterilmez.
+
+    Açılışta çalıştırılır: hatalı bir ayar burada anlaşılır bir mesajla
+    yakalanmazsa uygulama başlarken yığın izinin altında patlıyordu.
+    """
+    settings = get_settings()
+    try:
+        settings.validate_configuration()
+        import app.main  # noqa: F401  # ice aktarma hatalarini erken yakalar
+    except Exception as exc:
+        print(f"Yapılandırma hatası: {exc}", file=sys.stderr)
+        return 1
+    for key, value in settings.safe_summary().items():
         print(f"{key}: {value}")
     return 0
 

@@ -80,7 +80,7 @@ async def _cash_method(session: AsyncSession) -> PaymentMethod | None:
 async def start(message: Message, user: User, settings: Settings) -> None:
     await message.answer(
         WELCOME.format(name=user.display_name),
-        reply_markup=keyboards.main_menu(settings.webapp_public_url or None),
+        reply_markup=keyboards.main_menu(settings.public_url or None),
         parse_mode="HTML",
     )
 
@@ -93,7 +93,7 @@ async def help_command(message: Message) -> None:
 @router.message(F.text == keyboards.BUTTON_ADD)
 async def add_expense_prompt(message: Message, settings: Settings) -> None:
     """Mini App adresi yoksa kullanıcı yine de kayıt yapabilmelidir."""
-    if not settings.webapp_public_url:
+    if not settings.public_url:
         await message.answer(FORM_UNAVAILABLE, parse_mode="HTML")
         return
     await message.answer("Formu açmak için ➕ Harcama Ekle düğmesini kullan.")

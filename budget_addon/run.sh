@@ -24,14 +24,33 @@ if bashio::var.is_empty "${AUTHORIZED_TELEGRAM_IDS}"; then
 fi
 
 # --- İsteğe bağlı ayarlar ----------------------------------------------------
+# `bashio::config` boş bırakılmış bir alan için boş dize değil **`null`**
+# döndürür. Bu değer olduğu gibi aktarılırsa uygulama onu gerçek bir ayar
+# sanar; açılışta çöker ve Supervisor günlüğünde yalnızca "exit code 1"
+# görünür. Bu yüzden her isteğe bağlı alan önce değer taşıyıp taşımadığına
+# göre kontrol edilir.
+export_optional() {
+  local key="${1}"
+  local variable="${2}"
+  if bashio::config.has_value "${key}"; then
+    export "${variable}=$(bashio::config "${key}")"
+  else
+    export "${variable}="
+  fi
+}
+
 export TELEGRAM_BOT_TOKEN
 export AUTHORIZED_TELEGRAM_IDS
-export USER_DISPLAY_NAMES="$(bashio::config 'user_display_names')"
-export HA_USER_MAP="$(bashio::config 'ha_user_map')"
-export WEBAPP_PUBLIC_URL="$(bashio::config 'webapp_public_url')"
-export TIMEZONE="$(bashio::config 'timezone')"
-export LOG_LEVEL="$(bashio::config 'log_level')"
-export BACKUP_RETENTION="$(bashio::config 'backup_retention')"
+export_optional 'user_display_names' USER_DISPLAY_NAMES
+export_optional 'ha_user_map' HA_USER_MAP
+export_optional 'webapp_public_url' WEBAPP_PUBLIC_URL
+export_optional 'timezone' TIMEZONE
+export_optional 'log_level' LOG_LEVEL
+export_optional 'backup_retention' BACKUP_RETENTION
+
+[[ -z "${TIMEZONE}" ]] && export TIMEZONE="Europe/Istanbul"
+[[ -z "${LOG_LEVEL}" ]] && export LOG_LEVEL="info"
+[[ -z "${BACKUP_RETENTION}" ]] && export BACKUP_RETENTION="14"
 
 export DATABASE_PATH="${DATA_DIR}/budget.db"
 export FRONTEND_DIST="/app/frontend"
@@ -41,11 +60,12 @@ export ALLOW_DEV_AUTH="false"
 mkdir -p "${DATA_DIR}/backups"
 
 # --- Ön kontrol --------------------------------------------------------------
-# Uygulamayi ice aktarmayi once denemek, bir import hatasinin uvicorn'un
-# yigin izinin altinda kaybolmasini engeller.
-bashio::log.info "Uygulama yükleniyor..."
-if ! python -c "import app.main" 2>&1; then
-  bashio::exit.nok "Uygulama yüklenemedi. Yukarıdaki hata mesajına bakın."
+# Uygulamayi ice aktarmayi ve yapilandirmayi once sinamak, hatanin uvicorn'un
+# yigin izinin altinda kaybolmasini engeller. Bir ayar yanlis yazildiginda
+# kullanici hangi alanin bozuk oldugunu burada gorur.
+bashio::log.info "Yapılandırma denetleniyor..."
+if ! python -m app.cli config; then
+  bashio::exit.nok "Yapılandırma hatalı. Yukarıdaki mesajda belirtilen ayarı düzeltin."
 fi
 
 # --- Veritabanı göçleri ------------------------------------------------------
