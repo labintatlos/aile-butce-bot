@@ -36,6 +36,14 @@ class Settings(BaseSettings):
     allow_dev_auth: bool = False
     telegram_auth_max_age_seconds: int = 86_400
 
+    trust_ingress_headers: bool = True
+    """`X-Remote-User-Id` basligina guvenilsin mi.
+
+    Yalnizca Home Assistant Supervisor'in Ingress agindan erisilebilen ornekte
+    acik olmalidir. Internete acik portu dinleyen ornekte kapatilir; aksi halde
+    baslikla istek gonderen herkes istedigi kullanici olarak gorunebilir.
+    """
+
     user_display_names: str = Field(default="", description="telegram_id:Ad,...")
 
     @field_validator("log_level")
@@ -77,6 +85,7 @@ class Settings(BaseSettings):
             "debug": self.debug,
             "allow_dev_auth": self.allow_dev_auth,
             "authorized_user_count": len(self.authorized_ids),
+            "trust_ingress_headers": self.trust_ingress_headers,
             "ha_user_mappings": len(self.ha_user_mapping),
             "webapp_public_url_configured": bool(self.webapp_public_url),
             "telegram_bot_token_configured": bool(self.telegram_bot_token),

@@ -122,3 +122,110 @@ async def count_rows(async_session):
         return await async_session.scalar(select(func.count()).select_from(model))
 
     return _count
+
+
+# --------------------------------------------------------------------------
+# HTTP istemcileri: kimlik dogrulama yolunu uctan uca sinamak icin
+# --------------------------------------------------------------------------
+
+TEST_BOT_TOKEN = "123456:TEST-TOKEN-ONLY"
+AYKUT_TELEGRAM_ID = 111
+ASLIHAN_TELEGRAM_ID = 222
+AYKUT_HA_ID = "70bbe879b6f145d9ba41e2ae8e2b81aa"
+ASLIHAN_HA_ID = "6ab54aa06b034eb6b80c7956c66fbf3b"
+
+
+def _test_settings(**overrides):
+    from app.config import Settings
+
+    defaults = dict(
+        telegram_bot_token=TEST_BOT_TOKEN,
+        authorized_telegram_ids=f"{AYKUT_TELEGRAM_ID},{ASLIHAN_TELEGRAM_ID}",
+        user_display_names=f"{AYKUT_TELEGRAM_ID}:Aykut,{ASLIHAN_TELEGRAM_ID}:Aslıhan",
+        ha_user_map=f"{AYKUT_HA_ID}:{AYKUT_TELEGRAM_ID},{ASLIHAN_HA_ID}:{ASLIHAN_TELEGRAM_ID}",
+        debug=False,
+        allow_dev_auth=False,
+        trust_ingress_headers=True,
+        _env_file=None,
+    )
+    defaults.update(overrides)
+    return Settings(**defaults)
+
+
+def _build_client(async_engine, settings):
+    import httpx
+    from sqlalchemy.ext.asyncio import AsyncSession as _AsyncSession
+
+    from app.config import get_settings
+    from app.database import get_session
+    from app.main import create_app
+
+    app = create_app(settings)
+
+    async def _session_override():
+        async with _AsyncSession(async_engine, expire_on_commit=False) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = _session_override
+    app.dependency_overrides[get_settings] = lambda: settings
+    # ASGITransport lifespan calistirmaz; seed testte acikca yapilir.
+    return httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    )
+
+
+@pytest_asyncio.fixture()
+async def client(async_engine):
+    """Ingress basligina guvenen ornek (add-on ici)."""
+    async with _build_client(async_engine, _test_settings()) as client:
+        yield client
+
+
+@pytest_asyncio.fixture()
+async def public_client(async_engine):
+    """Internete acik ornek: Ingress basligina guvenmez."""
+    settings = _test_settings(trust_ingress_headers=False)
+    async with _build_client(async_engine, settings) as client:
+        yield client
+
+
+@pytest_asyncio.fixture()
+async def dev_client(async_engine):
+    """Yerel gelistirme ornegi: dev basligi acik."""
+    settings = _test_settings(allow_dev_auth=True)
+    async with _build_client(async_engine, settings) as client:
+        yield client
+
+
+@pytest_asyncio.fixture()
+async def seeded_users(async_session):
+    aykut = User(
+        telegram_user_id=AYKUT_TELEGRAM_ID,
+        ha_user_id=AYKUT_HA_ID,
+        display_name="Aykut",
+        role=ROLE_OWNER,
+    )
+    aslihan = User(
+        telegram_user_id=ASLIHAN_TELEGRAM_ID,
+        ha_user_id=ASLIHAN_HA_ID,
+        display_name="Aslıhan",
+        role=ROLE_OWNER,
+    )
+    async_session.add_all([aykut, aslihan])
+    await async_session.commit()
+    return {"aykut": aykut, "aslihan": aslihan}
+
+
+@pytest_asyncio.fixture()
+async def seeded_reference_data(async_session):
+    category = Category(name="Market", emoji="🛒", sort_order=1)
+    cash = PaymentMethod(name="Nakit", type=TYPE_CASH)
+    card = PaymentMethod(
+        name="Aslıhan Kredi Kartı 1",
+        type=TYPE_CREDIT_CARD,
+        statement_day=10,
+        due_day=20,
+    )
+    async_session.add_all([category, cash, card])
+    await async_session.commit()
+    return {"category_id": category.id, "cash_id": cash.id, "card_id": card.id}

@@ -72,6 +72,11 @@ class Expense(TimestampMixin, Base):
         DateTime(timezone=True), default=None, index=True
     )
 
+    # Kategori ve kullanici kucuk tablolardir; her zaman birlikte yuklenmeleri
+    # asenkron oturumda beklenmedik tembel yukleme riskini ortadan kaldirir.
+    category: Mapped["Category"] = relationship(lazy="selectin")
+    created_by: Mapped["User"] = relationship(lazy="selectin")
+
     installments: Mapped[list["ExpenseInstallment"]] = relationship(
         back_populates="expense",
         cascade="all, delete-orphan",
