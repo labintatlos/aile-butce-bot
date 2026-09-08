@@ -1,6 +1,6 @@
 name: Aile Bütçe Takip
 description: Telegram üzerinden aile bütçesi ve kredi kartı taksit takibi
-version: "1.1.0"
+version: "1.2.0"
 slug: family_budget
 url: https://github.com/labintatlos/aile-butce-bot
 arch:

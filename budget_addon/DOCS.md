@@ -92,7 +92,31 @@ bir tablet hesabı) **ikisini de aynı Telegram kimliğine** eşle.
 
 Eklenti üç örnek kart ile başlar ve bunların hesap kesim / son ödeme günleri
 **bilinçli olarak yer tutucudur** (1 ve 15). Gerçek değerleri girmeden taksit
-tarihleri anlamlı olmaz. Kart bilgilerini ayarlar bölümünden güncelle.
+tarihleri anlamlı olmaz.
+
+Botta **⚙️ Ayarlar** yaz; kartlar numaralarıyla listelenir. Sonra:
+
+| Komut | Ne yapar |
+|---|---|
+| `/kartgun 2 26 10` | 2 numaralı kartın hesap kesimini 26, son ödemesini 10 yapar |
+| `/kartekle Aykut Kredi Kartı 2 \| 26 10` | Yeni kart ekler (ad ile günler `\|` ile ayrılır) |
+| `/kartad 3 Yeni Kart Adı` | Kartın adını değiştirir |
+| `/kartsil 3` | Kartı siler |
+| `/kartpasif 3` · `/kartaktif 3` | Kartı gizler / geri açar |
+
+Kategoriler için `/kategori` yaz; aynı mantıkla `/kategoriekle 🎬 Sinema`,
+`/kategoriad`, `/kategorisil`, `/kategoripasif` ve `/kategoriaktif` çalışır.
+
+### Silme hakkında bilinmesi gereken
+
+Bir kart veya kategori **hiçbir harcamada kullanılmıyorsa** gerçekten silinir.
+Kullanılıyorsa silinmez; bot bunun yerine pasife almayı önerir. Sebebi şu:
+kaydı silmek, ona bağlı geçmiş harcamaların ödeme yöntemini veya kategorisini
+okunamaz hâle getirir ve eski raporlar bozulur. Pasife alınan bir kart yeni
+harcamalarda görünmez ama geçmiş raporlarda yerinde kalır.
+
+Kart adını değiştirmek de geçmişi bozmaz: her harcama kaydedildiği andaki kart
+adını kendi içinde saklar.
 
 ---
 

@@ -1,5 +1,17 @@
 # Değişiklik Günlüğü
 
+## 1.2.0
+
+- Kart ekleme, silme, ad değiştirme, hesap kesim ve son ödeme günü düzenleme.
+- Kategori ekleme, silme, ad ve emoji düzenleme.
+- Kullanımdaki bir kart veya kategori silinmez; pasife alma önerilir, böylece
+  geçmiş raporlar okunabilir kalır.
+
+## 1.1.0
+
+- Harcama arama, analiz ekranı ve ayarlar ekranı bota eklendi.
+- Kayıt mesajındaki düzenle düğmesi kategori değiştirmeyi açar.
+
 ## 1.0.0
 
 İlk sürüm.

@@ -525,3 +525,40 @@ async def search(
         total_pages=result.total_pages,
         has_next=result.has_next,
     )
+
+
+@router.delete("/payment-methods/{method_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_payment_method(
+    method_id: int,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """Kullanılmayan bir ödeme yöntemini siler.
+
+    Harcamalarda kullanılıyorsa `409` döner; çağıran tarafın onu pasife alması
+    beklenir. Silmek, geçmiş harcamaların ödeme yöntemini okunamaz hâle
+    getirirdi.
+    """
+    method = await session.get(PaymentMethod, method_id)
+    if method is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Ödeme yöntemi bulunamadı")
+    try:
+        await settings_service.delete_payment_method(session, user=user, method=method)
+    except settings_service.SettingsError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+
+
+@router.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_category(
+    category_id: int,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """Kullanılmayan bir kategoriyi siler; kullanılıyorsa `409` döner."""
+    category = await session.get(Category, category_id)
+    if category is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Kategori bulunamadı")
+    try:
+        await settings_service.delete_category(session, user=user, category=category)
+    except settings_service.SettingsError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc

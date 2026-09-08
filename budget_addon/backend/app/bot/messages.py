@@ -194,16 +194,22 @@ def settings_overview(methods, categories) -> str:
             )
     lines += [
         "",
-        "Kart günlerini düzeltmek için:",
-        "  <code>/kart &lt;no&gt; &lt;kesim&gt; &lt;sonodeme&gt;</code>",
-        "  örnek: <code>/kart 2 26 10</code>",
+        "<code>/kartekle Kart Adı | 26 10</code>",
+        "<code>/kartad &lt;no&gt; &lt;yeni ad&gt;</code>",
+        "<code>/kartgun &lt;no&gt; &lt;kesim&gt; &lt;sonodeme&gt;</code>",
+        "<code>/kartsil &lt;no&gt;</code>",
+        "<code>/kartpasif &lt;no&gt;</code> · <code>/kartaktif &lt;no&gt;</code>",
         "",
         f"<b>Kategoriler</b> ({len(categories)} aktif)",
         "  " + ", ".join(c.name for c in categories[:8])
         + (" …" if len(categories) > 8 else ""),
         "",
+        "<code>/kategori</code> ile listele ve düzenle",
+        "",
         "ℹ️ Kart ayarını değiştirmek geçmiş harcamaların taksit planını"
         " <b>değiştirmez</b>; yeni ayar yalnızca sonraki harcamalara uygulanır.",
+        "ℹ️ Harcamada kullanılan bir kart veya kategori silinemez; pasife"
+        " alınır. Böylece geçmiş raporlar okunabilir kalır.",
     ]
     return "\n".join(lines)
 
@@ -250,5 +256,39 @@ def expense_detail(expense) -> str:
         "Kategoriyi aşağıdan değiştirebilirsin. Tutar, tarih, kart veya taksit"
         " sayısını değiştirmek taksit planını yeniden kurar; bunun için formu"
         " kullan.",
+    ]
+    return "\n".join(lines)
+
+
+def card_add_usage() -> str:
+    return (
+        "Kart eklemek için ad ile günleri <code>|</code> ile ayır:\n\n"
+        "  <code>/kartekle Aykut Kredi Kartı 2 | 26 10</code>\n\n"
+        "Sırasıyla hesap kesim ve son ödeme günü. Ayraç gerekiyor çünkü kart"
+        " adları boşluk içerebiliyor."
+    )
+
+
+def category_add_usage() -> str:
+    return (
+        "Kategori eklemek için:\n\n"
+        "  <code>/kategoriekle 🎬 Sinema</code>\n"
+        "  <code>/kategoriekle Abonelikler</code>\n\n"
+        "Emoji isteğe bağlıdır."
+    )
+
+
+def category_list(categories) -> str:
+    lines = ["🗂 <b>Kategoriler</b>", ""]
+    for category in categories:
+        mark = "" if category.is_active else "  (pasif)"
+        label = f"{category.emoji} {category.name}".strip()
+        lines.append(f"  {category.id}. {label}{mark}")
+    lines += [
+        "",
+        "<code>/kategoriekle 🎬 Sinema</code>",
+        "<code>/kategoriad &lt;no&gt; &lt;yeni ad&gt;</code>",
+        "<code>/kategorisil &lt;no&gt;</code>",
+        "<code>/kategoripasif &lt;no&gt;</code> · <code>/kategoriaktif &lt;no&gt;</code>",
     ]
     return "\n".join(lines)

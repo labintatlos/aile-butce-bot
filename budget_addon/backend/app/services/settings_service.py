@@ -11,11 +11,12 @@ kategorilere bağlıdır, silinirlerse geçmiş raporlar okunamaz hâle gelirdi.
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.audit_log import (
     ACTION_CREATE,
+    ACTION_DELETE,
     ACTION_UPDATE,
     ENTITY_CATEGORY,
     ENTITY_PAYMENT_METHOD,
@@ -244,3 +245,97 @@ async def update_category(
         await session.rollback()
         raise
     return category
+
+
+async def count_expenses_for_payment_method(session: AsyncSession, method_id: int) -> int:
+    """Karta bağlı harcama sayısı. Yumuşak silinmişler de sayılır.
+
+    Silinmiş bir harcama geri alınabilir; kartı kaldırırsak geri alma
+    kırılırdı.
+    """
+    from ..models.expense import Expense
+
+    return await session.scalar(
+        select(func.count(Expense.id)).where(Expense.payment_method_id == method_id)
+    ) or 0
+
+
+async def count_expenses_for_category(session: AsyncSession, category_id: int) -> int:
+    from ..models.expense import Expense
+
+    return await session.scalar(
+        select(func.count(Expense.id)).where(Expense.category_id == category_id)
+    ) or 0
+
+
+async def delete_payment_method(
+    session: AsyncSession, *, user: User, method: PaymentMethod
+) -> None:
+    """Ödeme yöntemini kalıcı olarak siler.
+
+    Yalnızca hiçbir harcama bu yöntemi kullanmıyorsa silinir. Kullanılıyorsa
+    `SettingsError` yükseltilir ve kullanıcı pasife almaya yönlendirilir:
+    kaydı silmek, ona bağlı harcamaların ödeme yöntemini okunamaz hâle
+    getirirdi ve geçmiş raporlar bozulurdu.
+    """
+    used_by = await count_expenses_for_payment_method(session, method.id)
+    if used_by:
+        raise SettingsError(
+            f"'{method.name}' {used_by} harcamada kullanılıyor, silinemez. "
+            "Bunun yerine pasife alabilirsin: yeni harcamalarda görünmez, "
+            "geçmiş kayıtlar korunur."
+        )
+    try:
+        record_audit(
+            session,
+            user_id=user.id,
+            entity_type=ENTITY_PAYMENT_METHOD,
+            entity_id=method.id,
+            action=ACTION_DELETE,
+            old_data=_card_snapshot(method),
+        )
+        await session.delete(method)
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+
+
+async def delete_category(
+    session: AsyncSession, *, user: User, category: Category
+) -> None:
+    """Kategoriyi kalıcı olarak siler; kullanılıyorsa pasife almayı önerir."""
+    used_by = await count_expenses_for_category(session, category.id)
+    if used_by:
+        raise SettingsError(
+            f"'{category.name}' {used_by} harcamada kullanılıyor, silinemez. "
+            "Bunun yerine pasife alabilirsin: yeni harcamalarda görünmez, "
+            "geçmiş kayıtlar korunur."
+        )
+    try:
+        record_audit(
+            session,
+            user_id=user.id,
+            entity_type=ENTITY_CATEGORY,
+            entity_id=category.id,
+            action=ACTION_DELETE,
+            old_data={"name": category.name, "emoji": category.emoji},
+        )
+        await session.delete(category)
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+
+
+async def set_active(
+    session: AsyncSession, *, user: User, entity, active: bool
+):
+    """Kartı veya kategoriyi pasife alır / geri açar."""
+    if isinstance(entity, PaymentMethod):
+        return await update_payment_method(
+            session, user=user, method=entity, changes={"is_active": active}
+        )
+    return await update_category(
+        session, user=user, category=entity, changes={"is_active": active}
+    )

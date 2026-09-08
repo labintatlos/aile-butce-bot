@@ -19,6 +19,7 @@ from aiogram.enums import ParseMode
 from ..config import Settings
 from .authorization import AuthorizationMiddleware
 from .handlers import router
+from .settings_commands import router as settings_router
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,9 @@ def build_dispatcher(settings: Settings, session_factory) -> Dispatcher:
     # Hem mesajlar hem buton tiklamalari ayni kontrolden gecer.
     dispatcher.message.middleware(guard)
     dispatcher.callback_query.middleware(guard)
+    # Ayar komutlari once eklenir: handlers icindeki serbest metin yakalayicisi
+    # aksi halde /kartekle gibi komutlari hizli giris sanip yutardi.
+    dispatcher.include_router(settings_router)
     dispatcher.include_router(router)
     dispatcher["settings"] = settings
     return dispatcher
