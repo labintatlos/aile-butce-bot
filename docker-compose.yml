@@ -1,0 +1,26 @@
+# Yerel gelistirme icin. Home Assistant kurulumu budget_addon/config.yaml
+# uzerinden yapilir; bu dosya yalnizca gelistirme ortamini ayaga kaldirir.
+services:
+  budget:
+    build:
+      context: ./budget_addon
+      args:
+        BUILD_FROM: python:3.12-alpine
+    env_file:
+      - budget_addon/.env
+    environment:
+      DATABASE_PATH: /data/budget.db
+      FRONTEND_DIST: /app/frontend
+      TRUST_INGRESS_HEADERS: "false"
+      ENABLE_BOT: "true"
+      ALLOW_DEV_AUTH: "true"
+    command: >
+      sh -c "python -m alembic upgrade head &&
+             python -m uvicorn app.main:app --host 0.0.0.0 --port 8099"
+    ports:
+      - "8099:8099"
+    volumes:
+      - budget-data:/data
+
+volumes:
+  budget-data:

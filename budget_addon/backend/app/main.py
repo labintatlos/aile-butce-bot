@@ -13,8 +13,9 @@ Aynı kod, aynı iş kuralları; yalnızca kimliğin nereden geldiği değişir.
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -22,6 +23,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api import router
+from .bot.runner import start_polling_task
 from .config import Settings, get_settings
 from .database import dispose_engine, get_session_factory
 from .services.seed import seed_all
@@ -39,9 +41,19 @@ async def lifespan(app: FastAPI):
     logger.info("Uygulama başlıyor: %s", settings.safe_summary())
     async with get_session_factory()() as session:
         await seed_all(session, settings)
+
+    bot_task = None
+    if settings.enable_bot:
+        bot_task = start_polling_task(settings, get_session_factory())
     try:
         yield
     finally:
+        if bot_task is not None:
+            # Polling sonsuz dongudur; kapanista acikca iptal edilip
+            # bitmesi beklenmezse surec asili kalir.
+            bot_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await bot_task
         await dispose_engine()
 
 

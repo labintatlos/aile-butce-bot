@@ -5,7 +5,8 @@ kartı taksitlerini ve ekstre yükünü otomatik hesaplayan aile bütçe takip
 sistemi. Raspberry Pi 5 üzerinde Home Assistant OS altında bir add-on olarak
 çalışır.
 
-> **Durum:** Geliştirme aşamasında. Tasarım tamamlandı, uygulama sürüyor.
+> **Durum:** Backend, bot, arayüz ve eklenti paketlemesi tamamlandı; gerçek
+> Telegram token'ı ve Raspberry Pi üzerinde uçtan uca doğrulama bekliyor.
 > Ayrıntılar için [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 
 ## Ne yapar
@@ -45,5 +46,24 @@ Home Assistant add-on ayarlarında saklanır.
 
 ## Kurulum
 
-Home Assistant OS kurulum adımları add-on paketlendiğinde
-`docs/DEPLOYMENT_HA.md` içinde yayımlanacaktır.
+Home Assistant'ta **Ayarlar → Eklentiler → Eklenti Mağazası → ⋮ → Depolar**
+bölümüne bu deponun adresini ekle, ardından **Aile Bütçe Takip** eklentisini
+kur.
+
+Adım adım anlatım: [budget_addon/DOCS.md](budget_addon/DOCS.md)
+
+Arayüz Home Assistant panelinden ek bir kurulum olmadan çalışır. Formu
+doğrudan Telegram içinden açmak istersen (isteğe bağlı) public bir HTTPS
+adresi gerekir; Keenetic KeenDNS ile kurulumu
+[docs/DEPLOYMENT_HA.md](docs/DEPLOYMENT_HA.md) içinde anlatılmıştır.
+
+## Geliştirme
+
+```bash
+cd budget_addon/backend
+python -m venv .venv && .venv/Scripts/pip install -r requirements-dev.txt
+.venv/Scripts/python -m pytest
+
+cd ../frontend
+npm install && npm run build
+```

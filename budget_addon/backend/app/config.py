@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     allow_dev_auth: bool = False
     telegram_auth_max_age_seconds: int = 86_400
 
+    enable_bot: bool = True
+    """Telegram polling bu surecte calissin mi.
+
+    Iki uvicorn ornegi calistirildiginda yalnizca birinde acik olmalidir:
+    Telegram ayni bot icin tek bir getUpdates tuketicisine izin verir, ikinci
+    ornek surekli catisma hatasi uretirdi.
+    """
+
     trust_ingress_headers: bool = True
     """`X-Remote-User-Id` basligina guvenilsin mi.
 
