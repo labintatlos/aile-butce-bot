@@ -65,7 +65,7 @@ class Expense(TimestampMixin, Base):
     payment_method_type_snapshot: Mapped[str] = mapped_column(String(16))
     payment_method_name_snapshot: Mapped[str] = mapped_column(String(64))
     statement_day_snapshot: Mapped[int | None] = mapped_column(Integer, default=None)
-    due_day_snapshot: Mapped[int | None] = mapped_column(Integer, default=None)
+    due_offset_days_snapshot: Mapped[int | None] = mapped_column(Integer, default=None)
     cutoff_inclusive_snapshot: Mapped[bool | None] = mapped_column(Boolean, default=None)
 
     deleted_at: Mapped[datetime | None] = mapped_column(

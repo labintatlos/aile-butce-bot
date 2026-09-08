@@ -56,29 +56,39 @@ async def test_a_card_can_be_added(async_session, people):
         name="Aykut Kredi Kartı 2",
         type=TYPE_CREDIT_CARD,
         statement_day=26,
-        due_day=10,
     )
     assert card.id is not None
-    assert (card.statement_day, card.due_day) == (26, 10)
+    assert card.statement_day == 26
+    assert card.due_offset_days == 10
     assert card.is_active is True
 
 
 async def test_added_card_appears_in_the_active_list(async_session, people):
     await create_payment_method(
         async_session, user=people["aykut"], name="Yeni Kart",
-        type=TYPE_CREDIT_CARD, statement_day=5, due_day=20,
+        type=TYPE_CREDIT_CARD, statement_day=5,
     )
     names = {m.name for m in await list_payment_methods(async_session)}
     assert "Yeni Kart" in names
 
 
-@pytest.mark.parametrize("days", [(0, 10), (10, 32), (None, 10), (10, None)])
-async def test_a_card_with_invalid_days_is_refused(async_session, people, days):
-    statement_day, due_day = days
+@pytest.mark.parametrize("statement_day", [0, 32, None])
+async def test_a_card_with_an_invalid_statement_day_is_refused(
+    async_session, people, statement_day
+):
     with pytest.raises(SettingsError):
         await create_payment_method(
             async_session, user=people["aykut"], name="Bozuk Kart",
-            type=TYPE_CREDIT_CARD, statement_day=statement_day, due_day=due_day,
+            type=TYPE_CREDIT_CARD, statement_day=statement_day,
+        )
+
+
+@pytest.mark.parametrize("offset_days", [0, 61])
+async def test_an_invalid_due_offset_is_refused(async_session, people, offset_days):
+    with pytest.raises(SettingsError):
+        await create_payment_method(
+            async_session, user=people["aykut"], name="Vadesi Bozuk",
+            type=TYPE_CREDIT_CARD, statement_day=10, due_offset_days=offset_days,
         )
 
 
@@ -130,7 +140,7 @@ async def test_two_cards_cannot_share_a_name(async_session, people, fixtures):
 async def test_an_unused_card_is_really_deleted(async_session, people, count_rows):
     card = await create_payment_method(
         async_session, user=people["aykut"], name="Kullanılmayan Kart",
-        type=TYPE_CREDIT_CARD, statement_day=1, due_day=15,
+        type=TYPE_CREDIT_CARD, statement_day=1,
     )
     before = await count_rows(PaymentMethod)
 
@@ -268,7 +278,7 @@ async def test_every_settings_change_is_audited(async_session, people, count_row
     before = await count_rows(AuditLog)
     card = await create_payment_method(
         async_session, user=people["aykut"], name="Denetim Kartı",
-        type=TYPE_CREDIT_CARD, statement_day=1, due_day=15,
+        type=TYPE_CREDIT_CARD, statement_day=1,
     )
     await update_payment_method(
         async_session, user=people["aykut"], method=card, changes={"name": "Yeni Ad"}

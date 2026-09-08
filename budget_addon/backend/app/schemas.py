@@ -43,7 +43,7 @@ class PaymentMethodOut(BaseModel):
     type: str
     is_active: bool
     statement_day: int | None = None
-    due_day: int | None = None
+    due_offset_days: int = 10
     cutoff_inclusive: bool = True
     owner_user_id: int | None = None
 
@@ -197,11 +197,14 @@ class PaymentMethodUpdateIn(BaseModel):
 
     `type` bilerek yer almaz: nakit bir yöntemi karta çevirmek, ona bağlı
     geçmiş harcamaların anlam değiştirmesi demek olurdu.
+
+    Son ödeme günü ayrı bir alan değildir; ekstre tarihinden
+    `due_offset_days` gün sonrası olarak hesaplanır.
     """
 
     name: str | None = Field(default=None, min_length=1, max_length=64)
     statement_day: int | None = Field(default=None, ge=1, le=31)
-    due_day: int | None = Field(default=None, ge=1, le=31)
+    due_offset_days: int | None = Field(default=None, ge=1, le=60)
     cutoff_inclusive: bool | None = None
     credit_limit_minor: int | None = Field(default=None, ge=0)
     owner_user_id: int | None = None
@@ -213,7 +216,7 @@ class PaymentMethodCreateIn(BaseModel):
     name: str = Field(min_length=1, max_length=64)
     type: str
     statement_day: int | None = Field(default=None, ge=1, le=31)
-    due_day: int | None = Field(default=None, ge=1, le=31)
+    due_offset_days: int = Field(default=10, ge=1, le=60)
     cutoff_inclusive: bool = True
     owner_user_id: int | None = None
     credit_limit_minor: int | None = Field(default=None, ge=0)

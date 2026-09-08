@@ -190,13 +190,13 @@ def settings_overview(methods, categories) -> str:
         else:
             lines.append(
                 f"  {method.id}. {method.name} — kesim {method.statement_day},"
-                f" son ödeme {method.due_day}"
+                f" son ödeme +{method.due_offset_days} gün"
             )
     lines += [
         "",
-        "<code>/kartekle Kart Adı | 26 10</code>",
+        "<code>/kartekle Kart Adı | 26</code>",
         "<code>/kartad &lt;no&gt; &lt;yeni ad&gt;</code>",
-        "<code>/kartgun &lt;no&gt; &lt;kesim&gt; &lt;sonodeme&gt;</code>",
+        "<code>/kartgun &lt;no&gt; &lt;kesim günü&gt;</code>",
         "<code>/kartsil &lt;no&gt;</code>",
         "<code>/kartpasif &lt;no&gt;</code> · <code>/kartaktif &lt;no&gt;</code>",
         "",
@@ -206,6 +206,8 @@ def settings_overview(methods, categories) -> str:
         "",
         "<code>/kategori</code> ile listele ve düzenle",
         "",
+        "ℹ️ Yalnızca hesap kesim günü girilir; son ödeme tarihi ondan"
+        " hesaplanır ve hafta sonuna denk gelirse pazartesiye taşınır.",
         "ℹ️ Kart ayarını değiştirmek geçmiş harcamaların taksit planını"
         " <b>değiştirmez</b>; yeni ayar yalnızca sonraki harcamalara uygulanır.",
         "ℹ️ Harcamada kullanılan bir kart veya kategori silinemez; pasife"
@@ -261,39 +263,33 @@ def expense_detail(expense) -> str:
 
 
 def card_add_usage() -> str:
-    """Kart ekleme yardımı.
-
-    İki çıplak sayının ne olduğu ilk bakışta anlaşılmadığı için etiketli
-    yazım önce gösterilir; kısa yazım da çalışmaya devam eder.
-    """
     return (
         "🆕 <b>Kart ekle</b>\n\n"
-        "  <code>/kartekle Aykut Kredi Kartı 2 | kesim 26 sonodeme 10</code>\n\n"
-        "<b>kesim</b> — hesap kesim günü, ekstrenin kesildiği ayın günü\n"
-        "<b>sonodeme</b> — son ödeme günü\n\n"
-        "Kısa yazım da olur; sırayla kesim, sonra son ödeme:\n"
-        "  <code>/kartekle Aykut Kredi Kartı 2 | 26 10</code>\n\n"
+        "  <code>/kartekle Aykut Kredi Kartı 2 | 26</code>\n\n"
+        "Tek sayı yeter: kartın <b>hesap kesim günü</b>, yani ekstrenin"
+        " kesildiği ayın günü. Son ödeme tarihi bundan otomatik hesaplanır.\n\n"
+        "Bankan farklı çalışıyorsa vadeyi de yazabilirsin:\n"
+        "  <code>/kartekle Kart Adı | 26 vade 12</code>\n\n"
         "Ayraç (<code>|</code>) gerekiyor çünkü kart adları boşluk içerebiliyor."
     )
 
 
 def card_days_usage() -> str:
     return (
-        "📅 <b>Kart günlerini düzelt</b>\n\n"
-        "  <code>/kartgun 2 kesim 26 sonodeme 10</code>\n\n"
-        "<b>kesim</b> — hesap kesim günü, ekstrenin kesildiği ayın günü\n"
-        "<b>sonodeme</b> — son ödeme günü\n\n"
-        "Kısa yazım: <code>/kartgun 2 26 10</code>\n"
+        "📅 <b>Hesap kesim gününü düzelt</b>\n\n"
+        "  <code>/kartgun 2 26</code>\n\n"
+        "Sadece hesap kesim gününü yaz; son ödeme tarihi ondan hesaplanır.\n\n"
+        "Vadeyi değiştirmek istersen: <code>/kartgun 2 26 vade 12</code>\n"
         "Kart numaralarını ⚙️ Ayarlar ekranında görebilirsin."
     )
 
 
-def card_days_explained(statement_day: int, due_day: int) -> str:
-    """Kaydedilen günlerin ne anlama geldiğini düz cümleyle gösterir."""
-    month = "aynı ayın" if due_day > statement_day else "takip eden ayın"
+def card_days_explained(statement_day: int, offset_days: int) -> str:
+    """Kaydedilen ayarın ne anlama geldiğini düz cümleyle gösterir."""
     return (
-        f"Her ayın <b>{statement_day}</b>. günü ekstre kesilir,"
-        f" son ödeme {month} <b>{due_day}</b>. günüdür."
+        f"Her ayın <b>{statement_day}</b>. günü ekstre kesilir, son ödeme"
+        f" tarihi <b>{offset_days} gün sonrasıdır</b>.\n"
+        "Hafta sonuna denk gelirse pazartesiye taşınır."
     )
 
 

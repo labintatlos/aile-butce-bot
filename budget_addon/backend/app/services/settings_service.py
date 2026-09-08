@@ -29,11 +29,12 @@ from ..models.payment_method import (
 )
 from ..models.user import User
 from ..services.finance.dates import MAX_DAY_OF_MONTH, MIN_DAY_OF_MONTH
+from ..services.finance.statement import DEFAULT_DUE_OFFSET_DAYS, validate_due_offset
 from .audit import record_audit
 
 CARD_FIELDS = frozenset(
-    {"name", "statement_day", "due_day", "cutoff_inclusive", "credit_limit_minor",
-     "owner_user_id", "notes", "is_active"}
+    {"name", "statement_day", "due_offset_days", "cutoff_inclusive",
+     "credit_limit_minor", "owner_user_id", "notes", "is_active"}
 )
 CATEGORY_FIELDS = frozenset({"name", "emoji", "sort_order", "is_active"})
 
@@ -42,14 +43,21 @@ class SettingsError(Exception):
     """Kullanıcıya gösterilebilir yapılandırma hatası."""
 
 
-def _validate_card_days(statement_day: int | None, due_day: int | None) -> None:
-    for label, day in (("Hesap kesim günü", statement_day), ("Son ödeme günü", due_day)):
-        if day is None:
-            raise SettingsError(f"{label} zorunludur")
-        if not MIN_DAY_OF_MONTH <= day <= MAX_DAY_OF_MONTH:
-            raise SettingsError(
-                f"{label} {MIN_DAY_OF_MONTH} ile {MAX_DAY_OF_MONTH} arasında olmalıdır"
-            )
+def _validate_statement_day(statement_day: int | None) -> None:
+    if statement_day is None:
+        raise SettingsError("Hesap kesim günü zorunludur")
+    if not MIN_DAY_OF_MONTH <= statement_day <= MAX_DAY_OF_MONTH:
+        raise SettingsError(
+            f"Hesap kesim günü {MIN_DAY_OF_MONTH} ile {MAX_DAY_OF_MONTH}"
+            " arasında olmalıdır"
+        )
+
+
+def _validate_due_offset(offset_days: int) -> None:
+    try:
+        validate_due_offset(offset_days)
+    except ValueError as exc:
+        raise SettingsError(str(exc)) from exc
 
 
 def _card_snapshot(method: PaymentMethod) -> dict[str, object]:
@@ -57,7 +65,7 @@ def _card_snapshot(method: PaymentMethod) -> dict[str, object]:
         "name": method.name,
         "type": method.type,
         "statement_day": method.statement_day,
-        "due_day": method.due_day,
+        "due_offset_days": method.due_offset_days,
         "cutoff_inclusive": method.cutoff_inclusive,
         "credit_limit_minor": method.credit_limit_minor,
         "is_active": method.is_active,
@@ -80,7 +88,7 @@ async def create_payment_method(
     name: str,
     type: str,
     statement_day: int | None = None,
-    due_day: int | None = None,
+    due_offset_days: int = DEFAULT_DUE_OFFSET_DAYS,
     cutoff_inclusive: bool = True,
     owner_user_id: int | None = None,
     credit_limit_minor: int | None = None,
@@ -89,9 +97,10 @@ async def create_payment_method(
     if type not in (TYPE_CASH, TYPE_CREDIT_CARD):
         raise SettingsError("Geçersiz ödeme yöntemi türü")
     if type == TYPE_CREDIT_CARD:
-        _validate_card_days(statement_day, due_day)
+        _validate_statement_day(statement_day)
+        _validate_due_offset(due_offset_days)
     else:
-        statement_day = due_day = None
+        statement_day = None
 
     if await session.scalar(select(PaymentMethod).where(PaymentMethod.name == name)):
         raise SettingsError(f"'{name}' adında bir ödeme yöntemi zaten var")
@@ -100,7 +109,7 @@ async def create_payment_method(
         name=name,
         type=type,
         statement_day=statement_day,
-        due_day=due_day,
+        due_offset_days=due_offset_days,
         cutoff_inclusive=cutoff_inclusive if type == TYPE_CREDIT_CARD else True,
         owner_user_id=owner_user_id,
         credit_limit_minor=credit_limit_minor,
@@ -139,11 +148,11 @@ async def update_payment_method(
 
     before = _card_snapshot(method)
     merged_statement = changes.get("statement_day", method.statement_day)
-    merged_due = changes.get("due_day", method.due_day)
     if method.type == TYPE_CREDIT_CARD:
-        _validate_card_days(merged_statement, merged_due)
-    elif merged_statement is not None or merged_due is not None:
-        raise SettingsError("Nakit ödemede hesap kesim ve son ödeme günü olmaz")
+        _validate_statement_day(merged_statement)
+        _validate_due_offset(changes.get("due_offset_days", method.due_offset_days))
+    elif merged_statement is not None:
+        raise SettingsError("Nakit ödemede hesap kesim günü olmaz")
 
     if "name" in changes:
         clash = await session.scalar(

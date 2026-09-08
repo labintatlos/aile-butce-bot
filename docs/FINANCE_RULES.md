@@ -120,32 +120,48 @@ ekstre_n = add_months(ilk_ekstre, n - 1, statement_day)
 
 ## 6. Son ödeme tarihi
 
+Kullanıcı **yalnızca hesap kesim gününü** girer. Son ödeme tarihi bundan
+türetilir; ayrıca bir gün girilmez.
+
 **Kural S4.**
 
 ```
-ay_kaymasi = 0  , eger due_day >  statement_day
-             1  , eger due_day <= statement_day
-
-son_odeme_n = add_months(ekstre_n, ay_kaymasi, due_day)
+son_odeme_n = is_gunune_kaydir(ekstre_n + due_offset_days gun)
 ```
 
-Karar, kartın **yapılandırılmış ham günleri** üzerinden verilir; ay sonu
-normalizasyonu sonrası oluşan günler karşılaştırmada kullanılmaz. Böylece
-`statement_day=31, due_day=10` gibi bir kart Şubat'ta da tutarlı davranır.
+`due_offset_days` varsayılan olarak **10**'dur. Türkiye'de yaygın uygulama
+budur, ancak bankadan bankaya değiştiği için kart bazında ayarlanabilir
+tutulur: yanlış bir gün sayısı, sistemin hata vermeden her ay yanlış son ödeme
+tarihi üretmesine yol açardı.
 
-Örnekler:
+Ay sonu normalizasyonuna burada gerek yoktur; gün eklemek takvimi doğrudan
+takip eder ve `31 Ocak + 10 gün` gibi bir durumda ayın var olmayan gününe
+düşme sorunu oluşmaz.
 
-| `statement_day` | `due_day` | Ekstre | Son ödeme |
+**Kural S5 (hafta sonu kaydırması).** Hesaplanan son ödeme tarihi cumartesi
+veya pazara denk gelirse **pazartesiye** taşınır, çünkü bankalar hafta sonu
+tahsilat yapmaz.
+
+```
+cumartesi -> +2 gun
+pazar     -> +1 gun
+```
+
+**Resmî tatiller hesaba katılmaz.** Tatil takvimi yıldan yıla değişir; elde
+güvenilir bir kaynak olmadan tahmin yürütmek, yanlış bir tarihi doğruymuş gibi
+göstermek olurdu.
+
+Örnekler (`due_offset_days = 10`):
+
+| Ekstre | +10 gün | Gün | Son ödeme |
 |---|---|---|---|
-| 10 | 20 | 2026-09-10 | 2026-09-20 |
-| 28 | 8  | 2026-09-28 | 2026-10-08 |
-| 10 | 10 | 2026-09-10 | 2026-10-10 |
-| 25 | 5  | 2026-12-25 | 2027-01-05 |
+| 2026-09-10 | 2026-09-20 | Pazar | **2026-09-21** |
+| 2026-10-10 | 2026-10-20 | Salı | 2026-10-20 |
+| 2026-09-02 | 2026-09-12 | Cumartesi | **2026-09-14** |
+| 2027-01-31 | 2027-02-10 | Çarşamba | 2027-02-10 |
 
-**Kural S5.** Resmî tatil veya hafta sonu kaydırması **yapılmaz**. Bankaların
-gerçek ödeme gününü öteleyebileceği varsayımı otomatik uygulanmaz. İleride
-taksit bazında manuel tarih düzeltmesi eklenebilir; `statement_date` ve
-`due_date` bu nedenle hesaplanan değil saklanan alanlardır.
+`statement_date` ve `due_date` hesaplanan değil **saklanan** alanlardır;
+ileride taksit bazında manuel tarih düzeltmesi eklenebilir.
 
 ---
 

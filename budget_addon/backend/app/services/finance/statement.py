@@ -1,16 +1,39 @@
 """Hesap kesim ve son ödeme tarihi hesabı.
 
+Kullanıcı yalnızca **hesap kesim gününü** girer. Son ödeme tarihi bundan
+türetilir: ekstre kesildikten `due_offset_days` gün sonra, o gün hafta sonuna
+denk gelirse pazartesiye taşınarak.
+
 Kurallar için bkz. docs/FINANCE_RULES.md, bölüm 4, 5 ve 6.
 """
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
-from .dates import add_months, normalized_date, validate_day_of_month
+from .dates import add_months, next_business_day, normalized_date, validate_day_of_month
 
 ONE_MONTH = 1
-SAME_MONTH = 0
+
+DEFAULT_DUE_OFFSET_DAYS = 10
+"""Ekstre kesimi ile son ödeme arasındaki gün sayısı.
+
+Türkiye'de yaygın uygulama 10 gündür, ancak bankadan bankaya değişir; bu
+yüzden kart bazında ayarlanabilir tutulur. Yanlış bir gün sayısı, sistemin
+hata vermeden her ay yanlış son ödeme tarihi üretmesine yol açardı.
+"""
+
+MIN_DUE_OFFSET_DAYS = 1
+MAX_DUE_OFFSET_DAYS = 60
+
+
+def validate_due_offset(offset_days: int) -> int:
+    if not MIN_DUE_OFFSET_DAYS <= offset_days <= MAX_DUE_OFFSET_DAYS:
+        raise ValueError(
+            f"Son ödeme gün farkı {MIN_DUE_OFFSET_DAYS} ile {MAX_DUE_OFFSET_DAYS}"
+            " arasında olmalıdır"
+        )
+    return offset_days
 
 
 def first_statement_date(
@@ -36,14 +59,18 @@ def first_statement_date(
     return add_months(candidate, ONE_MONTH, statement_day)
 
 
-def due_date_for(statement_date: date, statement_day: int, due_day: int) -> date:
+def due_date_for(
+    statement_date: date, offset_days: int = DEFAULT_DUE_OFFSET_DAYS
+) -> date:
     """Bir ekstrenin son ödeme tarihini bulur.
 
-    Karar, kartın **yapılandırılmış ham günleri** üzerinden verilir; ay sonu
-    normalizasyonu sonrası oluşan günler karşılaştırmaya girmez. Aksi halde
-    `statement_day=31, due_day=10` gibi bir kart Şubat'ta yanlış aya kayardı.
+    Ekstre tarihine `offset_days` gün eklenir; sonuç cumartesi veya pazara
+    denk gelirse pazartesiye taşınır, çünkü bankalar hafta sonu tahsilat
+    yapmaz.
+
+    Ay sonu normalizasyonuna gerek yoktur: gün ekleme zaten takvimi doğru
+    takip eder ve 31 Ocak + 10 gün gibi bir durumda ayın var olmayan gününe
+    düşme sorunu oluşmaz.
     """
-    validate_day_of_month(statement_day)
-    validate_day_of_month(due_day)
-    month_offset = SAME_MONTH if due_day > statement_day else ONE_MONTH
-    return add_months(statement_date, month_offset, due_day)
+    validate_due_offset(offset_days)
+    return next_business_day(statement_date + timedelta(days=offset_days))

@@ -137,7 +137,7 @@ async def test_i_l5_changing_the_card_refreshes_the_snapshot(
     )
 
     assert updated.statement_day_snapshot == 25
-    assert updated.due_day_snapshot == 5
+    assert updated.due_offset_days_snapshot == 10
     assert updated.installments[0].statement_date == date(2026, 9, 25)
     assert updated.installments[0].due_date == date(2026, 10, 5)
 
@@ -196,7 +196,6 @@ async def test_i_l9_changing_the_card_settings_does_not_move_past_installments(
 
     # Kart kosullari tamamen degistirilir.
     fixtures["card"].statement_day = 1
-    fixtures["card"].due_day = 15
     await async_session.commit()
 
     reloaded = await get_expense(async_session, expense.id)

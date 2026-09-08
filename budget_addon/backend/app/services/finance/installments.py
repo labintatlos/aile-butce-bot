@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from .money import MAX_INSTALLMENTS, MIN_INSTALLMENTS, split_minor
-from .statement import due_date_for, first_statement_date
+from .statement import DEFAULT_DUE_OFFSET_DAYS, due_date_for, first_statement_date
 
 SINGLE_INSTALLMENT = 1
 
@@ -54,7 +54,7 @@ def build_card_schedule(
     installment_count: int,
     transaction_date: date,
     statement_day: int,
-    due_day: int,
+    due_offset_days: int = DEFAULT_DUE_OFFSET_DAYS,
     cutoff_inclusive: bool = True,
 ) -> list[InstallmentLine]:
     """Kredi kartı harcaması için taksit planı üretir.
@@ -67,7 +67,10 @@ def build_card_schedule(
         transaction_date, statement_day, cutoff_inclusive
     )
     schedule = [
-        _line_for(index, amount, opening_statement, installment_count, statement_day, due_day)
+        _line_for(
+            index, amount, opening_statement, installment_count, statement_day,
+            due_offset_days,
+        )
         for index, amount in enumerate(amounts)
     ]
     _verify_invariants(schedule, total_minor, installment_count)
@@ -80,7 +83,7 @@ def _line_for(
     opening_statement: date,
     installment_count: int,
     statement_day: int,
-    due_day: int,
+    due_offset_days: int,
 ) -> InstallmentLine:
     from .dates import add_months
 
@@ -90,7 +93,7 @@ def _line_for(
         count=installment_count,
         amount_minor=amount_minor,
         statement_date=statement,
-        due_date=due_date_for(statement, statement_day, due_day),
+        due_date=due_date_for(statement, due_offset_days),
     )
 
 
@@ -117,32 +120,32 @@ def build_schedule(
     installment_count: int,
     transaction_date: date,
     statement_day: int | None,
-    due_day: int | None,
+    due_offset_days: int | None = DEFAULT_DUE_OFFSET_DAYS,
     cutoff_inclusive: bool = True,
 ) -> list[InstallmentLine]:
     """Ödeme yöntemine göre uygun planı üretir.
 
-    `statement_day` ve `due_day` `None` ise ödeme nakit kabul edilir ve taksit
-    sayısı 1 olmak zorundadır.
+    `statement_day` `None` ise ödeme nakit kabul edilir ve taksit sayısı 1
+    olmak zorundadır.
     """
     if not MIN_INSTALLMENTS <= installment_count <= MAX_INSTALLMENTS:
         raise ValueError(
             f"Taksit sayısı {MIN_INSTALLMENTS} ile {MAX_INSTALLMENTS} arasında olmalıdır"
         )
-    is_cash = statement_day is None and due_day is None
+    is_cash = statement_day is None
     if is_cash:
         if installment_count != SINGLE_INSTALLMENT:
             raise ValueError("Nakit harcamalarda taksit kullanılamaz")
         return build_cash_schedule(total_minor, transaction_date)
-    if statement_day is None or due_day is None:
-        raise ValueError(
-            "Kredi kartı için hesap kesim ve son ödeme günlerinin ikisi de gereklidir"
-        )
     return build_card_schedule(
         total_minor=total_minor,
         installment_count=installment_count,
         transaction_date=transaction_date,
         statement_day=statement_day,
-        due_day=due_day,
+        # `or` kullanilmaz: 0 yanlis bir deger ama falsy oldugu icin sessizce
+        # varsayilana donusur ve gecersiz girdi fark edilmeden gecerdi.
+        due_offset_days=(
+            DEFAULT_DUE_OFFSET_DAYS if due_offset_days is None else due_offset_days
+        ),
         cutoff_inclusive=cutoff_inclusive,
     )

@@ -18,7 +18,7 @@ async def test_card_can_be_created_and_renamed(client, seeded_users):
     created = await client.post(
         "/api/payment-methods",
         headers=HEADERS,
-        json={"name": "Yeni Kart", "type": "credit_card", "statement_day": 26, "due_day": 10},
+        json={"name": "Yeni Kart", "type": "credit_card", "statement_day": 26},
     )
     assert created.status_code == 201
     card_id = created.json()["id"]
@@ -34,7 +34,7 @@ async def test_unused_card_is_deleted(client, seeded_users):
     created = await client.post(
         "/api/payment-methods",
         headers=HEADERS,
-        json={"name": "Geçici Kart", "type": "credit_card", "statement_day": 1, "due_day": 15},
+        json={"name": "Geçici Kart", "type": "credit_card", "statement_day": 1},
     )
     card_id = created.json()["id"]
 
@@ -80,7 +80,7 @@ async def test_invalid_card_days_are_rejected(client, seeded_users):
     response = await client.post(
         "/api/payment-methods",
         headers=HEADERS,
-        json={"name": "Bozuk", "type": "credit_card", "statement_day": 40, "due_day": 10},
+        json={"name": "Bozuk", "type": "credit_card", "statement_day": 40},
     )
     assert response.status_code == 422
 

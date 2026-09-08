@@ -53,7 +53,6 @@ async def test_seed_does_not_overwrite_user_edits(async_session, settings):
         select(PaymentMethod).where(PaymentMethod.name == "Aykut Kredi Kartı 1")
     )
     card.statement_day = 26
-    card.due_day = 10
     market = await async_session.scalar(
         select(Category).where(Category.name == "Market")
     )
@@ -64,7 +63,7 @@ async def test_seed_does_not_overwrite_user_edits(async_session, settings):
 
     await async_session.refresh(card)
     await async_session.refresh(market)
-    assert (card.statement_day, card.due_day) == (26, 10)
+    assert card.statement_day == 26
     assert market.is_active is False
 
 

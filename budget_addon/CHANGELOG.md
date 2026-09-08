@@ -1,5 +1,12 @@
 # Değişiklik Günlüğü
 
+## 1.3.0
+
+- Son ödeme tarihi artık kullanıcı tarafından girilmez; hesap kesim gününden
+  hesaplanır (varsayılan 10 gün sonrası).
+- Son ödeme tarihi hafta sonuna denk gelirse pazartesiye taşınır.
+- Kart eklerken ve düzenlerken yalnızca hesap kesim günü sorulur.
+
 ## 1.2.0
 
 - Kart ekleme, silme, ad değiştirme, hesap kesim ve son ödeme günü düzenleme.

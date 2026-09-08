@@ -4,9 +4,9 @@ Komut dilbilgisi bilinçli olarak basit ve deterministiktir; doğal dil
 yorumlama yapılmaz. Adlar boşluk içerebildiği için, ad ile sayıların
 karıştığı komutlarda `|` ayracı kullanılır.
 
-    /kartekle Aykut Kredi Kartı 2 | 26 10
+    /kartekle Aykut Kredi Kartı 2 | 26
     /kartad 3 Yeni Kart Adı
-    /kartgun 3 26 10
+    /kartgun 3 26
     /kartsil 3
     /kartpasif 3      /kartaktif 3
 
@@ -39,7 +39,6 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 NAME_SEPARATOR = "|"
-CARD_DAY_COUNT = 2
 HISTORY_UNCHANGED_NOTE = (
     "Geçmiş harcamaların taksit planı değişmedi; yeni ayar bundan sonraki"
     " harcamalara uygulanır."
@@ -72,45 +71,59 @@ async def _find_category(session: AsyncSession, raw_id: str) -> Category | None:
 # ---------------------------------------------------------------------------
 
 
-STATEMENT_LABELS = ("kesim", "hesapkesim", "kesimgunu")
-DUE_LABELS = ("sonodeme", "sonödeme", "odeme", "ödeme")
+STATEMENT_LABELS = ("kesim", "hesapkesim", "kesimgunu", "kesimgunu")
+OFFSET_LABELS = ("vade", "gun", "gün", "sonodemefarki")
 
 
-def parse_card_days(text: str) -> tuple[int, int] | None:
-    """`26 10` veya `kesim 26 sonodeme 10` yazımını okur.
+def parse_card_setup(text: str) -> tuple[int, int | None] | None:
+    """Kart kurulum bilgisini okur.
 
-    Etiketli yazım desteklenir çünkü iki çıplak sayının hangisinin hesap
-    kesim, hangisinin son ödeme günü olduğu ilk bakışta anlaşılmıyor.
-    Etiket kullanılırsa sıra önemsizdir.
+    Kullanıcı yalnızca **hesap kesim gününü** girer; son ödeme tarihi ondan
+    türetilir. İkinci bir sayı yazılırsa son ödemeye kaç gün kalacağını
+    belirler (bankası farklı çalışan kullanıcılar için).
+
+        "26"              -> (26, None)
+        "kesim 26"        -> (26, None)
+        "26 vade 12"      -> (26, 12)
+
+    Anlaşılmayan girdide tahmin yürütülmez; `None` döner ve kullanıma dair
+    açıklama gösterilir.
     """
     tokens = text.lower().split()
     if not tokens:
         return None
 
-    labelled: dict[str, int] = {}
+    statement_day: int | None = None
+    offset_days: int | None = None
+    positional: list[int] = []
+
     index = 0
-    while index < len(tokens) - 1:
-        label, value = tokens[index], tokens[index + 1]
-        if not value.isdigit():
+    while index < len(tokens):
+        token = tokens[index]
+        following = tokens[index + 1] if index + 1 < len(tokens) else None
+        if token in STATEMENT_LABELS and following and following.isdigit():
+            statement_day = int(following)
+            index += 2
+            continue
+        if token in OFFSET_LABELS and following and following.isdigit():
+            offset_days = int(following)
+            index += 2
+            continue
+        if token.isdigit():
+            positional.append(int(token))
             index += 1
             continue
-        if label in STATEMENT_LABELS:
-            labelled["statement"] = int(value)
-            index += 2
-            continue
-        if label in DUE_LABELS:
-            labelled["due"] = int(value)
-            index += 2
-            continue
-        index += 1
+        return None
 
-    if "statement" in labelled and "due" in labelled:
-        return labelled["statement"], labelled["due"]
-
-    numbers = [token for token in tokens if token.isdigit()]
-    if len(numbers) == CARD_DAY_COUNT and not labelled:
-        return int(numbers[0]), int(numbers[1])
-    return None
+    if statement_day is None:
+        if not positional:
+            return None
+        statement_day = positional.pop(0)
+    if offset_days is None and positional:
+        offset_days = positional.pop(0)
+    if positional:
+        return None
+    return statement_day, offset_days
 
 
 @router.message(Command("kartekle"))
@@ -122,11 +135,11 @@ async def add_card(message: Message, user: User, session: AsyncSession) -> None:
         await message.answer(messages.card_add_usage(), parse_mode="HTML")
         return
 
-    parsed = parse_card_days(days)
+    parsed = parse_card_setup(days)
     if parsed is None:
         await message.answer(messages.card_add_usage(), parse_mode="HTML")
         return
-    statement_day, due_day = parsed
+    statement_day, offset_days = parsed
 
     try:
         method = await settings_service.create_payment_method(
@@ -135,7 +148,7 @@ async def add_card(message: Message, user: User, session: AsyncSession) -> None:
             name=name,
             type=TYPE_CREDIT_CARD,
             statement_day=statement_day,
-            due_day=due_day,
+            **({"due_offset_days": offset_days} if offset_days else {}),
         )
     except settings_service.SettingsError as exc:
         await message.answer(f"⚠️ {exc}")
@@ -143,7 +156,7 @@ async def add_card(message: Message, user: User, session: AsyncSession) -> None:
 
     await message.answer(
         f"✅ <b>{method.name}</b> eklendi (no: {method.id}).\n\n"
-        + messages.card_days_explained(statement_day, due_day),
+        + messages.card_days_explained(method.statement_day, method.due_offset_days),
         parse_mode="HTML",
     )
 
@@ -185,12 +198,12 @@ async def set_card_days_command(
     message: Message, user: User, session: AsyncSession
 ) -> None:
     raw_id, _, rest = _arguments(message).partition(" ")
-    parsed = parse_card_days(rest)
+    parsed = parse_card_setup(rest)
     if not raw_id.isdigit() or parsed is None:
         await message.answer(messages.card_days_usage(), parse_mode="HTML")
         return
     method_id = int(raw_id)
-    statement_day, due_day = parsed
+    statement_day, offset_days = parsed
 
     method = await session.get(PaymentMethod, method_id)
     if method is None:
@@ -202,7 +215,10 @@ async def set_card_days_command(
             session,
             user=user,
             method=method,
-            changes={"statement_day": statement_day, "due_day": due_day},
+            changes={
+                "statement_day": statement_day,
+                **({"due_offset_days": offset_days} if offset_days else {}),
+            },
         )
     except settings_service.SettingsError as exc:
         await message.answer(f"⚠️ {exc}")
@@ -210,7 +226,7 @@ async def set_card_days_command(
 
     await message.answer(
         f"✅ <b>{method.name}</b> güncellendi.\n\n"
-        + messages.card_days_explained(statement_day, due_day)
+        + messages.card_days_explained(method.statement_day, method.due_offset_days)
         + "\n\n"
         + HISTORY_UNCHANGED_NOTE,
         parse_mode="HTML",

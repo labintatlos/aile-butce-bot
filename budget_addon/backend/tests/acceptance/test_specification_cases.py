@@ -9,7 +9,7 @@ from datetime import date
 
 from app.services.finance.installments import build_schedule
 
-ASLIHAN_KK1 = {"statement_day": 10, "due_day": 20}
+ASLIHAN_KK1 = {"statement_day": 10}
 THREE_THOUSAND_LIRA = 300_000  # kurus
 
 
@@ -28,7 +28,7 @@ def test_a1_specification_section_38_purchase_before_the_cutoff():
         date(2026, 11, 10),
     ]
     assert [line.due_date for line in schedule] == [
-        date(2026, 9, 20),
+        date(2026, 9, 21),
         date(2026, 10, 20),
         date(2026, 11, 20),
     ]
@@ -51,7 +51,7 @@ def test_a2_specification_section_39_purchase_after_the_cutoff():
     assert [line.due_date for line in schedule] == [
         date(2026, 10, 20),
         date(2026, 11, 20),
-        date(2026, 12, 20),
+        date(2026, 12, 21),
     ]
     assert sum(line.amount_minor for line in schedule) == THREE_THOUSAND_LIRA
 

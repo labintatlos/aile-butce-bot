@@ -98,20 +98,25 @@ Botta **⚙️ Ayarlar** yaz; kartlar numaralarıyla listelenir. Sonra:
 
 | Komut | Ne yapar |
 |---|---|
-| `/kartgun 2 kesim 26 sonodeme 10` | 2 numaralı kartın günlerini düzeltir |
-| `/kartekle Aykut Kredi Kartı 2 \| kesim 26 sonodeme 10` | Yeni kart ekler (ad ile günler `\|` ile ayrılır) |
+| `/kartgun 2 26` | 2 numaralı kartın hesap kesim gününü 26 yapar |
+| `/kartekle Aykut Kredi Kartı 2 \| 26` | Yeni kart ekler (ad ile gün `\|` ile ayrılır) |
 | `/kartad 3 Yeni Kart Adı` | Kartın adını değiştirir |
 | `/kartsil 3` | Kartı siler |
 | `/kartpasif 3` · `/kartaktif 3` | Kartı gizler / geri açar |
 
-**kesim** = hesap kesim günü (ekstrenin kesildiği ayın günü), **sonodeme** =
-son ödeme günü. Bu iki değeri bankanın uygulamasından veya kart ekstrenden
-bulabilirsin. Etiketleri yazmadan kısa biçim de çalışır (`/kartgun 2 26 10`),
-sırası kesim → son ödemedir.
+Girilecek tek şey **hesap kesim günü**: ekstrenin kesildiği ayın günü.
+Bankanın uygulamasında "hesap kesim tarihi" olarak geçer.
 
-Örnek: kesim 26, son ödeme 10 olan bir kartla 8 Eylül'de 3.000 TL / 3 taksit
+**Son ödeme tarihini girmezsin, sistem hesaplar.** Ekstre kesildikten 10 gün
+sonrasıdır ve o gün hafta sonuna denk gelirse pazartesiye taşınır.
+
+Örnek: hesap kesim günü 26 olan bir kartla 8 Eylül'de 3.000 TL / 3 taksit
 harcama yaparsan taksitler 26 Eylül, 26 Ekim ve 26 Kasım ekstrelerine düşer;
-son ödemeleri sırasıyla 10 Ekim, 10 Kasım ve 10 Aralık olur.
+son ödemeleri sırasıyla 6 Ekim, 5 Kasım ve 7 Aralık olur (6 Aralık pazara
+denk geldiği için pazartesiye kaymıştır).
+
+Bankan 10 günden farklı çalışıyorsa vadeyi de yazabilirsin:
+`/kartgun 2 26 vade 12`
 
 Kategoriler için `/kategori` yaz; aynı mantıkla `/kategoriekle 🎬 Sinema`,
 `/kategoriad`, `/kategorisil`, `/kategoripasif` ve `/kategoriaktif` çalışır.

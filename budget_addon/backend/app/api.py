@@ -162,7 +162,7 @@ async def preview_schedule(
             installment_count=payload.installment_count,
             transaction_date=payload.transaction_date,
             statement_day=method.statement_day,
-            due_day=method.due_day,
+            due_offset_days=method.due_offset_days,
             cutoff_inclusive=method.cutoff_inclusive,
         )
     except ValueError as exc:

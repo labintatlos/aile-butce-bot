@@ -179,7 +179,8 @@ async def test_i_r4_statement_report_groups_by_card_and_date(
 
     by_card = {s.payment_method_name: s for s in statements}
     assert by_card["Aslıhan Kredi Kartı 1"].statement_date == date(2026, 9, 10)
-    assert by_card["Aslıhan Kredi Kartı 1"].due_date == date(2026, 9, 20)
+    # 10 Eylul + 10 gun = 20 Eylul, pazar -> 21 Eylul pazartesi
+    assert by_card["Aslıhan Kredi Kartı 1"].due_date == date(2026, 9, 21)
     assert by_card["Aslıhan Kredi Kartı 1"].total_minor == 200_000  # 1.000 + 1.000
     assert by_card["Aykut Kredi Kartı 1"].statement_date == date(2026, 9, 25)
     assert by_card["Aykut Kredi Kartı 1"].due_date == date(2026, 10, 5)

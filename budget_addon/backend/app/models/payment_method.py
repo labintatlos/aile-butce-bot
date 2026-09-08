@@ -3,6 +3,10 @@
 Kart koşulları burada yaşar, ancak harcama oluşturulurken bu değerlerin bir
 anlık görüntüsü `expenses` tablosuna kopyalanır. Buradaki bir değişiklik
 geçmiş taksit planlarını **etkilemez** (docs/FINANCE_RULES.md, kural E5).
+
+Kullanıcı yalnızca hesap kesim gününü girer. Son ödeme tarihi ekstre
+tarihinden `due_offset_days` gün sonrasıdır ve hafta sonuna denk gelirse
+pazartesiye taşınır.
 """
 
 from __future__ import annotations
@@ -10,6 +14,7 @@ from __future__ import annotations
 from sqlalchemy import BigInteger, Boolean, CheckConstraint, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
+from ..services.finance.statement import DEFAULT_DUE_OFFSET_DAYS
 from .base import Base, TimestampMixin
 
 TYPE_CASH = "cash"
@@ -28,19 +33,20 @@ class PaymentMethod(TimestampMixin, Base):
         ),
         # Nakitte ekstre kavrami yoktur.
         CheckConstraint(
-            f"type <> '{TYPE_CASH}' OR (statement_day IS NULL AND due_day IS NULL)",
+            f"type <> '{TYPE_CASH}' OR statement_day IS NULL",
             name="ck_cash_has_no_statement_days",
         ),
-        # Kredi kartinda her iki gun de zorunlu ve 1-31 araliginda olmalidir.
-        # NULL kontrolleri acikca yazilir: SQL'de NULL BETWEEN ... sonucu NULL'dur
+        # Kredi kartinda hesap kesim gunu zorunlu ve 1-31 araliginda olmalidir.
+        # NULL kontrolu acikca yazilir: SQL'de NULL BETWEEN ... sonucu NULL'dur
         # ve CHECK kisiti NULL sonucu gecerli sayar, yani yalnizca BETWEEN yazmak
         # yarim yapilandirilmis bir karti engellemezdi.
         CheckConstraint(
             f"type <> '{TYPE_CREDIT_CARD}' OR ("
-            "statement_day IS NOT NULL AND due_day IS NOT NULL "
-            "AND statement_day BETWEEN 1 AND 31 "
-            "AND due_day BETWEEN 1 AND 31)",
+            "statement_day IS NOT NULL AND statement_day BETWEEN 1 AND 31)",
             name="ck_credit_card_days_in_range",
+        ),
+        CheckConstraint(
+            "due_offset_days BETWEEN 1 AND 60", name="ck_due_offset_in_range"
         ),
     )
 
@@ -53,7 +59,14 @@ class PaymentMethod(TimestampMixin, Base):
     currency: Mapped[str] = mapped_column(String(3), default=DEFAULT_CURRENCY)
 
     statement_day: Mapped[int | None] = mapped_column(Integer, default=None)
-    due_day: Mapped[int | None] = mapped_column(Integer, default=None)
+    due_offset_days: Mapped[int] = mapped_column(
+        Integer, default=DEFAULT_DUE_OFFSET_DAYS, server_default="10"
+    )
+    """Ekstre kesiminden son odemeye kac gun var.
+
+    Kullanici yalnizca hesap kesim gununu girer; son odeme tarihi buradan
+    turetilir. Bankalar arasinda farklilik gosterdigi icin kart bazinda
+    ayarlanabilir, ancak varsayilani degistirmek gerekmez."""
     cutoff_inclusive: Mapped[bool] = mapped_column(Boolean, default=True)
     credit_limit_minor: Mapped[int | None] = mapped_column(BigInteger, default=None)
     notes: Mapped[str | None] = mapped_column(Text, default=None)

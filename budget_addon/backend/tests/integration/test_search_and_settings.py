@@ -148,9 +148,9 @@ async def test_card_days_can_be_corrected(async_session, people, fixtures):
         async_session,
         user=people["aykut"],
         method=card,
-        changes={"statement_day": 26, "due_day": 10},
+        changes={"statement_day": 26},
     )
-    assert (updated.statement_day, updated.due_day) == (26, 10)
+    assert updated.statement_day == 26
 
 
 async def test_i_l9_correcting_a_card_does_not_move_existing_installments(
@@ -167,7 +167,7 @@ async def test_i_l9_correcting_a_card_does_not_move_existing_installments(
         async_session,
         user=people["aykut"],
         method=fixtures["card"],
-        changes={"statement_day": 1, "due_day": 15},
+        changes={"statement_day": 1},
     )
 
     await async_session.refresh(expense, attribute_names=["installments"])
@@ -175,7 +175,9 @@ async def test_i_l9_correcting_a_card_does_not_move_existing_installments(
     assert after == before
 
 
-@pytest.mark.parametrize("changes", [{"statement_day": 0}, {"due_day": 32}])
+@pytest.mark.parametrize(
+    "changes", [{"statement_day": 0}, {"statement_day": 32}, {"due_offset_days": 0}]
+)
 async def test_invalid_card_days_are_refused(async_session, people, fixtures, changes):
     with pytest.raises(SettingsError):
         await update_payment_method(
@@ -200,15 +202,17 @@ async def test_duplicate_names_are_refused(async_session, people, fixtures):
         )
 
 
-async def test_new_card_requires_both_days(async_session, people):
-    with pytest.raises(SettingsError):
-        await create_payment_method(
-            async_session,
-            user=people["aykut"],
-            name="Yeni Kart",
-            type="credit_card",
-            statement_day=10,
-        )
+async def test_new_card_needs_only_a_statement_day(async_session, people):
+    """Son ödeme günü artık girilmez; kesim gününden türetilir."""
+    card = await create_payment_method(
+        async_session,
+        user=people["aykut"],
+        name="Yeni Kart",
+        type="credit_card",
+        statement_day=10,
+    )
+    assert card.statement_day == 10
+    assert card.due_offset_days == 10
 
 
 async def test_deactivated_card_disappears_from_the_active_list(
@@ -246,6 +250,6 @@ async def test_settings_changes_are_recorded_in_the_audit_log(
     before = await count_rows(AuditLog)
     await update_payment_method(
         async_session, user=people["aykut"], method=fixtures["card"],
-        changes={"statement_day": 15, "due_day": 25},
+        changes={"statement_day": 15},
     )
     assert await count_rows(AuditLog) == before + 1

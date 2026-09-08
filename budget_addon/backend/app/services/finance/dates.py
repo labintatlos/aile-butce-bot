@@ -10,7 +10,7 @@ Kurallar için bkz. docs/FINANCE_RULES.md, bölüm 3.
 from __future__ import annotations
 
 import calendar
-from datetime import date
+from datetime import date, timedelta
 
 MIN_DAY_OF_MONTH = 1
 MAX_DAY_OF_MONTH = 31
@@ -52,3 +52,24 @@ def add_months(value: date, months: int, preferred_day: int | None = None) -> da
     absolute_month = value.year * MONTHS_PER_YEAR + (value.month - 1) + months
     year, month_index = divmod(absolute_month, MONTHS_PER_YEAR)
     return normalized_date(year, month_index + 1, preferred_day or value.day)
+
+
+SATURDAY = 5
+SUNDAY = 6
+WEEKEND = (SATURDAY, SUNDAY)
+
+
+def is_weekend(value: date) -> bool:
+    return value.weekday() in WEEKEND
+
+
+def next_business_day(value: date) -> date:
+    """Hafta sonuna denk gelen tarihi pazartesiye taşır.
+
+    Bankalar son ödeme günü hafta sonuna denk geldiğinde tahsilatı bir sonraki
+    iş gününe alır. Resmî tatiller **hesaba katılmaz**: tatil takvimi yıldan
+    yıla değişir ve elde güvenilir bir kaynak olmadan tahmin yürütmek, yanlış
+    bir tarihi doğruymuş gibi göstermek olurdu.
+    """
+    shift = {SATURDAY: 2, SUNDAY: 1}.get(value.weekday(), 0)
+    return value + timedelta(days=shift) if shift else value

@@ -702,9 +702,20 @@ Finansal doğruluğu etkilemeyen, makul ve sonradan ayarlanabilir seçimler:
 - **A3.** Herhangi bir taksiti `paid` işaretlenmiş harcamanın finansal alanları
   düzenlenemez; kullanıcıdan silip yeniden oluşturması istenir. MVP'de
   işaretleme olmadığı için pratikte tetiklenmez, ancak kural baştan konur.
-- **A4.** Resmî tatil ve hafta sonu kaydırması **yapılmaz**; kart ayarındaki gün
-  aynen kullanılır. İleride taksit bazında manuel tarih geçersiz kılma (override)
-  eklenebilmesi için `expense_installments` şeması buna uygun tasarlanır.
+- **A4.** *(1.3.0'da değişti — şartname §12'nin yerine geçer.)* Kullanıcı
+  yalnızca hesap kesim gününü girer; son ödeme tarihi ekstre tarihinden
+  `due_offset_days` (varsayılan 10) gün sonrası olarak hesaplanır ve **hafta
+  sonuna denk gelirse pazartesiye taşınır**. Şartnamenin ilk hâlinde hafta sonu
+  kaydırması yapılmaması yazıyordu; kullanıcı bunu açıkça tersine çevirdi.
+
+  Bunun doğrudan sonucu olarak §38'deki kabul senaryosunun beklenen ilk son
+  ödeme tarihi `2026-09-20` yerine `2026-09-21`'dir: 20 Eylül 2026 pazar
+  gününe denk geliyor. Ekstre tarihleri değişmedi.
+
+  Resmî tatiller hâlâ hesaba katılmaz; tatil takvimi yıldan yıla değiştiği için
+  elde güvenilir bir kaynak olmadan tahmin yürütmek yanlış bir tarihi doğruymuş
+  gibi göstermek olurdu. `expense_installments` şeması taksit bazında manuel
+  tarih düzeltmesine uygun kalır.
 - **A5.** Tek para birimi TRY'dir. `currency` sütunları şemada bulunur ancak
   MVP'de çoklu kur dönüşümü yapılmaz.
 - **A6.** Aylık rapor ayları `Europe/Istanbul` yerel takvimine göre, ayın ilk

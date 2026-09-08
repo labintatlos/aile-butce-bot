@@ -152,7 +152,7 @@ def test_statements_report_lists_each_card():
             payment_method_id=1,
             payment_method_name="Aslıhan Kredi Kartı 1",
             statement_date=date(2026, 9, 10),
-            due_date=date(2026, 9, 20),
+            due_date=date(2026, 9, 21),
             total_minor=1_243_000,
             installment_count=4,
         )
@@ -160,7 +160,7 @@ def test_statements_report_lists_each_card():
     text = messages.statements_report(rows)
     assert "Aslıhan Kredi Kartı 1" in text
     assert "10 Eylül 2026 ekstresi: 12.430,00 TL" in text
-    assert "Son ödeme: 20 Eylül 2026" in text
+    assert "Son ödeme: 21 Eylül 2026" in text
 
 
 def test_statements_report_handles_nothing_upcoming():
@@ -222,12 +222,12 @@ class FakeCategory:
 
 
 class FakeMethod:
-    def __init__(self, id, name, type, statement_day=None, due_day=None):
+    def __init__(self, id, name, type, statement_day=None, due_offset_days=10):
         self.id = id
         self.name = name
         self.type = type
         self.statement_day = statement_day
-        self.due_day = due_day
+        self.due_offset_days = due_offset_days
 
 
 def test_settings_overview_lists_card_numbers_and_days():
@@ -240,7 +240,7 @@ def test_settings_overview_lists_card_numbers_and_days():
     )
 
     assert "1. Nakit — nakit" in text
-    assert "2. Aslıhan Kredi Kartı 1 — kesim 26, son ödeme 10" in text
+    assert "2. Aslıhan Kredi Kartı 1 — kesim 26, son ödeme +10 gün" in text
     assert "/kart" in text
 
 
@@ -292,21 +292,21 @@ def test_analysis_handles_an_empty_month():
 
 
 def test_card_days_are_explained_in_plain_turkish():
-    """İki çıplak sayı yerine ne anlama geldikleri yazılmalıdır."""
+    """Çıplak sayı yerine ne anlama geldiği yazılmalıdır."""
     text = messages.card_days_explained(26, 10)
     assert "26" in text and "10" in text
     assert "ekstre kesilir" in text
-    assert "takip eden ayın" in text
+    assert "gün sonrasıdır" in text
 
 
-def test_due_day_after_statement_day_stays_in_the_same_month():
-    text = messages.card_days_explained(10, 20)
-    assert "aynı ayın" in text
+def test_explanation_mentions_the_weekend_rule():
+    text = messages.card_days_explained(10, 10)
+    assert "hafta sonuna" in text.lower()
+    assert "pazartesiye" in text.lower()
 
 
-def test_card_add_usage_labels_the_two_numbers():
+def test_card_add_usage_asks_for_one_number_only():
+    """Kullanıcı yalnızca hesap kesim gününü girer."""
     text = messages.card_add_usage()
-    assert "kesim" in text
-    assert "sonodeme" in text
     assert "hesap kesim günü" in text
-    assert "son ödeme günü" in text
+    assert "otomatik hesaplanır" in text

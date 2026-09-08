@@ -25,7 +25,6 @@ def fixtures(session):
         name="Aslıhan Kredi Kartı 1",
         type=TYPE_CREDIT_CARD,
         statement_day=10,
-        due_day=20,
     )
     session.add_all([user, category, card])
     session.commit()
@@ -45,7 +44,7 @@ def make_expense(fixtures, **overrides):
         payment_method_type_snapshot=card.type,
         payment_method_name_snapshot=card.name,
         statement_day_snapshot=card.statement_day,
-        due_day_snapshot=card.due_day,
+        due_offset_days_snapshot=card.due_offset_days,
         cutoff_inclusive_snapshot=card.cutoff_inclusive,
     )
     values.update(overrides)
@@ -60,14 +59,28 @@ def test_cash_method_cannot_carry_statement_days(session):
 
 def test_credit_card_days_must_be_within_range(session):
     session.add(
-        PaymentMethod(name="Bozuk Kart", type=TYPE_CREDIT_CARD, statement_day=32, due_day=20)
+        PaymentMethod(name="Bozuk Kart", type=TYPE_CREDIT_CARD, statement_day=32)
     )
     with pytest.raises(IntegrityError):
         session.commit()
 
 
-def test_credit_card_requires_both_days(session):
-    session.add(PaymentMethod(name="Yarim Kart", type=TYPE_CREDIT_CARD, statement_day=10))
+def test_credit_card_requires_a_statement_day(session):
+    """Hesap kesim günü olmayan bir kart taksit hesabını çökertirdi."""
+    session.add(PaymentMethod(name="Yarim Kart", type=TYPE_CREDIT_CARD))
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_due_offset_must_be_within_range(session):
+    session.add(
+        PaymentMethod(
+            name="Vadesi Bozuk",
+            type=TYPE_CREDIT_CARD,
+            statement_day=10,
+            due_offset_days=0,
+        )
+    )
     with pytest.raises(IntegrityError):
         session.commit()
 
@@ -100,7 +113,7 @@ def test_installment_number_cannot_exceed_its_count(session, fixtures):
             installment_count=3,
             amount_minor=100_000,
             statement_date=date(2026, 9, 10),
-            due_date=date(2026, 9, 20),
+            due_date=date(2026, 9, 21),
         )
     )
     with pytest.raises(IntegrityError):
@@ -118,7 +131,7 @@ def test_installment_numbers_are_unique_per_expense(session, fixtures):
                 installment_count=3,
                 amount_minor=100_000,
                 statement_date=date(2026, 9, 10),
-                due_date=date(2026, 9, 20),
+                due_date=date(2026, 9, 21),
             )
         )
     with pytest.raises(IntegrityError):
@@ -135,7 +148,7 @@ def test_unknown_installment_status_is_rejected(session, fixtures):
             installment_count=3,
             amount_minor=100_000,
             statement_date=date(2026, 9, 10),
-            due_date=date(2026, 9, 20),
+            due_date=date(2026, 9, 21),
             status="belki",
         )
     )
@@ -168,7 +181,7 @@ def test_deleting_an_expense_removes_its_installments(session, fixtures):
             installment_count=3,
             amount_minor=100_000,
             statement_date=date(2026, 9, 10),
-            due_date=date(2026, 9, 20),
+            due_date=date(2026, 9, 21),
         )
     )
     session.add(expense)

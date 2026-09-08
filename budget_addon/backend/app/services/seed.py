@@ -44,7 +44,6 @@ DEFAULT_CATEGORIES: tuple[tuple[str, str], ...] = (
 CASH_METHOD_NAME = "Nakit"
 
 PLACEHOLDER_STATEMENT_DAY = 1
-PLACEHOLDER_DUE_DAY = 15
 
 DEFAULT_CARD_NAMES: tuple[str, ...] = (
     "Aslıhan Kredi Kartı 1",
@@ -100,9 +99,9 @@ async def seed_users(session: AsyncSession, settings: Settings) -> int:
 async def seed_payment_methods(session: AsyncSession) -> int:
     """Nakit ve başlangıç kartlarını oluşturur.
 
-    Kart günleri yer tutucudur ve bilinçle böyle bırakılmıştır: uydurulmuş bir
-    hesap kesim günü, kullanıcı düzeltene kadar sessizce yanlış ekstre tarihi
-    üretirdi. Yer tutucu değerler ayarlar ekranında düzeltilmek üzere durur.
+    Hesap kesim günü yer tutucudur ve bilinçle böyle bırakılmıştır: uydurulmuş
+    bir gün, kullanıcı düzeltene kadar sessizce yanlış ekstre tarihi üretirdi.
+    Son ödeme tarihi kesim gününden türetildiği için ayrıca girilmez.
     """
     existing = set(
         (await session.scalars(select(PaymentMethod.name))).all()
@@ -121,8 +120,7 @@ async def seed_payment_methods(session: AsyncSession) -> int:
                 name=name,
                 type=TYPE_CREDIT_CARD,
                 statement_day=PLACEHOLDER_STATEMENT_DAY,
-                due_day=PLACEHOLDER_DUE_DAY,
-                notes="Hesap kesim ve son ödeme günlerini ayarlardan güncelleyin.",
+                notes="Hesap kesim gününü ayarlardan güncelleyin.",
             )
         )
         created += 1

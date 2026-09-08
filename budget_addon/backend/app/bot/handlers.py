@@ -133,7 +133,6 @@ async def upcoming(message: Message, session: AsyncSession, settings: Settings) 
 
 
 SEARCH_PREFIX = "ara "
-CARD_COMMAND_PARTS = 4
 
 
 @router.message(F.text == keyboards.BUTTON_ANALYSIS)
@@ -162,54 +161,6 @@ async def settings_overview(message: Message, session: AsyncSession) -> None:
     categories = await settings_service.list_categories(session)
     await message.answer(
         messages.settings_overview(methods, categories), parse_mode="HTML"
-    )
-
-
-@router.message(Command("kart"))
-async def set_card_days(
-    message: Message, user: User, session: AsyncSession
-) -> None:
-    """`/kart <no> <kesim> <sonodeme>` ile kart günlerini düzeltir.
-
-    Kurulumda kartlar bilinçli olarak yer tutucu günlerle gelir; gerçek
-    değerler girilmeden taksit tarihleri anlamlı olmaz.
-    """
-    parts = (message.text or "").split()
-    if len(parts) != CARD_COMMAND_PARTS:
-        await message.answer(
-            "Kullanım: <code>/kart &lt;no&gt; &lt;kesim&gt; &lt;sonodeme&gt;</code>\n"
-            "Örnek: <code>/kart 2 26 10</code>",
-            parse_mode="HTML",
-        )
-        return
-
-    try:
-        method_id, statement_day, due_day = (int(part) for part in parts[1:])
-    except ValueError:
-        await message.answer("Kart numarası ve günler sayı olmalıdır.")
-        return
-
-    method = await session.get(PaymentMethod, method_id)
-    if method is None:
-        await message.answer("Böyle bir ödeme yöntemi yok. ⚙️ Ayarlar'dan numaralara bak.")
-        return
-
-    try:
-        await settings_service.update_payment_method(
-            session,
-            user=user,
-            method=method,
-            changes={"statement_day": statement_day, "due_day": due_day},
-        )
-    except settings_service.SettingsError as exc:
-        await message.answer(f"⚠️ {exc}")
-        return
-
-    await message.answer(
-        f"✅ {method.name} güncellendi: hesap kesim {statement_day},"
-        f" son ödeme {due_day}.\n\n"
-        "Geçmiş harcamaların taksit planı değişmedi; yeni ayar bundan sonraki"
-        " harcamalara uygulanacak."
     )
 
 

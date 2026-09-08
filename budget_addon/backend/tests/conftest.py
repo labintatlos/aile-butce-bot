@@ -96,14 +96,12 @@ async def fixtures(async_session, people):
         type=TYPE_CREDIT_CARD,
         owner_user_id=people["aslihan"].id,
         statement_day=10,
-        due_day=20,
     )
     other_card = PaymentMethod(
         name="Aykut Kredi Kartı 1",
         type=TYPE_CREDIT_CARD,
         owner_user_id=people["aykut"].id,
         statement_day=25,
-        due_day=5,
     )
     async_session.add_all([market, fuel, cash, card, other_card])
     await async_session.commit()
@@ -224,7 +222,6 @@ async def seeded_reference_data(async_session):
         name="Aslıhan Kredi Kartı 1",
         type=TYPE_CREDIT_CARD,
         statement_day=10,
-        due_day=20,
     )
     async_session.add_all([category, cash, card])
     await async_session.commit()

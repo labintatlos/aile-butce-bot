@@ -87,7 +87,7 @@ def _snapshot_of(method: PaymentMethod) -> dict[str, object]:
         "payment_method_type_snapshot": method.type,
         "payment_method_name_snapshot": method.name,
         "statement_day_snapshot": method.statement_day,
-        "due_day_snapshot": method.due_day,
+        "due_offset_days_snapshot": method.due_offset_days,
         "cutoff_inclusive_snapshot": (
             method.cutoff_inclusive if method.is_credit_card else None
         ),
@@ -112,7 +112,7 @@ def _build_installments(
         installment_count=installment_count,
         transaction_date=transaction_date,
         statement_day=snapshot["statement_day_snapshot"],
-        due_day=snapshot["due_day_snapshot"],
+        due_offset_days=snapshot["due_offset_days_snapshot"],
         cutoff_inclusive=bool(snapshot["cutoff_inclusive_snapshot"]),
     )
     return [
