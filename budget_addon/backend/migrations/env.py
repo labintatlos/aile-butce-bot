@@ -8,6 +8,7 @@ uygulanır ve dosyaya sır yazılmaz.
 from __future__ import annotations
 
 import asyncio
+import logging
 from logging.config import fileConfig
 
 from alembic import context
@@ -24,6 +25,8 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
+logger = logging.getLogger("alembic.env")
+
 
 def _configure(connection) -> None:
     context.configure(
@@ -35,6 +38,57 @@ def _configure(connection) -> None:
         compare_type=True,
         compare_server_default=True,
     )
+
+
+BATCH_TEMP_PREFIX = "_alembic_tmp_"
+
+
+def recover_interrupted_batch(connection) -> None:
+    """Yarım kalmış bir batch göçünden kurtarır.
+
+    SQLite sütun silemediği için Alembic tabloyu `_alembic_tmp_<ad>` adıyla
+    yeniden oluşturur, veriyi kopyalar, eskisini siler ve yenisini adlandırır.
+    SQLite'ta DDL işlemleri Alembic tarafından transaction dışında sayıldığı
+    için, süreç bu adımların ortasında ölürse geçici tablo geride kalır ve
+    sonraki her deneme "table _alembic_tmp_... already exists" ile düşer.
+    Home Assistant'ın watchdog'u eklentiyi saniyeler içinde yeniden
+    başlattığından bu durum kolayca oluşabiliyor.
+
+    İki farklı yarım kalma durumu vardır ve ayrımı önemlidir:
+
+    - Asıl tablo hâlâ duruyorsa geçici tablo yalnızca artıktır; silinir.
+    - Asıl tablo yoksa veri **geçici tablodadır**; silmek veri kaybı olurdu,
+      bu yüzden geçici tablo asıl adına taşınır.
+    """
+    rows = connection.exec_driver_sql(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE ?",
+        (f"{BATCH_TEMP_PREFIX}%",),
+    ).fetchall()
+
+    for (temp_name,) in rows:
+        original = temp_name[len(BATCH_TEMP_PREFIX):]
+        exists = connection.exec_driver_sql(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (original,),
+        ).fetchone()
+
+        if exists:
+            logger.warning(
+                "Yarım kalmış göçten kalan %s tablosu siliniyor; %s yerinde.",
+                temp_name,
+                original,
+            )
+            connection.exec_driver_sql(f'DROP TABLE "{temp_name}"')
+        else:
+            logger.warning(
+                "%s tablosu bulunamadı; veriyi taşımak için %s yeniden "
+                "adlandırılıyor.",
+                original,
+                temp_name,
+            )
+            connection.exec_driver_sql(
+                f'ALTER TABLE "{temp_name}" RENAME TO "{original}"'
+            )
 
 
 def run_migrations_offline() -> None:
@@ -52,6 +106,10 @@ def run_migrations_offline() -> None:
 
 async def _run_async_migrations(engine: AsyncEngine) -> None:
     async with engine.connect() as connection:
+        # Kurtarma göçlerden ÖNCE çalışır: geride kalmış bir geçici tablo,
+        # aksi halde her açılışta göçü aynı noktada düşürür.
+        await connection.run_sync(recover_interrupted_batch)
+        await connection.commit()
         await connection.run_sync(lambda sync_conn: _configure(sync_conn))
         await connection.run_sync(lambda _: context.run_migrations())
         await connection.commit()

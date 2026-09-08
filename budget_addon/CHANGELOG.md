@@ -1,5 +1,13 @@
 # Değişiklik Günlüğü
 
+## 1.3.3
+
+- Yarım kalmış bir veritabanı göçünden otomatik kurtarma eklendi. Eklenti
+  önceki sürümlerde döngüye girdiğinde göç yarıda kesilip geride geçici bir
+  tablo bırakıyor, sonraki her açılış bu yüzden düşüyordu.
+- Göç adımları koşullu hâle getirildi; yarım uygulanmış bir şemada kaldığı
+  yerden tamamlanabiliyor.
+
 ## 1.3.2
 
 - Eklentinin açılışta çökmesine yol açan ikinci hata giderildi: Home Assistant

@@ -195,6 +195,12 @@ Supervisor günlüğü eklentinin kendi çıktısını göstermez. Eklentinin sa
 denetimi çalışır ve hatalı alanın adını söyler (örneğin
 `'user_display_names' ayarındaki 'Aykut' girdisi hatalı`).
 
+**Günlükte "table _alembic_tmp_... already exists" yazıyor.**
+Daha önceki bir açılışta veritabanı göçü yarıda kesilmiş ve geriye geçici bir
+tablo kalmış demektir. 1.3.3 ve sonrası bunu açılışta kendisi temizler; eklenti
+güncelse yeniden başlatmak yeterlidir. Günlükte "Yarım kalmış göçten kalan ...
+siliniyor" satırını görürsün.
+
 **Günlükte "Telegram bot token geçersiz" yazıyor.**
 Token yanlış veya eksik girilmiş. BotFather'dan aldığın değeri
 `telegram_bot_token` alanına yapıştır ve eklentiyi yeniden başlat. Bu durumda

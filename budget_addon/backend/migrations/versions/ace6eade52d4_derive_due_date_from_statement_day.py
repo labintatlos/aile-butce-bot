@@ -107,12 +107,32 @@ def _payment_methods_table(*, with_due_day: bool) -> sa.Table:
     )
 
 
+def _columns(table: str) -> set[str]:
+    inspector = sa.inspect(op.get_bind())
+    return {column["name"] for column in inspector.get_columns(table)}
+
+
 def upgrade() -> None:
-    with op.batch_alter_table("expenses", schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column("due_offset_days_snapshot", sa.Integer(), nullable=True)
-        )
-        batch_op.drop_column("due_day_snapshot")
+    """Şemayı yeni son ödeme modeline taşır.
+
+    Her adım önce gerekli olup olmadığına bakar. SQLite'ta bu göç tabloları
+    yeniden oluşturarak ilerler ve Alembic bu işlemleri transaction dışında
+    sayar; süreç ortada kesilirse bir tablo taşınmış, diğeri taşınmamış
+    olabilir. Adımlar koşullu olmasa, sonraki deneme zaten uygulanmış bir
+    değişikliği tekrar yapmaya çalışıp düşerdi.
+    """
+    expense_columns = _columns("expenses")
+    if "due_offset_days_snapshot" not in expense_columns:
+        with op.batch_alter_table("expenses", schema=None) as batch_op:
+            batch_op.add_column(
+                sa.Column("due_offset_days_snapshot", sa.Integer(), nullable=True)
+            )
+    if "due_day_snapshot" in _columns("expenses"):
+        with op.batch_alter_table("expenses", schema=None) as batch_op:
+            batch_op.drop_column("due_day_snapshot")
+
+    if "due_offset_days" in _columns("payment_methods"):
+        return
 
     with op.batch_alter_table(
         "payment_methods",
