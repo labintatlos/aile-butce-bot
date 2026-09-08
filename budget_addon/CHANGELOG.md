@@ -1,5 +1,15 @@
 # Değişiklik Günlüğü
 
+## 1.3.4
+
+- Göçün "FOREIGN KEY constraint failed" ile düşmesi giderildi. Ödeme yöntemleri
+  tablosu yeniden oluşturulurken eskisi siliniyor; harcamalar tablosu bu tabloya
+  referans verdiği için yabancı anahtar zorlaması silme işlemini engelliyordu.
+  Zorlama artık yalnızca göç süresince kapatılıyor, göç bitince veri bir kez
+  denetlenip tekrar açılıyor.
+- Göçleri gerçek bir veritabanı üzerinde uçtan uca çalıştıran testler eklendi;
+  bu hata sınıfı yayınlanmadan önce yakalanabilecek.
+
 ## 1.3.3
 
 - Yarım kalmış bir veritabanı göçünden otomatik kurtarma eklendi. Eklenti

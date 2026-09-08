@@ -104,8 +104,29 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def _check_foreign_keys(connection) -> None:
+    """Göç sonrası bozuk yabancı anahtar kalmadığını doğrular.
+
+    Göç sırasında zorlama kapatıldığı için, açmadan önce veriyi bir kez
+    denetlemek gerekir; aksi halde bozukluk çok sonra, ilk yazma denemesinde
+    ortaya çıkardı.
+    """
+    broken = connection.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
+    if broken:
+        raise RuntimeError(
+            f"Göç sonrası yabancı anahtar tutarsızlığı bulundu: {broken!r}"
+        )
+
+
 async def _run_async_migrations(engine: AsyncEngine) -> None:
     async with engine.connect() as connection:
+        # Yabancı anahtar zorlaması göç boyunca kapatılır. SQLite sütun
+        # silemediği için Alembic tabloyu yeniden oluşturur ve bunu yaparken
+        # eskisini DROP eder; `expenses` tablosu `payment_methods`e referans
+        # verdiğinden zorlama açıkken bu DROP "FOREIGN KEY constraint failed"
+        # ile düşer. Kapatma yalnızca bu bağlantıyı etkiler ve göç bitince
+        # geri açılır.
+        await connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
         # Kurtarma göçlerden ÖNCE çalışır: geride kalmış bir geçici tablo,
         # aksi halde her açılışta göçü aynı noktada düşürür.
         await connection.run_sync(recover_interrupted_batch)
@@ -113,6 +134,8 @@ async def _run_async_migrations(engine: AsyncEngine) -> None:
         await connection.run_sync(lambda sync_conn: _configure(sync_conn))
         await connection.run_sync(lambda _: context.run_migrations())
         await connection.commit()
+        await connection.run_sync(_check_foreign_keys)
+        await connection.exec_driver_sql("PRAGMA foreign_keys=ON")
     await engine.dispose()
 
 
