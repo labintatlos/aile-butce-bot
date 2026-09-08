@@ -32,14 +32,19 @@ from .schemas import (
     NamedTotalOut,
     ObligationOut,
     ObligationsOut,
+    CategoryCreateIn,
+    CategoryUpdateIn,
+    PaymentMethodCreateIn,
     PaymentMethodOut,
+    PaymentMethodUpdateIn,
     SchedulePreviewIn,
+    SearchResultOut,
     SchedulePreviewOut,
     StatementOut,
     UserOut,
 )
 from .security.identity import current_user
-from .services import reports
+from .services import reports, search as search_service, settings_service
 from .services.expenses import (
     ExpenseError,
     ExpenseInput,
@@ -368,3 +373,155 @@ async def installment_plans(
         )
         for plan in plans
     ]
+
+
+# ---------------------------------------------------------------------------
+# Ayarlar
+# ---------------------------------------------------------------------------
+
+
+@router.get("/payment-methods", response_model=list[PaymentMethodOut])
+async def read_payment_methods(
+    include_inactive: bool = False,
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[PaymentMethodOut]:
+    methods = await settings_service.list_payment_methods(
+        session, include_inactive=include_inactive
+    )
+    return [PaymentMethodOut.model_validate(m) for m in methods]
+
+
+@router.post(
+    "/payment-methods", response_model=PaymentMethodOut, status_code=status.HTTP_201_CREATED
+)
+async def add_payment_method(
+    payload: PaymentMethodCreateIn,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> PaymentMethodOut:
+    try:
+        method = await settings_service.create_payment_method(
+            session, user=user, **payload.model_dump()
+        )
+    except settings_service.SettingsError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    return PaymentMethodOut.model_validate(method)
+
+
+@router.patch("/payment-methods/{method_id}", response_model=PaymentMethodOut)
+async def edit_payment_method(
+    method_id: int,
+    payload: PaymentMethodUpdateIn,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> PaymentMethodOut:
+    """Kart ayarlarını düzeltir. Geçmiş taksit planları değişmez."""
+    method = await session.get(PaymentMethod, method_id)
+    if method is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Ödeme yöntemi bulunamadı")
+    changes = payload.model_dump(exclude_unset=True, exclude_none=True)
+    if not changes:
+        return PaymentMethodOut.model_validate(method)
+    try:
+        await settings_service.update_payment_method(
+            session, user=user, method=method, changes=changes
+        )
+    except settings_service.SettingsError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    return PaymentMethodOut.model_validate(method)
+
+
+@router.get("/categories", response_model=list[CategoryOut])
+async def read_categories(
+    include_inactive: bool = False,
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[CategoryOut]:
+    categories = await settings_service.list_categories(
+        session, include_inactive=include_inactive
+    )
+    return [CategoryOut.model_validate(c) for c in categories]
+
+
+@router.post("/categories", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
+async def add_category(
+    payload: CategoryCreateIn,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> CategoryOut:
+    try:
+        category = await settings_service.create_category(
+            session, user=user, **payload.model_dump()
+        )
+    except settings_service.SettingsError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    return CategoryOut.model_validate(category)
+
+
+@router.patch("/categories/{category_id}", response_model=CategoryOut)
+async def edit_category(
+    category_id: int,
+    payload: CategoryUpdateIn,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> CategoryOut:
+    category = await session.get(Category, category_id)
+    if category is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Kategori bulunamadı")
+    changes = payload.model_dump(exclude_unset=True, exclude_none=True)
+    if not changes:
+        return CategoryOut.model_validate(category)
+    try:
+        await settings_service.update_category(
+            session, user=user, category=category, changes=changes
+        )
+    except settings_service.SettingsError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    return CategoryOut.model_validate(category)
+
+
+# ---------------------------------------------------------------------------
+# Arama
+# ---------------------------------------------------------------------------
+
+
+@router.get("/expenses", response_model=SearchResultOut)
+async def search(
+    text: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    category_id: int | None = None,
+    payment_method_id: int | None = None,
+    created_by_user_id: int | None = None,
+    min_amount_minor: int | None = Query(default=None, ge=0),
+    max_amount_minor: int | None = Query(default=None, ge=0),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=search_service.DEFAULT_PAGE_SIZE, ge=1, le=search_service.MAX_PAGE_SIZE),
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> SearchResultOut:
+    """Harcama arama ve filtreleme (§25)."""
+    result = await search_service.search_expenses(
+        session,
+        search_service.SearchFilters(
+            text=text,
+            date_from=date_from,
+            date_to=date_to,
+            category_id=category_id,
+            payment_method_id=payment_method_id,
+            created_by_user_id=created_by_user_id,
+            min_amount_minor=min_amount_minor,
+            max_amount_minor=max_amount_minor,
+        ),
+        page=page,
+        page_size=page_size,
+    )
+    return SearchResultOut(
+        items=[_expense_out(expense) for expense in result.items],
+        total=result.total,
+        page=result.page,
+        page_size=result.page_size,
+        total_pages=result.total_pages,
+        has_next=result.has_next,
+    )

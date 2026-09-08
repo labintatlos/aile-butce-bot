@@ -19,13 +19,14 @@ from ..config import Settings
 from ..models.category import Category
 from ..models.payment_method import TYPE_CASH, PaymentMethod
 from ..models.user import User
-from ..services import reports
+from ..services import reports, search as search_service, settings_service
 from ..services.expenses import (
     ExpenseError,
     ExpenseInput,
     create_expense,
     get_expense,
     soft_delete_expense,
+    update_expense,
 )
 from ..services.quick_entry import NotAnExpense, parse_quick_entry
 from ..utils.time import local_today
@@ -33,6 +34,12 @@ from . import keyboards, messages
 from .formatting import expense_receipt
 
 logger = logging.getLogger(__name__)
+
+_pending_edits: dict[int, int] = {}
+"""Telegram kullanicisi -> duzenlemek uzere sectigi harcama.
+
+Bellek ici tutulur; bot yeniden baslarsa yarim kalan duzenleme unutulur ve
+kullanici islemi bastan yapar. Kalici bir durum saklamaya deger degil."""
 
 router = Router()
 
@@ -123,6 +130,99 @@ async def upcoming(message: Message, session: AsyncSession, settings: Settings) 
             months, basis_label=keyboards.BASIS_STATEMENT_LABEL
         )
     )
+
+
+SEARCH_PREFIX = "ara "
+CARD_COMMAND_PARTS = 4
+
+
+@router.message(F.text == keyboards.BUTTON_ANALYSIS)
+async def analysis(message: Message, session: AsyncSession, settings: Settings) -> None:
+    """Kategori dağılımı ve önceki aya göre değişim."""
+    today = local_today(settings.timezone)
+    current = await reports.monthly_spending(
+        session, year=today.year, month=today.month
+    )
+    previous_month = today.month - 1 or 12
+    previous_year = today.year if today.month > 1 else today.year - 1
+    previous = await reports.monthly_spending(
+        session, year=previous_year, month=previous_month
+    )
+    await message.answer(messages.analysis_report(current, previous), parse_mode="HTML")
+
+
+@router.message(F.text == keyboards.BUTTON_SEARCH)
+async def search_prompt(message: Message) -> None:
+    await message.answer(messages.search_help(), parse_mode="HTML")
+
+
+@router.message(F.text == keyboards.BUTTON_SETTINGS)
+async def settings_overview(message: Message, session: AsyncSession) -> None:
+    methods = await settings_service.list_payment_methods(session)
+    categories = await settings_service.list_categories(session)
+    await message.answer(
+        messages.settings_overview(methods, categories), parse_mode="HTML"
+    )
+
+
+@router.message(Command("kart"))
+async def set_card_days(
+    message: Message, user: User, session: AsyncSession
+) -> None:
+    """`/kart <no> <kesim> <sonodeme>` ile kart günlerini düzeltir.
+
+    Kurulumda kartlar bilinçli olarak yer tutucu günlerle gelir; gerçek
+    değerler girilmeden taksit tarihleri anlamlı olmaz.
+    """
+    parts = (message.text or "").split()
+    if len(parts) != CARD_COMMAND_PARTS:
+        await message.answer(
+            "Kullanım: <code>/kart &lt;no&gt; &lt;kesim&gt; &lt;sonodeme&gt;</code>\n"
+            "Örnek: <code>/kart 2 26 10</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    try:
+        method_id, statement_day, due_day = (int(part) for part in parts[1:])
+    except ValueError:
+        await message.answer("Kart numarası ve günler sayı olmalıdır.")
+        return
+
+    method = await session.get(PaymentMethod, method_id)
+    if method is None:
+        await message.answer("Böyle bir ödeme yöntemi yok. ⚙️ Ayarlar'dan numaralara bak.")
+        return
+
+    try:
+        await settings_service.update_payment_method(
+            session,
+            user=user,
+            method=method,
+            changes={"statement_day": statement_day, "due_day": due_day},
+        )
+    except settings_service.SettingsError as exc:
+        await message.answer(f"⚠️ {exc}")
+        return
+
+    await message.answer(
+        f"✅ {method.name} güncellendi: hesap kesim {statement_day},"
+        f" son ödeme {due_day}.\n\n"
+        "Geçmiş harcamaların taksit planı değişmedi; yeni ayar bundan sonraki"
+        " harcamalara uygulanacak."
+    )
+
+
+@router.message(F.text.lower().startswith(SEARCH_PREFIX))
+async def search_expenses_handler(message: Message, session: AsyncSession) -> None:
+    term = (message.text or "")[len(SEARCH_PREFIX):].strip()
+    if not term:
+        await message.answer(messages.search_help(), parse_mode="HTML")
+        return
+    page = await search_service.search_expenses(
+        session, search_service.SearchFilters(text=term), page_size=10
+    )
+    await message.answer(messages.search_results(page, term=term), parse_mode="HTML")
 
 
 @router.message(F.text & ~F.text.startswith("/"))
@@ -223,5 +323,55 @@ async def delete_requested(query: CallbackQuery, session: AsyncSession) -> None:
     await query.message.answer(
         messages.deletion_prompt(expense.public_id, expense.total_amount_minor),
         reply_markup=keyboards.delete_confirmation(expense.id),
+    )
+    await query.answer()
+
+
+@router.callback_query(F.data.startswith(keyboards.CALLBACK_CATEGORY))
+async def change_category(
+    query: CallbackQuery, user: User, session: AsyncSession
+) -> None:
+    """Seçilen kategoriyi uygular.
+
+    Kategori değişikliği taksit planına dokunmaz (docs/FINANCE_RULES.md, E2),
+    bu yüzden bot üzerinden güvenle yapılabilir.
+    """
+    category_id = keyboards.parse_callback(query.data, keyboards.CALLBACK_CATEGORY)
+    expense_id = _pending_edits.pop(query.from_user.id, None)
+    if category_id is None or expense_id is None:
+        await query.answer("Bu seçim artık geçerli değil.", show_alert=True)
+        return
+
+    expense = await get_expense(session, expense_id)
+    category = await session.get(Category, category_id)
+    if expense is None or category is None:
+        await query.answer("Harcama bulunamadı.", show_alert=True)
+        return
+
+    await update_expense(
+        session, user=user, expense=expense, changes={"category_id": category.id}
+    )
+    await query.message.edit_text(
+        f"✅ #{expense.public_id} kategorisi {category.emoji} {category.name}"
+        " olarak güncellendi."
+    )
+    await query.answer()
+
+
+@router.callback_query(F.data.startswith(keyboards.CALLBACK_EDIT))
+async def edit_requested(query: CallbackQuery, session: AsyncSession) -> None:
+    """Harcamayı gösterir ve kategori değiştirme seçeneği sunar."""
+    expense_id = keyboards.parse_callback(query.data, keyboards.CALLBACK_EDIT)
+    expense = await get_expense(session, expense_id) if expense_id else None
+    if expense is None:
+        await query.answer("Harcama bulunamadı.", show_alert=True)
+        return
+
+    _pending_edits[query.from_user.id] = expense.id
+    categories = await _active_categories(session)
+    await query.message.answer(
+        messages.expense_detail(expense),
+        reply_markup=keyboards.category_choices(categories),
+        parse_mode="HTML",
     )
     await query.answer()

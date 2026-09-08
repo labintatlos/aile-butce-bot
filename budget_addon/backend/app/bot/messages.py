@@ -157,3 +157,98 @@ def expense_summary_line(expense) -> str:
     if expense.description:
         parts.append(expense.description)
     return " · ".join(parts)
+
+
+def search_help() -> str:
+    return (
+        "🔎 <b>Harcama Ara</b>\n\n"
+        "Aramak için <code>ara</code> ile başlayan bir mesaj yaz:\n\n"
+        "  <code>ara migros</code>\n"
+        "  <code>ara EXP-000184</code>\n\n"
+        "Açıklama ve işlem numarası üzerinde arama yapılır."
+    )
+
+
+def search_results(page, *, term: str) -> str:
+    if page.total == 0:
+        return f"🔎 <b>{term}</b> için sonuç bulunamadı."
+
+    lines = [f"🔎 <b>{term}</b> — {page.total} sonuç", ""]
+    for expense in page.items:
+        lines.append(f"#{expense.public_id} · {expense_summary_line(expense)}")
+    if page.has_next:
+        lines += ["", f"İlk {len(page.items)} sonuç gösteriliyor."]
+    return "\n".join(lines)
+
+
+def settings_overview(methods, categories) -> str:
+    """Kart ve kategori ayarlarının özeti ve nasıl düzeltileceği."""
+    lines = ["⚙️ <b>Ayarlar</b>", "", "<b>Ödeme yöntemleri</b>"]
+    for method in methods:
+        if method.type == "cash":
+            lines.append(f"  {method.id}. {method.name} — nakit")
+        else:
+            lines.append(
+                f"  {method.id}. {method.name} — kesim {method.statement_day},"
+                f" son ödeme {method.due_day}"
+            )
+    lines += [
+        "",
+        "Kart günlerini düzeltmek için:",
+        "  <code>/kart &lt;no&gt; &lt;kesim&gt; &lt;sonodeme&gt;</code>",
+        "  örnek: <code>/kart 2 26 10</code>",
+        "",
+        f"<b>Kategoriler</b> ({len(categories)} aktif)",
+        "  " + ", ".join(c.name for c in categories[:8])
+        + (" …" if len(categories) > 8 else ""),
+        "",
+        "ℹ️ Kart ayarını değiştirmek geçmiş harcamaların taksit planını"
+        " <b>değiştirmez</b>; yeni ayar yalnızca sonraki harcamalara uygulanır.",
+    ]
+    return "\n".join(lines)
+
+
+def analysis_report(report, previous) -> str:
+    """Kategori dağılımı ve önceki aya göre değişim."""
+    lines = [f"📈 <b>Analiz</b> — {month_name(report.year, report.month)}", ""]
+    if report.transaction_count == 0:
+        return "\n".join(lines) + EMPTY_MONTH
+
+    lines.append(f"Toplam: {money(report.total_minor)}")
+    if previous is not None and previous.total_minor:
+        change = report.total_minor - previous.total_minor
+        arrow = "▲" if change > 0 else ("▼" if change < 0 else "▬")
+        percent = round(abs(change) * 100 / previous.total_minor)
+        lines.append(
+            f"Önceki aya göre: {arrow} {money(abs(change))} (%{percent})"
+        )
+    lines.append("")
+
+    total = report.total_minor or 1
+    for item in report.by_category:
+        share = round(item.total_minor * 100 / total)
+        label = f"{item.emoji} {item.name}".strip()
+        lines.append(f"  {label}: {money(item.total_minor)} (%{share})")
+    return "\n".join(lines)
+
+
+def expense_detail(expense) -> str:
+    lines = [
+        f"#{expense.public_id}",
+        "",
+        f"{expense.category.emoji} {expense.category.name}".strip(),
+    ]
+    if expense.description:
+        lines.append(expense.description)
+    lines += [
+        "",
+        f"Tutar: {money(expense.total_amount_minor)}",
+        f"Ödeme: {expense.payment_method_name_snapshot}",
+        f"Taksit: {installment_label(expense.installment_count)}",
+        f"Tarih: {long_date(expense.transaction_date)}",
+        "",
+        "Kategoriyi aşağıdan değiştirebilirsin. Tutar, tarih, kart veya taksit"
+        " sayısını değiştirmek taksit planını yeniden kurar; bunun için formu"
+        " kullan.",
+    ]
+    return "\n".join(lines)

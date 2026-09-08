@@ -208,3 +208,79 @@ def test_obligations_report_states_which_basis_is_shown():
 def test_obligations_report_notes_that_cash_is_excluded():
     text = messages.obligations_report([], basis_label="Ekstre Bazlı")
     assert "nakit" in text.lower()
+
+
+# ---------------------------------------------------------------------------
+# Arama, ayarlar ve analiz mesajlari
+# ---------------------------------------------------------------------------
+
+
+class FakeCategory:
+    def __init__(self, name, emoji=""):
+        self.name = name
+        self.emoji = emoji
+
+
+class FakeMethod:
+    def __init__(self, id, name, type, statement_day=None, due_day=None):
+        self.id = id
+        self.name = name
+        self.type = type
+        self.statement_day = statement_day
+        self.due_day = due_day
+
+
+def test_settings_overview_lists_card_numbers_and_days():
+    text = messages.settings_overview(
+        [
+            FakeMethod(1, "Nakit", "cash"),
+            FakeMethod(2, "Aslıhan Kredi Kartı 1", "credit_card", 26, 10),
+        ],
+        [FakeCategory("Market"), FakeCategory("Yakıt")],
+    )
+
+    assert "1. Nakit — nakit" in text
+    assert "2. Aslıhan Kredi Kartı 1 — kesim 26, son ödeme 10" in text
+    assert "/kart" in text
+
+
+def test_settings_overview_warns_that_history_is_untouched():
+    """Kullanıcı kart ayarını değiştirmenin geçmişi bozmadığını bilmelidir."""
+    text = messages.settings_overview([FakeMethod(1, "Nakit", "cash")], [])
+    assert "geçmiş harcamaların" in text.lower()
+    assert "değiştirmez" in text
+
+
+def test_search_results_reports_no_match():
+    class EmptyPage:
+        total = 0
+        items = []
+        has_next = False
+
+    assert "sonuç bulunamadı" in messages.search_results(EmptyPage(), term="migros")
+
+
+def test_analysis_shows_category_share_and_month_over_month():
+    current = make_monthly_report(total_minor=1_000_000)
+    previous = make_monthly_report(total_minor=800_000)
+
+    text = messages.analysis_report(current, previous)
+
+    assert "Analiz" in text
+    assert "10.000,00 TL" in text
+    assert "▲" in text  # artis
+    assert "2.000,00 TL" in text  # fark
+    assert "%25" in text
+
+
+def test_analysis_handles_a_first_month_without_comparison():
+    text = messages.analysis_report(make_monthly_report(), None)
+    assert "Analiz" in text
+    assert "Önceki aya göre" not in text
+
+
+def test_analysis_handles_an_empty_month():
+    empty = make_monthly_report(
+        total_minor=0, transaction_count=0, by_user=[], by_category=[]
+    )
+    assert messages.EMPTY_MONTH in messages.analysis_report(empty, None)

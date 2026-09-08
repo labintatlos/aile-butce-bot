@@ -190,3 +190,53 @@ class ObligationsOut(BaseModel):
     basis: str
     basis_label: str
     months: list[ObligationOut]
+
+
+class PaymentMethodUpdateIn(BaseModel):
+    """Kart ayarı düzenleme.
+
+    `type` bilerek yer almaz: nakit bir yöntemi karta çevirmek, ona bağlı
+    geçmiş harcamaların anlam değiştirmesi demek olurdu.
+    """
+
+    name: str | None = Field(default=None, min_length=1, max_length=64)
+    statement_day: int | None = Field(default=None, ge=1, le=31)
+    due_day: int | None = Field(default=None, ge=1, le=31)
+    cutoff_inclusive: bool | None = None
+    credit_limit_minor: int | None = Field(default=None, ge=0)
+    owner_user_id: int | None = None
+    notes: str | None = Field(default=None, max_length=500)
+    is_active: bool | None = None
+
+
+class PaymentMethodCreateIn(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    type: str
+    statement_day: int | None = Field(default=None, ge=1, le=31)
+    due_day: int | None = Field(default=None, ge=1, le=31)
+    cutoff_inclusive: bool = True
+    owner_user_id: int | None = None
+    credit_limit_minor: int | None = Field(default=None, ge=0)
+    notes: str | None = Field(default=None, max_length=500)
+
+
+class CategoryCreateIn(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    emoji: str = Field(default="", max_length=8)
+    sort_order: int = 0
+
+
+class CategoryUpdateIn(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=64)
+    emoji: str | None = Field(default=None, max_length=8)
+    sort_order: int | None = None
+    is_active: bool | None = None
+
+
+class SearchResultOut(BaseModel):
+    items: list[ExpenseOut]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+    has_next: bool
