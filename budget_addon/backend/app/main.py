@@ -15,9 +15,11 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from .api import router
 from .config import Settings, get_settings
@@ -41,6 +43,27 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         await dispose_engine()
+
+
+FRONTEND_DIST = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+
+
+def _mount_frontend(app: FastAPI, settings: Settings) -> None:
+    """Derlenmiş arayüzü kök adresten sunar.
+
+    Bağlama **API ve /health tanımlandıktan sonra** yapılır: kökten yapılan bir
+    statik bağlama daha önce eklenirse `/api/...` isteklerini gölgeler ve
+    arayüz çalışırken sunucu ölmüş gibi görünür.
+
+    Arayüz derlenmemişse bağlama atlanır; bot ve API yine çalışır.
+    """
+    dist = Path(settings.frontend_dist) if settings.frontend_dist else FRONTEND_DIST
+    if not (dist / "index.html").exists():
+        logger.warning("Arayüz derlenmemiş (%s); yalnızca API sunuluyor", dist)
+        return
+    # html=True: bilinmeyen yollar index.html'e duser, SPA yonlendirmesi calisir.
+    app.mount("/", StaticFiles(directory=str(dist), html=True), name="frontend")
+    logger.info("Arayüz sunuluyor: %s", dist)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -72,6 +95,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    _mount_frontend(app, settings)
 
     @app.exception_handler(Exception)
     async def unhandled_error(request: Request, exc: Exception) -> JSONResponse:

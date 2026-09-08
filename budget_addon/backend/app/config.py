@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     webapp_public_url: str = ""
 
     database_path: str = DEFAULT_DATABASE_PATH
+    frontend_dist: str = ""
     timezone: str = DEFAULT_TIMEZONE
     log_level: str = "info"
     backup_retention: int = DEFAULT_BACKUP_RETENTION
