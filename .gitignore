@@ -34,3 +34,6 @@ Thumbs.db
 desktop.ini
 .idea/
 .vscode/
+
+# Alembic autogenerate gecici veritabanlari
+.tmp-*.db

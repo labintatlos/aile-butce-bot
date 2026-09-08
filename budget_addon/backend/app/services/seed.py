@@ -1,0 +1,147 @@
+"""Başlangıç verisi.
+
+Seed **idempotenttir**: her açılışta çalıştırılabilir, var olan kayda dokunmaz.
+Kullanıcının ayarlar ekranından yaptığı düzenlemeler (kart günleri, pasife
+alınmış kategoriler) yeniden yazılmaz.
+
+Kredi kartlarının hesap kesim ve son ödeme günleri buradaki değerler yalnızca
+başlangıç varsayımıdır; gerçek değerler ayarlardan girilir.
+"""
+
+from __future__ import annotations
+
+import logging
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..config import Settings
+from ..models.category import Category
+from ..models.payment_method import TYPE_CASH, TYPE_CREDIT_CARD, PaymentMethod
+from ..models.user import ROLE_OWNER, User
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_CATEGORIES: tuple[tuple[str, str], ...] = (
+    ("Market", "🛒"),
+    ("Yeme & İçme", "🍽️"),
+    ("Araç", "🚗"),
+    ("Yakıt", "⛽"),
+    ("Ev", "🏠"),
+    ("Faturalar", "🧾"),
+    ("Alışveriş", "🛍️"),
+    ("Giyim", "👕"),
+    ("Sağlık", "🏥"),
+    ("Eğitim", "📚"),
+    ("Eğlence", "🎬"),
+    ("Seyahat", "✈️"),
+    ("Hediye", "🎁"),
+    ("Çocuk", "🧸"),
+    ("Evcil Hayvan", "🐾"),
+    ("Diğer", "📌"),
+)
+
+CASH_METHOD_NAME = "Nakit"
+
+PLACEHOLDER_STATEMENT_DAY = 1
+PLACEHOLDER_DUE_DAY = 15
+
+DEFAULT_CARD_NAMES: tuple[str, ...] = (
+    "Aslıhan Kredi Kartı 1",
+    "Aslıhan Kredi Kartı 2",
+    "Aykut Kredi Kartı 1",
+)
+
+
+async def seed_categories(session: AsyncSession) -> int:
+    existing = set(
+        (await session.scalars(select(Category.name))).all()
+    )
+    created = 0
+    for order, (name, emoji) in enumerate(DEFAULT_CATEGORIES, start=1):
+        if name in existing:
+            continue
+        session.add(Category(name=name, emoji=emoji, sort_order=order))
+        created += 1
+    return created
+
+
+async def seed_users(session: AsyncSession, settings: Settings) -> int:
+    """Yetkili kullanıcıları yapılandırmadan oluşturur.
+
+    Telegram kimlikleri koda gömülmez; `AUTHORIZED_TELEGRAM_IDS` ve
+    `USER_DISPLAY_NAMES` ortam değişkenlerinden gelir. `HA_USER_MAP` verilmişse
+    Home Assistant kimliği de eşlenir.
+    """
+    existing = set(
+        (await session.scalars(select(User.telegram_user_id))).all()
+    )
+    names = settings.display_names
+    ha_by_telegram = {
+        telegram_id: ha_id for ha_id, telegram_id in settings.ha_user_mapping.items()
+    }
+
+    created = 0
+    for telegram_id in sorted(settings.authorized_ids):
+        if telegram_id in existing:
+            continue
+        session.add(
+            User(
+                telegram_user_id=telegram_id,
+                ha_user_id=ha_by_telegram.get(telegram_id),
+                display_name=names.get(telegram_id, f"Kullanıcı {telegram_id}"),
+                role=ROLE_OWNER,
+            )
+        )
+        created += 1
+    return created
+
+
+async def seed_payment_methods(session: AsyncSession) -> int:
+    """Nakit ve başlangıç kartlarını oluşturur.
+
+    Kart günleri yer tutucudur ve bilinçle böyle bırakılmıştır: uydurulmuş bir
+    hesap kesim günü, kullanıcı düzeltene kadar sessizce yanlış ekstre tarihi
+    üretirdi. Yer tutucu değerler ayarlar ekranında düzeltilmek üzere durur.
+    """
+    existing = set(
+        (await session.scalars(select(PaymentMethod.name))).all()
+    )
+    created = 0
+
+    if CASH_METHOD_NAME not in existing:
+        session.add(PaymentMethod(name=CASH_METHOD_NAME, type=TYPE_CASH))
+        created += 1
+
+    for name in DEFAULT_CARD_NAMES:
+        if name in existing:
+            continue
+        session.add(
+            PaymentMethod(
+                name=name,
+                type=TYPE_CREDIT_CARD,
+                statement_day=PLACEHOLDER_STATEMENT_DAY,
+                due_day=PLACEHOLDER_DUE_DAY,
+                notes="Hesap kesim ve son ödeme günlerini ayarlardan güncelleyin.",
+            )
+        )
+        created += 1
+    return created
+
+
+async def seed_all(session: AsyncSession, settings: Settings) -> dict[str, int]:
+    """Tüm başlangıç verisini tek transaction içinde oluşturur."""
+    try:
+        counts = {
+            "categories": await seed_categories(session),
+            "payment_methods": await seed_payment_methods(session),
+            "users": await seed_users(session, settings),
+        }
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+
+    if any(counts.values()):
+        logger.info("Başlangıç verisi eklendi: %s", counts)
+    return counts
