@@ -21,6 +21,7 @@ from ..models.payment_method import TYPE_CASH, PaymentMethod
 from ..models.user import User
 from ..services import (
     budgets,
+    cashflow,
     reports,
     search as search_service,
     settings_service,
@@ -102,6 +103,15 @@ async def add_expense_prompt(message: Message, settings: Settings) -> None:
         await message.answer(FORM_UNAVAILABLE, parse_mode="HTML")
         return
     await message.answer("Formu açmak için ➕ Harcama Ekle düğmesini kullan.")
+
+
+@router.message(F.text == keyboards.BUTTON_POSITION)
+async def position(message: Message, session: AsyncSession, settings: Settings) -> None:
+    """Bu ay cebinden ne çıkacak, geriye ne kalacak."""
+    report = await cashflow.monthly_position(
+        session, today=local_today(settings.timezone)
+    )
+    await message.answer(messages.monthly_position(report), parse_mode="HTML")
 
 
 @router.message(F.text == keyboards.BUTTON_MONTH)

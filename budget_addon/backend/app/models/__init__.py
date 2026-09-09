@@ -8,6 +8,7 @@ from .audit_log import AuditLog
 from .base import Base
 from .category import Category
 from .expense import Expense, format_public_id
+from .income import Income
 from .installment import ExpenseInstallment
 from .notification_log import NotificationLog
 from .payment_method import PaymentMethod
@@ -19,6 +20,7 @@ __all__ = [
     "Base",
     "Category",
     "Expense",
+    "Income",
     "ExpenseInstallment",
     "NotificationLog",
     "PaymentMethod",

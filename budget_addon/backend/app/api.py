@@ -38,6 +38,9 @@ from .schemas import (
     PaymentMethodOut,
     PaymentMethodUpdateIn,
     BudgetStatusOut,
+    IncomeCreateIn,
+    IncomeOut,
+    MonthlyPositionOut,
     RecurringExpenseCreateIn,
     RecurringExpenseOut,
     RecurringExpenseUpdateIn,
@@ -50,6 +53,8 @@ from .schemas import (
 from .security.identity import current_user
 from .services import (
     budgets,
+    cashflow,
+    income as income_service,
     recurring,
     reports,
     search as search_service,
@@ -694,3 +699,88 @@ async def budget_report(
         )
         for status in statuses
     ]
+
+
+# ---------------------------------------------------------------------------
+# Gelirler ve nakit durumu
+# ---------------------------------------------------------------------------
+
+
+def _income_out(record) -> IncomeOut:
+    return IncomeOut(
+        id=record.id,
+        source=record.source,
+        amount=Money.of(record.amount_minor),
+        received_date=record.received_date,
+        notes=record.notes,
+    )
+
+
+@router.get("/incomes", response_model=list[IncomeOut])
+async def read_incomes(
+    year: int | None = None,
+    month: int | None = None,
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> list[IncomeOut]:
+    today = local_today(settings.timezone)
+    records = await income_service.list_incomes(
+        session, year=year or today.year, month=month or today.month
+    )
+    return [_income_out(record) for record in records]
+
+
+@router.post("/incomes", response_model=IncomeOut, status_code=status.HTTP_201_CREATED)
+async def add_income(
+    payload: IncomeCreateIn,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> IncomeOut:
+    try:
+        record = await income_service.create_income(
+            session,
+            user=user,
+            amount=payload.amount_minor,
+            received_date=payload.received_date or local_today(settings.timezone),
+            source=payload.source,
+            notes=payload.notes,
+        )
+    except (income_service.IncomeError, ValueError) as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    return _income_out(record)
+
+
+@router.delete("/incomes/{income_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_income(
+    income_id: int,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    record = await income_service.get_income(session, income_id)
+    if record is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Gelir kaydı bulunamadı")
+    await income_service.soft_delete_income(session, user=user, record=record)
+
+
+@router.get("/reports/position", response_model=MonthlyPositionOut)
+async def position_report(
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> MonthlyPositionOut:
+    """Bu ayın nakit durumu: gelir, çıkışlar ve kalan."""
+    report = await cashflow.monthly_position(
+        session, today=local_today(settings.timezone)
+    )
+    return MonthlyPositionOut(
+        year=report.year,
+        month=report.month,
+        income=Money.of(report.income_minor),
+        card_due=Money.of(report.card_due_minor),
+        cash_spent=Money.of(report.cash_spent_minor),
+        expected_recurring=Money.of(report.expected_recurring_minor),
+        outflow=Money.of(report.outflow_minor),
+        remaining=Money.of(report.remaining_minor),
+    )

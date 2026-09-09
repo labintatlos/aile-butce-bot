@@ -300,3 +300,32 @@ class RecurringExpenseUpdateIn(BaseModel):
     day_of_month: int | None = Field(default=None, ge=1, le=31)
     notes: str | None = Field(default=None, max_length=500)
     is_active: bool | None = None
+
+
+class IncomeOut(BaseModel):
+    id: int
+    source: str
+    amount: Money
+    received_date: date
+    notes: str | None = None
+
+
+class IncomeCreateIn(BaseModel):
+    amount_minor: int = Field(gt=0)
+    received_date: date | None = None
+    """Boş bırakılırsa bugün kabul edilir."""
+    source: str = Field(default="Gelir", min_length=1, max_length=64)
+    notes: str | None = Field(default=None, max_length=500)
+
+
+class MonthlyPositionOut(BaseModel):
+    """Ayın nakit durumu: ne girdi, ne çıkacak, ne kalır."""
+
+    year: int
+    month: int
+    income: Money
+    card_due: Money
+    cash_spent: Money
+    expected_recurring: Money
+    outflow: Money
+    remaining: Money

@@ -529,3 +529,65 @@ def budget_alert(alert) -> str:
             closing,
         ]
     )
+
+
+NO_INCOME_YET = (
+    "Bu ay henüz gelir kaydı yok.\n\n"
+    "Gelirini girince ay sonunda ne kalacağını da görebilirsin:\n"
+    "<code>/gelir 45000 Maaş</code>"
+)
+
+
+def monthly_position(position) -> str:
+    """`💰 Durum`: bu ay cebinden ne çıkacak, ne kalacak."""
+    lines = [
+        f"💰 <b>{month_name(position.year, position.month)} durumu</b>",
+        "",
+        f"Gelir: {money(position.income_minor)}",
+        "",
+        "Çıkışlar:",
+        f"  💳 Kart ödemeleri: {money(position.card_due_minor)}",
+        f"  💵 Nakit harcama: {money(position.cash_spent_minor)}",
+    ]
+    if position.expected_recurring_minor:
+        lines.append(
+            f"  🔁 Bekleyen sabit gider: {money(position.expected_recurring_minor)}"
+        )
+    lines += ["", f"Toplam çıkış: {money(position.outflow_minor)}"]
+
+    if not position.has_income:
+        lines += ["", NO_INCOME_YET]
+        return "\n".join(lines)
+
+    remaining = position.remaining_minor
+    if remaining >= 0:
+        lines += ["", f"✅ Kalan: {money(remaining)}"]
+    else:
+        lines += ["", f"🚨 Açık: {money(-remaining)}"]
+    return "\n".join(lines)
+
+
+def income_list(records) -> str:
+    """`/gelirler` çıktısı."""
+    if not records:
+        return NO_INCOME_YET
+
+    total = sum(record.amount_minor for record in records)
+    lines = ["💰 <b>Bu ayın gelirleri</b>", ""]
+    for record in records:
+        lines.append(
+            f"<code>{record.id}</code> · {record.source}\n"
+            f"    {money(record.amount_minor)} · {short_date(record.received_date)}"
+        )
+    lines += ["", f"Toplam: {money(total)}"]
+    return "\n".join(lines)
+
+
+def income_add_usage() -> str:
+    return (
+        "<b>Gelir kaydı</b>\n\n"
+        "<code>/gelir 45000 Maaş</code>\n"
+        "<code>/gelir 2.500,50 Kira geliri</code>\n\n"
+        "Kaynak yazılmazsa yalnızca <i>Gelir</i> olarak kaydedilir.\n"
+        "Listelemek için /gelirler, silmek için <code>/gelirsil 4</code>"
+    )

@@ -32,7 +32,7 @@ from ..config import Settings
 from ..models.category import Category
 from ..models.payment_method import TYPE_CREDIT_CARD, PaymentMethod
 from ..models.user import User
-from ..services import budgets, recurring, settings_service
+from ..services import budgets, income, recurring, settings_service
 from ..services.finance.money import parse_amount_to_minor
 from ..services.quick_entry import fold
 from ..utils.time import local_today
@@ -691,3 +691,61 @@ async def clear_budget(message: Message, user: User, session: AsyncSession) -> N
     await message.answer(
         f"🎯 <b>{category.name}</b> hedefi kaldırıldı.", parse_mode="HTML"
     )
+
+
+# ---------------------------------------------------------------------------
+# Gelirler
+# ---------------------------------------------------------------------------
+
+
+@router.message(Command("gelir"))
+async def add_income(
+    message: Message, user: User, session: AsyncSession, settings: Settings
+) -> None:
+    arguments = _arguments(message)
+    if not arguments:
+        await message.answer(messages.income_add_usage(), parse_mode="HTML")
+        return
+
+    raw_amount, _, source = arguments.partition(" ")
+    try:
+        record = await income.create_income(
+            session,
+            user=user,
+            amount=raw_amount,
+            received_date=local_today(settings.timezone),
+            source=source.strip() or income.DEFAULT_SOURCE,
+        )
+    except ValueError as error:
+        await message.answer(f"⚠️ {error}\n\n{messages.income_add_usage()}", parse_mode="HTML")
+        return
+
+    await message.answer(
+        f"💰 <b>{record.source}</b> kaydedildi: {messages.money(record.amount_minor)}"
+        "\n\nAy sonunda ne kalacağını görmek için 💰 Durum",
+        parse_mode="HTML",
+    )
+
+
+@router.message(Command("gelirler"))
+async def list_incomes(
+    message: Message, session: AsyncSession, settings: Settings
+) -> None:
+    today = local_today(settings.timezone)
+    records = await income.list_incomes(session, year=today.year, month=today.month)
+    await message.answer(messages.income_list(records), parse_mode="HTML")
+
+
+@router.message(Command("gelirsil"))
+async def delete_income(message: Message, user: User, session: AsyncSession) -> None:
+    raw_id = _arguments(message)
+    try:
+        record = await income.get_income(session, int(raw_id))
+    except ValueError:
+        record = None
+    if record is None:
+        await message.answer("Böyle bir gelir kaydı yok. Listelemek için /gelirler")
+        return
+
+    await income.soft_delete_income(session, user=user, record=record)
+    await message.answer(f"🗑 <b>{record.source}</b> silindi.", parse_mode="HTML")
