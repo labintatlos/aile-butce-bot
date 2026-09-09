@@ -24,6 +24,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .api import router
 from .bot.runner import start_polling_task
+from .ha_publisher import start_publisher_task
 from .config import Settings, get_settings
 from .database import dispose_engine, get_session_factory
 from .services.seed import seed_all
@@ -43,11 +44,20 @@ async def lifespan(app: FastAPI):
         await seed_all(session, settings)
 
     bot_task = None
+    publisher_task = None
     if settings.enable_bot:
         bot_task = start_polling_task(settings, get_session_factory())
+        # Sensorler yalnizca tek surecten yazilir; iki uvicorn ornegi ayni
+        # degerleri yazsaydi ikisi de dogru olurdu ama is bosuna iki katina
+        # cikardi. Bot bayragi zaten "birincil surec" anlamini tasiyor.
+        publisher_task = start_publisher_task(settings, get_session_factory())
     try:
         yield
     finally:
+        if publisher_task is not None:
+            publisher_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await publisher_task
         if bot_task is not None:
             # Polling sonsuz dongudur; kapanista acikca iptal edilip
             # bitmesi beklenmezse surec asili kalir.

@@ -50,6 +50,8 @@ export_optional 'backup_retention' BACKUP_RETENTION
 export_optional 'enable_reminders' ENABLE_REMINDERS
 export_optional 'reminder_hour' REMINDER_HOUR
 export_optional 'due_reminder_days' DUE_REMINDER_DAYS
+export_optional 'publish_ha_sensors' PUBLISH_HA_SENSORS
+export_optional 'ha_publish_interval_minutes' HA_PUBLISH_INTERVAL_MINUTES
 
 [[ -z "${TIMEZONE}" ]] && export TIMEZONE="Europe/Istanbul"
 [[ -z "${LOG_LEVEL}" ]] && export LOG_LEVEL="info"
@@ -57,6 +59,12 @@ export_optional 'due_reminder_days' DUE_REMINDER_DAYS
 [[ -z "${ENABLE_REMINDERS}" ]] && export ENABLE_REMINDERS="true"
 [[ -z "${REMINDER_HOUR}" ]] && export REMINDER_HOUR="9"
 [[ -z "${DUE_REMINDER_DAYS}" ]] && export DUE_REMINDER_DAYS="3"
+[[ -z "${PUBLISH_HA_SENSORS}" ]] && export PUBLISH_HA_SENSORS="true"
+[[ -z "${HA_PUBLISH_INTERVAL_MINUTES}" ]] && export HA_PUBLISH_INTERVAL_MINUTES="15"
+
+# Supervisor bu degiskeni ortama kendisi koyar; uygulama onu Home Assistant'a
+# sensor yazarken kullanir. Boşsa (eklenti disinda calisiyorsa) yayim atlanir.
+export SUPERVISOR_TOKEN="${SUPERVISOR_TOKEN:-}"
 
 export DATABASE_PATH="${DATA_DIR}/budget.db"
 export FRONTEND_DIST="/app/frontend"

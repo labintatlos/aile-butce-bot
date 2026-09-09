@@ -28,6 +28,10 @@ ports_description:
 # HA'nin config, ssl, share veya media klasorlerine erisim istenmez.
 map: []
 
+# Butce degerlerini Home Assistant sensorlerine yazabilmek icin gereklidir.
+# Yalnizca durum yazmak icin kullanilir; baska hicbir HA verisi okunmaz.
+homeassistant_api: true
+
 options:
   telegram_bot_token: ""
   authorized_telegram_ids: ""
@@ -40,6 +44,8 @@ options:
   enable_reminders: true
   reminder_hour: 9
   due_reminder_days: 3
+  publish_ha_sensors: true
+  ha_publish_interval_minutes: 15
 
 schema:
   telegram_bot_token: password
@@ -53,3 +59,5 @@ schema:
   enable_reminders: bool
   reminder_hour: int(0,23)
   due_reminder_days: int(0,28)
+  publish_ha_sensors: bool
+  ha_publish_interval_minutes: int(1,1440)

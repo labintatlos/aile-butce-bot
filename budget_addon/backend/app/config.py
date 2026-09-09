@@ -17,6 +17,7 @@ DEFAULT_DATABASE_PATH = "/data/budget.db"
 DEFAULT_BACKUP_RETENTION = 14
 DEFAULT_REMINDER_HOUR = 9
 DEFAULT_DUE_REMINDER_DAYS = 3
+DEFAULT_HA_PUBLISH_MINUTES = 15
 INGRESS_PORT = 8099
 PUBLIC_PORT = 8100
 
@@ -43,6 +44,14 @@ class Settings(BaseSettings):
     gönderilir; gün içinde başka bildirim yapılmaz."""
     due_reminder_days: int = DEFAULT_DUE_REMINDER_DAYS
     """Son ödeme uyarısının kaç gün önceden gönderileceği."""
+
+    supervisor_token: str = ""
+    """Home Assistant Supervisor belirteci.
+
+    Eklenti içinde çalışırken Supervisor bunu ortama koyar; dışarıda
+    çalışırken boştur ve sensör yayımı sessizce devre dışı kalır."""
+    publish_ha_sensors: bool = True
+    ha_publish_interval_minutes: int = DEFAULT_HA_PUBLISH_MINUTES
 
     debug: bool = False
     allow_dev_auth: bool = False
@@ -144,6 +153,8 @@ class Settings(BaseSettings):
             "telegram_bot_token_configured": bool(self.telegram_bot_token),
             "enable_reminders": self.enable_reminders,
             "reminder_hour": self.reminder_hour,
+            "publish_ha_sensors": self.publish_ha_sensors,
+            "supervisor_token_present": bool(self.supervisor_token),
         }
 
 
