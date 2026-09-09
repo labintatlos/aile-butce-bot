@@ -6,7 +6,7 @@ Telegram'a bağlı olmadıkları için doğrudan test edilebilirler.
 
 from __future__ import annotations
 
-from ..services import reports
+from ..services import reminders, reports
 from .formatting import installment_label, long_date, money, month_name, short_date
 
 EMPTY_MONTH = "Bu ay henüz harcama kaydı yok."
@@ -316,3 +316,83 @@ def category_list(categories) -> str:
         "<code>/kategoripasif &lt;no&gt;</code> · <code>/kategoriaktif &lt;no&gt;</code>",
     ]
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Zamanlanmış hatırlatmalar
+# ---------------------------------------------------------------------------
+
+REMINDER_HEADINGS = {
+    reminders.KIND_STATEMENT_CUT: "💳 Bugün ekstre kesiliyor",
+    reminders.KIND_DUE_TODAY: "🔔 Bugün son ödeme günü",
+    reminders.KIND_DUE_SOON: "⏰ Son ödeme yaklaşıyor",
+}
+
+
+def card_notice(notice: reminders.CardNotice) -> str:
+    """Ekstre kesimi ve son ödeme hatırlatmalarının metni."""
+    lines = [
+        REMINDER_HEADINGS[notice.kind],
+        "",
+        notice.payment_method_name,
+        money(notice.total_minor),
+        f"{notice.installment_count} taksit kalemi",
+        "",
+    ]
+    if notice.kind == reminders.KIND_STATEMENT_CUT:
+        lines.append(f"Son ödeme: {long_date(notice.due_date)}")
+    elif notice.kind == reminders.KIND_DUE_SOON:
+        lines.append(
+            f"Son ödeme: {long_date(notice.due_date)}"
+            f" ({notice.days_until_due} gün kaldı)"
+        )
+    else:
+        lines.append(f"Son ödeme: bugün, {long_date(notice.due_date)}")
+    return "\n".join(lines)
+
+
+def period_summary(summary: reminders.PeriodSummary) -> str:
+    """Haftalık ve aylık kapanış özetinin metni."""
+    if summary.kind == reminders.KIND_WEEKLY:
+        heading = (
+            f"🗓 Geçen hafta ({short_date(summary.start)} – {short_date(summary.end)})"
+        )
+    else:
+        heading = f"📅 {month_name(summary.start.year, summary.start.month)} kapanışı"
+
+    lines = [
+        heading,
+        "",
+        f"Toplam harcama: {money(summary.total_minor)}",
+        f"İşlem sayısı: {summary.transaction_count}",
+    ]
+
+    if summary.by_user:
+        lines.append("")
+        for person in summary.by_user:
+            lines.append(f"👤 {person.name}: {money(person.total_minor)}")
+
+    if summary.by_category:
+        lines += ["", "Kategoriler:"]
+        for item in summary.by_category[:TOP_CATEGORY_LIMIT]:
+            label = f"{item.emoji} {item.name}".strip()
+            lines.append(f"  {label}: {money(item.total_minor)}")
+
+    return "\n".join(lines)
+
+
+def reminder_status(*, enabled: bool, hour: int, days_before_due: int) -> str:
+    """`/hatirlatici` çıktısı: neyin ne zaman geleceğini açıkça söyler."""
+    if not enabled:
+        return (
+            "🔕 Hatırlatmalar <b>kapalı</b>.\n\n"
+            "Açmak için: /hatirlaticiac"
+        )
+    return (
+        "🔔 Hatırlatmalar <b>açık</b>.\n\n"
+        f"Her gün {hour:02d}:00'da gönderilir:\n"
+        "• Ekstre kesim günü\n"
+        f"• Son ödemeye {days_before_due} gün kala ve son ödeme günü\n"
+        "• Pazartesi haftalık, ayın 1'inde aylık özet\n\n"
+        "Kapatmak için: /hatirlaticikapat"
+    )

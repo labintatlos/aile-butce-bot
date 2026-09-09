@@ -22,6 +22,13 @@ class User(TimestampMixin, Base):
     display_name: Mapped[str] = mapped_column(String(64))
     role: Mapped[str] = mapped_column(String(16), default=ROLE_MEMBER)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    reminders_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="1"
+    )
+    """Zamanlanmış hatırlatmalar bu kullanıcıya gönderilsin mi.
+
+    Varsayılan açıktır; kullanıcı bottan `/hatirlaticikapat` ile kapatabilir.
+    Kapalıyken hiçbir hatırlatma gönderilmez, harcama kaydı etkilenmez."""
 
     def __repr__(self) -> str:  # pragma: no cover - hata ayiklama kolayligi
         return f"<User {self.display_name} tg={self.telegram_user_id}>"

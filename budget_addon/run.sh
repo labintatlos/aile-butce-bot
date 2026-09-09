@@ -47,10 +47,16 @@ export_optional 'webapp_public_url' WEBAPP_PUBLIC_URL
 export_optional 'timezone' TIMEZONE
 export_optional 'log_level' LOG_LEVEL
 export_optional 'backup_retention' BACKUP_RETENTION
+export_optional 'enable_reminders' ENABLE_REMINDERS
+export_optional 'reminder_hour' REMINDER_HOUR
+export_optional 'due_reminder_days' DUE_REMINDER_DAYS
 
 [[ -z "${TIMEZONE}" ]] && export TIMEZONE="Europe/Istanbul"
 [[ -z "${LOG_LEVEL}" ]] && export LOG_LEVEL="info"
 [[ -z "${BACKUP_RETENTION}" ]] && export BACKUP_RETENTION="14"
+[[ -z "${ENABLE_REMINDERS}" ]] && export ENABLE_REMINDERS="true"
+[[ -z "${REMINDER_HOUR}" ]] && export REMINDER_HOUR="9"
+[[ -z "${DUE_REMINDER_DAYS}" ]] && export DUE_REMINDER_DAYS="3"
 
 export DATABASE_PATH="${DATA_DIR}/budget.db"
 export FRONTEND_DIST="/app/frontend"

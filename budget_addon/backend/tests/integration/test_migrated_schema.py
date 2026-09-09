@@ -160,3 +160,23 @@ async def test_the_migrated_schema_has_no_leftover_due_day_column(migrated_datab
 async def test_no_expenses_exist_in_a_fresh_installation(migrated_session, settings):
     await seed_all(migrated_session, settings)
     assert await migrated_session.scalar(select(Expense)) is None
+
+
+async def test_the_migrated_schema_carries_the_reminder_tables(migrated_database):
+    """Hatırlatma göçü gerçek göç zincirinde de uygulanmalıdır."""
+    import sqlite3
+
+    connection = sqlite3.connect(migrated_database)
+    try:
+        tables = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+        }
+        user_columns = {row[1] for row in connection.execute("PRAGMA table_info(users)")}
+    finally:
+        connection.close()
+
+    assert "notification_log" in tables
+    assert "reminders_enabled" in user_columns

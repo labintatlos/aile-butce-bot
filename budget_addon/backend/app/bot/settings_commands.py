@@ -28,6 +28,7 @@ from aiogram.filters import Command
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..config import Settings
 from ..models.category import Category
 from ..models.payment_method import TYPE_CREDIT_CARD, PaymentMethod
 from ..models.user import User
@@ -387,3 +388,43 @@ async def _toggle_category(
     await settings_service.set_active(session, user=user, entity=category, active=active)
     state = "aktif edildi" if active else "pasife alındı"
     await message.answer(f"✅ <b>{category.name}</b> {state}.", parse_mode="HTML")
+
+
+# ---------------------------------------------------------------------------
+# Hatırlatmalar
+# ---------------------------------------------------------------------------
+
+
+@router.message(Command("hatirlatici"))
+async def reminder_status(
+    message: Message, user: User, settings: Settings
+) -> None:
+    await message.answer(
+        messages.reminder_status(
+            enabled=user.reminders_enabled,
+            hour=settings.reminder_hour,
+            days_before_due=settings.due_reminder_days,
+        ),
+        parse_mode="HTML",
+    )
+
+
+@router.message(Command("hatirlaticiac"))
+async def enable_reminders(message: Message, user: User, session: AsyncSession) -> None:
+    await _set_reminders(message, user, session, enabled=True)
+
+
+@router.message(Command("hatirlaticikapat"))
+async def disable_reminders(
+    message: Message, user: User, session: AsyncSession
+) -> None:
+    await _set_reminders(message, user, session, enabled=False)
+
+
+async def _set_reminders(
+    message: Message, user: User, session: AsyncSession, *, enabled: bool
+) -> None:
+    user.reminders_enabled = enabled
+    await session.commit()
+    state = "açıldı" if enabled else "kapatıldı"
+    await message.answer(f"🔔 Hatırlatmalar {state}.")

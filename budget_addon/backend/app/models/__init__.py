@@ -9,6 +9,7 @@ from .base import Base
 from .category import Category
 from .expense import Expense, format_public_id
 from .installment import ExpenseInstallment
+from .notification_log import NotificationLog
 from .payment_method import PaymentMethod
 from .user import User
 
@@ -18,6 +19,7 @@ __all__ = [
     "Category",
     "Expense",
     "ExpenseInstallment",
+    "NotificationLog",
     "PaymentMethod",
     "User",
     "format_public_id",

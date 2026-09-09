@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from contextlib import suppress
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -21,6 +22,7 @@ from aiogram.utils.token import TokenValidationError
 from ..config import Settings
 from .authorization import AuthorizationMiddleware
 from .handlers import router
+from .scheduler import run_scheduler
 from .settings_commands import router as settings_router
 
 logger = logging.getLogger(__name__)
@@ -63,9 +65,16 @@ async def run_polling(settings: Settings, session_factory) -> None:
     # Bot nesnesi de try icinde kurulur: bicimsel olarak bozuk bir token
     # hatasi burada olusur ve disarida kalsaydi yakalanamazdi.
     bot: Bot | None = None
+    reminder_task: asyncio.Task | None = None
     try:
         bot = build_bot(settings)
         dispatcher = build_dispatcher(settings, session_factory)
+        if settings.enable_reminders:
+            # Hatirlatmalar botun omrune baglidir: bot yoksa gonderecek kanal
+            # da yoktur, bot dururken zamanlayicinin ayakta kalmasi anlamsizdir.
+            reminder_task = asyncio.create_task(
+                run_scheduler(bot, settings, session_factory)
+            )
         # Birikmis guncellemeler atlanir: yeniden baslatmada eski mesajlara
         # toplu yanit vermek kafa karistirici olurdu.
         await bot.delete_webhook(drop_pending_updates=True)
@@ -86,6 +95,10 @@ async def run_polling(settings: Settings, session_factory) -> None:
             "devam ediyor."
         )
     finally:
+        if reminder_task is not None:
+            reminder_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await reminder_task
         if bot is not None:
             await bot.session.close()
 

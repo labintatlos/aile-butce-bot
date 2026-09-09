@@ -37,6 +37,9 @@ options:
   timezone: Europe/Istanbul
   log_level: info
   backup_retention: 14
+  enable_reminders: true
+  reminder_hour: 9
+  due_reminder_days: 3
 
 schema:
   telegram_bot_token: password
@@ -47,3 +50,6 @@ schema:
   timezone: str
   log_level: list(debug|info|warning|error)
   backup_retention: int(1,365)
+  enable_reminders: bool
+  reminder_hour: int(0,23)
+  due_reminder_days: int(0,28)

@@ -15,6 +15,8 @@ from .utils.time import DEFAULT_TIMEZONE
 
 DEFAULT_DATABASE_PATH = "/data/budget.db"
 DEFAULT_BACKUP_RETENTION = 14
+DEFAULT_REMINDER_HOUR = 9
+DEFAULT_DUE_REMINDER_DAYS = 3
 INGRESS_PORT = 8099
 PUBLIC_PORT = 8100
 
@@ -32,6 +34,15 @@ class Settings(BaseSettings):
     timezone: str = DEFAULT_TIMEZONE
     log_level: str = "info"
     backup_retention: int = DEFAULT_BACKUP_RETENTION
+
+    enable_reminders: bool = True
+    reminder_hour: int = DEFAULT_REMINDER_HOUR
+    """Günlük hatırlatmaların gönderileceği yerel saat (0-23).
+
+    Ekstre kesimi, yaklaşan son ödeme ve dönem özetleri bu saatte tek seferde
+    gönderilir; gün içinde başka bildirim yapılmaz."""
+    due_reminder_days: int = DEFAULT_DUE_REMINDER_DAYS
+    """Son ödeme uyarısının kaç gün önceden gönderileceği."""
 
     debug: bool = False
     allow_dev_auth: bool = False
@@ -54,6 +65,15 @@ class Settings(BaseSettings):
     """
 
     user_display_names: str = Field(default="", description="telegram_id:Ad,...")
+
+    @field_validator("reminder_hour")
+    @classmethod
+    def _check_reminder_hour(cls, value: int) -> int:
+        if not 0 <= value <= 23:
+            raise ValueError(
+                "'reminder_hour' 0 ile 23 arasında bir saat olmalıdır."
+            )
+        return value
 
     @field_validator("log_level")
     @classmethod
@@ -122,6 +142,8 @@ class Settings(BaseSettings):
             "ha_user_mappings": len(self.ha_user_mapping),
             "webapp_public_url_configured": bool(self.public_url),
             "telegram_bot_token_configured": bool(self.telegram_bot_token),
+            "enable_reminders": self.enable_reminders,
+            "reminder_hour": self.reminder_hour,
         }
 
 
