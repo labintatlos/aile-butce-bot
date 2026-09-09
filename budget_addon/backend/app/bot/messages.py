@@ -396,3 +396,72 @@ def reminder_status(*, enabled: bool, hour: int, days_before_due: int) -> str:
         "• Pazartesi haftalık, ayın 1'inde aylık özet\n\n"
         "Kapatmak için: /hatirlaticikapat"
     )
+
+
+def recurring_created(*, name: str, amount_minor: int, when, public_id: str) -> str:
+    """Sabit giderin otomatik kaydedildiğini bildiren mesaj."""
+    return "\n".join(
+        [
+            "🔁 Sabit gider kaydedildi",
+            "",
+            name,
+            money(amount_minor),
+            long_date(when),
+            "",
+            f"İşlem: #{public_id}",
+            "",
+            "Tutar değiştiyse kaydı düzenleyebilirsin: /sabit",
+        ]
+    )
+
+
+EMPTY_RECURRING = (
+    "Henüz sabit gider tanımlı değil.\n\n"
+    "Kira, aidat, abonelik gibi her ay tekrar eden ödemeleri buraya ekleyince"
+    " sistem onları kendisi kaydeder ve gelecek yük raporunda görünürler."
+)
+
+
+def recurring_add_usage() -> str:
+    return (
+        "<b>Sabit gider ekleme</b>\n\n"
+        "<code>/sabitekle Ad | tutar | gün | kategori | ödeme yöntemi</code>\n\n"
+        "Örnek:\n"
+        "<code>/sabitekle Kira | 15000 | 1 | Kira | Nakit</code>\n"
+        "<code>/sabitekle Netflix | 229,90 | 12 | Eğlence | Aykut Kredi Kartı 1</code>\n\n"
+        "Gün, ayın kaçında kaydedileceğidir. Ay o kadar gün sürmüyorsa ayın son"
+        " gününe düşer."
+    )
+
+
+def recurring_list(templates, *, categories, methods) -> str:
+    """`/sabit` çıktısı: neyin ne zaman, ne kadar kaydedileceği."""
+    if not templates:
+        return EMPTY_RECURRING
+
+    active = [item for item in templates if item.is_active]
+    monthly_total = sum(item.amount_minor for item in active)
+
+    lines = ["🔁 <b>Sabit giderler</b>", ""]
+    for template in templates:
+        category = categories.get(template.category_id)
+        method = methods.get(template.payment_method_id)
+        label = f"{category.emoji} {category.name}".strip() if category else "?"
+        state = "" if template.is_active else "  (durduruldu)"
+        lines.append(
+            f"<code>{template.id}</code> · <b>{template.name}</b>{state}\n"
+            f"    {money(template.amount_minor)} · her ayın {template.day_of_month}."
+            f" günü\n"
+            f"    {label} · {method.name if method else '?'}"
+        )
+    lines += ["", f"Aylık toplam: {money(monthly_total)}"]
+    return "\n".join(lines)
+
+
+def recurring_created_template(template, *, method_name: str) -> str:
+    return (
+        f"✅ <b>{template.name}</b> sabit giderlere eklendi.\n\n"
+        f"{money(template.amount_minor)} · her ayın {template.day_of_month}. günü\n"
+        f"{method_name}\n\n"
+        "Günü geldiğinde otomatik kaydedilecek ve haber verilecek."
+    )

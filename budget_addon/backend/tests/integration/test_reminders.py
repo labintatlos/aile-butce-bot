@@ -189,10 +189,10 @@ async def test_reminder_is_sent_once_and_not_repeated(
     bot = FakeBot()
     at_nine = datetime(2026, 9, 10, 9, 0)
 
-    first = await scheduler.deliver_due_reminders(
+    first = await scheduler.run_daily_jobs(
         bot, _settings(), _factory(async_session), now=at_nine
     )
-    second = await scheduler.deliver_due_reminders(
+    second = await scheduler.run_daily_jobs(
         bot, _settings(), _factory(async_session), now=at_nine.replace(minute=30)
     )
 
@@ -210,7 +210,7 @@ async def test_nothing_is_sent_outside_the_reminder_hour(
     await _add(async_session, people["aykut"], fixtures)
     bot = FakeBot()
 
-    sent = await scheduler.deliver_due_reminders(
+    sent = await scheduler.run_daily_jobs(
         bot,
         _settings(),
         _factory(async_session),
@@ -233,7 +233,7 @@ async def test_user_who_turned_reminders_off_is_skipped(
     await async_session.commit()
     bot = FakeBot()
 
-    sent = await scheduler.deliver_due_reminders(
+    sent = await scheduler.run_daily_jobs(
         bot, _settings(), _factory(async_session), now=datetime(2026, 9, 10, 9, 0)
     )
 
@@ -260,7 +260,7 @@ async def test_failed_delivery_is_retried_on_the_next_tick(
     at_nine = datetime(2026, 9, 10, 9, 0)
 
     assert (
-        await scheduler.deliver_due_reminders(
+        await scheduler.run_daily_jobs(
             bot, _settings(), _factory(async_session), now=at_nine
         )
         == 0
@@ -268,8 +268,42 @@ async def test_failed_delivery_is_retried_on_the_next_tick(
 
     bot.fail = False
     assert (
-        await scheduler.deliver_due_reminders(
+        await scheduler.run_daily_jobs(
             bot, _settings(), _factory(async_session), now=at_nine
         )
         == 2
     )
+
+
+async def test_daily_run_records_the_fixed_expense_and_announces_it(
+    async_session, people, fixtures
+):
+    """Sabit gider günlük işin parçasıdır: önce kaydedilir, sonra haber verilir."""
+    from app.services import recurring
+
+    await recurring.create_template(
+        async_session,
+        user=people["aykut"],
+        name="Kira",
+        category_id=fixtures["category"].id,
+        payment_method_id=fixtures["cash"].id,
+        amount="15.000",
+        day_of_month=10,
+        start_date=date(2026, 9, 1),
+    )
+    bot = FakeBot()
+
+    await scheduler.run_daily_jobs(
+        bot, _settings(), _factory(async_session), now=datetime(2026, 9, 10, 9, 0)
+    )
+
+    announcements = [text for _, text in bot.sent if "Sabit gider" in text]
+    assert len(announcements) == 2
+    assert "Kira" in announcements[0]
+
+    # Ikinci uyanista ne kayit ne de bildirim tekrarlanir.
+    before = len(bot.sent)
+    await scheduler.run_daily_jobs(
+        bot, _settings(), _factory(async_session), now=datetime(2026, 9, 10, 9, 30)
+    )
+    assert len(bot.sent) == before

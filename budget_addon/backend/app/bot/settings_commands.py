@@ -32,7 +32,10 @@ from ..config import Settings
 from ..models.category import Category
 from ..models.payment_method import TYPE_CREDIT_CARD, PaymentMethod
 from ..models.user import User
-from ..services import settings_service
+from ..services import recurring, settings_service
+from ..services.finance.money import parse_amount_to_minor
+from ..services.quick_entry import fold
+from ..utils.time import local_today
 from . import messages
 
 logger = logging.getLogger(__name__)
@@ -428,3 +431,191 @@ async def _set_reminders(
     await session.commit()
     state = "açıldı" if enabled else "kapatıldı"
     await message.answer(f"🔔 Hatırlatmalar {state}.")
+
+
+# ---------------------------------------------------------------------------
+# Sabit giderler
+# ---------------------------------------------------------------------------
+
+RECURRING_FIELD_COUNT = 5
+
+
+def _match_by_name(needle: str, items):
+    """Ada göre tam veya tekil önek eşleşmesi arar.
+
+    Hızlı girişteki kuralın aynısı: birden fazla adaya uyan bir metin kabul
+    edilmez, çünkü hangisinin kastedildiğini tahmin etmek kullanıcının
+    parasıyla kumar oynamaktır.
+    """
+    folded = fold(needle.strip())
+    if not folded:
+        return None
+    exact = [item for item in items if fold(item.name) == folded]
+    if len(exact) == 1:
+        return exact[0]
+    prefixed = [item for item in items if fold(item.name).startswith(folded)]
+    return prefixed[0] if len(prefixed) == 1 else None
+
+
+@router.message(Command("sabit"))
+async def list_recurring(message: Message, session: AsyncSession) -> None:
+    templates = await recurring.list_templates(session, include_inactive=True)
+    categories = {c.id: c for c in await settings_service.list_categories(session, include_inactive=True)}
+    methods = {m.id: m for m in await settings_service.list_payment_methods(session, include_inactive=True)}
+    await message.answer(
+        messages.recurring_list(templates, categories=categories, methods=methods),
+        parse_mode="HTML",
+    )
+
+
+@router.message(Command("sabitekle"))
+async def add_recurring(
+    message: Message, user: User, session: AsyncSession, settings: Settings
+) -> None:
+    arguments = _arguments(message)
+    parts = [part.strip() for part in arguments.split(NAME_SEPARATOR)]
+    if len(parts) != RECURRING_FIELD_COUNT:
+        await message.answer(messages.recurring_add_usage(), parse_mode="HTML")
+        return
+
+    name, raw_amount, raw_day, raw_category, raw_method = parts
+    if not raw_day.isdigit():
+        await message.answer("Gün yalnızca rakamlardan oluşmalı. Örnek: 1")
+        return
+
+    category = _match_by_name(
+        raw_category, await settings_service.list_categories(session)
+    )
+    if category is None:
+        await message.answer(
+            f"'{raw_category}' kategorisi bulunamadı. Listeyi görmek için /kategori"
+        )
+        return
+
+    method = _match_by_name(
+        raw_method, await settings_service.list_payment_methods(session)
+    )
+    if method is None:
+        await message.answer(f"'{raw_method}' ödeme yöntemi bulunamadı.")
+        return
+
+    try:
+        template = await recurring.create_template(
+            session,
+            user=user,
+            name=name,
+            category_id=category.id,
+            payment_method_id=method.id,
+            amount=raw_amount,
+            day_of_month=int(raw_day),
+            start_date=local_today(settings.timezone),
+        )
+    except (recurring.RecurringError, ValueError) as error:
+        await message.answer(f"⚠️ {error}")
+        return
+
+    await message.answer(
+        messages.recurring_created_template(template, method_name=method.name),
+        parse_mode="HTML",
+    )
+
+
+async def _load_template(message: Message, session: AsyncSession, raw_id: str):
+    try:
+        template = await recurring.get_template(session, int(raw_id))
+    except ValueError:
+        template = None
+    if template is None:
+        await message.answer("Böyle bir sabit gider yok. Listeyi görmek için /sabit")
+    return template
+
+
+@router.message(Command("sabittutar"))
+async def change_recurring_amount(
+    message: Message, user: User, session: AsyncSession
+) -> None:
+    raw_id, _, raw_amount = _arguments(message).partition(" ")
+    template = await _load_template(message, session, raw_id)
+    if template is None:
+        return
+    try:
+        amount_minor = parse_amount_to_minor(raw_amount.strip())
+    except ValueError as error:
+        await message.answer(f"⚠️ {error}")
+        return
+
+    await recurring.update_template(
+        session, user=user, template=template, amount_minor=amount_minor
+    )
+    await message.answer(
+        f"✅ <b>{template.name}</b> tutarı {messages.money(amount_minor)} oldu."
+        "\n\nGeçmiş aylarda kaydedilmiş tutarlar değişmedi.",
+        parse_mode="HTML",
+    )
+
+
+@router.message(Command("sabitgun"))
+async def change_recurring_day(
+    message: Message, user: User, session: AsyncSession
+) -> None:
+    raw_id, _, raw_day = _arguments(message).partition(" ")
+    template = await _load_template(message, session, raw_id)
+    if template is None:
+        return
+    if not raw_day.strip().isdigit():
+        await message.answer("Gün yalnızca rakamlardan oluşmalı. Örnek: /sabitgun 3 15")
+        return
+
+    try:
+        await recurring.update_template(
+            session, user=user, template=template, day_of_month=int(raw_day)
+        )
+    except ValueError as error:
+        await message.answer(f"⚠️ {error}")
+        return
+    await message.answer(
+        f"✅ <b>{template.name}</b> artık her ayın {template.day_of_month}. günü"
+        " kaydedilecek.",
+        parse_mode="HTML",
+    )
+
+
+@router.message(Command("sabitsil"))
+async def delete_recurring(message: Message, user: User, session: AsyncSession) -> None:
+    template = await _load_template(message, session, _arguments(message))
+    if template is None:
+        return
+    name = template.name
+    await recurring.delete_template(session, user=user, template=template)
+    await message.answer(
+        f"🗑 <b>{name}</b> sabit giderlerden çıkarıldı."
+        "\n\nDaha önce kaydedilmiş harcamalar duruyor.",
+        parse_mode="HTML",
+    )
+
+
+@router.message(Command("sabitpasif"))
+async def deactivate_recurring(
+    message: Message, user: User, session: AsyncSession
+) -> None:
+    await _toggle_recurring(message, user, session, active=False)
+
+
+@router.message(Command("sabitaktif"))
+async def activate_recurring(
+    message: Message, user: User, session: AsyncSession
+) -> None:
+    await _toggle_recurring(message, user, session, active=True)
+
+
+async def _toggle_recurring(
+    message: Message, user: User, session: AsyncSession, *, active: bool
+) -> None:
+    template = await _load_template(message, session, _arguments(message))
+    if template is None:
+        return
+    await recurring.update_template(
+        session, user=user, template=template, is_active=active
+    )
+    state = "aktif edildi" if active else "durduruldu"
+    await message.answer(f"✅ <b>{template.name}</b> {state}.", parse_mode="HTML")

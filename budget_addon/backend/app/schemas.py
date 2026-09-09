@@ -243,3 +243,42 @@ class SearchResultOut(BaseModel):
     page_size: int
     total_pages: int
     has_next: bool
+
+
+class RecurringExpenseOut(BaseModel):
+    """Sabit gider şablonu.
+
+    Bu bir harcama değil, her ay hangi harcamanın oluşturulacağının tarifidir;
+    tutar yalnızca varsayılandır ve değiştirilmesi geçmişi etkilemez.
+    """
+
+    id: int
+    name: str
+    category_id: int
+    payment_method_id: int
+    amount: Money
+    day_of_month: int
+    start_date: date
+    notes: str | None = None
+    is_active: bool
+
+
+class RecurringExpenseCreateIn(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    category_id: int
+    payment_method_id: int
+    amount_minor: int = Field(gt=0)
+    day_of_month: int = Field(ge=1, le=31)
+    start_date: date | None = None
+    """Boş bırakılırsa bugünden başlar; geçmiş aylara kayıt üretilmez."""
+    notes: str | None = Field(default=None, max_length=500)
+
+
+class RecurringExpenseUpdateIn(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=64)
+    category_id: int | None = None
+    payment_method_id: int | None = None
+    amount_minor: int | None = Field(default=None, gt=0)
+    day_of_month: int | None = Field(default=None, ge=1, le=31)
+    notes: str | None = Field(default=None, max_length=500)
+    is_active: bool | None = None

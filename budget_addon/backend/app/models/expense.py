@@ -60,6 +60,21 @@ class Expense(TimestampMixin, Base):
     currency: Mapped[str] = mapped_column(String(3), default=DEFAULT_CURRENCY)
     installment_count: Mapped[int] = mapped_column(Integer, default=1)
     description: Mapped[str | None] = mapped_column(Text, default=None)
+    recurring_expense_id: Mapped[int | None] = mapped_column(
+        Integer, index=True, default=None
+    )
+    """Bu kaydı üreten sabit gider şablonu.
+
+    Aynı şablonun aynı ay içinde iki kez kayıt üretmesi bu bağ üzerinden
+    engellenir; kullanıcı üretilen kaydı silse bile bağ durduğu için sabit
+    gider ertesi gün yeniden canlanmaz.
+
+    Yabancı anahtar **bilinçli olarak veritabanı düzeyinde tanımlanmaz**:
+    SQLite mevcut bir tabloya kısıt ekleyemez ve `expenses` tablosunu yalnızca
+    bunun için yeniden oluşturmak, üzerindeki CHECK kısıtlarını riske atardı.
+    Bağın boşaltılması `recurring.delete_template` içinde, silme ile aynı
+    transaction'da yapılır; böylece kimliği geri dönüşen yeni bir şablon eski
+    kayıtlarla karışamaz."""
 
     # --- Harcama anindaki kart kosullarinin anlik goruntusu ---
     payment_method_type_snapshot: Mapped[str] = mapped_column(String(16))

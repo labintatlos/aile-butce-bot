@@ -1,4 +1,4 @@
-"""Hatırlatmaların zamanlanması ve gönderilmesi.
+"""Günlük işlerin zamanlanması: sabit gider üretimi ve hatırlatmalar.
 
 Ayrı bir zamanlayıcı kütüphanesi kullanılmaz: tek bir asenkron döngü dakikada
 bir uyanır, yerel saat hatırlatma saatine geldiyse günün hatırlatmalarını
@@ -22,13 +22,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import Settings
 from ..models import NotificationLog, User
-from ..services import reminders
+from ..services import recurring, reminders
 from ..utils.time import local_now
 from . import messages
 
 logger = logging.getLogger(__name__)
 
 TICK_SECONDS = 60
+
+KIND_RECURRING_CREATED = "recurring_created"
 
 
 async def _already_sent(session: AsyncSession, *, kind: str, reference: str) -> bool:
@@ -82,13 +84,16 @@ async def pending_reminders(
     return items
 
 
-async def deliver_due_reminders(
+async def run_daily_jobs(
     bot, settings: Settings, session_factory, *, now: datetime | None = None
 ) -> int:
-    """Saati geldiyse hatırlatmaları gönderir ve gönderilen sayısını döner.
+    """Günün işlerini yapar: sabit giderleri üretir, hatırlatmaları gönderir.
 
     Saat kontrolü burada yapılır ki döngü basit kalsın; dakikalık uyanışların
     tamamı bu fonksiyona uğrar ve yalnızca hatırlatma saatinde iş yapar.
+
+    Sabit gider üretimi hatırlatma ayarından bağımsızdır: bildirimleri kapatmış
+    bir kullanıcı kirasının kaydedilmemesini istememiştir.
     """
     now = now or local_now(settings.timezone)
     if now.hour != settings.reminder_hour:
@@ -96,11 +101,29 @@ async def deliver_due_reminders(
 
     sent = 0
     async with session_factory() as session:
+        created = await recurring.generate_due(session, today=now.date())
+
+        if not settings.enable_reminders:
+            return 0
+
         recipients = await _recipients(session)
         if not recipients:
             return 0
 
-        items = await pending_reminders(session, settings, today=now.date())
+        items = [
+            (
+                KIND_RECURRING_CREATED,
+                f"{KIND_RECURRING_CREATED}:{item.expense.public_id}",
+                messages.recurring_created(
+                    name=item.template_name,
+                    amount_minor=item.expense.total_amount_minor,
+                    when=item.expense.transaction_date,
+                    public_id=item.expense.public_id,
+                ),
+            )
+            for item in created
+        ]
+        items += await pending_reminders(session, settings, today=now.date())
         for kind, key, text in items:
             for user in recipients:
                 reference = f"{user.id}:{key}"
@@ -146,7 +169,7 @@ async def run_scheduler(
     )
     while True:
         try:
-            count = await deliver_due_reminders(bot, settings, session_factory)
+            count = await run_daily_jobs(bot, settings, session_factory)
             if count:
                 logger.info("%d hatırlatma gönderildi", count)
         except asyncio.CancelledError:

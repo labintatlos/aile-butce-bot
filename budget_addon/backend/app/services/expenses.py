@@ -54,6 +54,7 @@ class ExpenseInput:
     amount: str | int | Decimal
     installment_count: int = SINGLE_INSTALLMENT
     description: str | None = None
+    recurring_expense_id: int | None = None
 
 
 async def _load_payment_method(
@@ -161,6 +162,7 @@ async def create_expense(
         total_amount_minor=total_minor,
         installment_count=installment_count,
         description=data.description,
+        recurring_expense_id=data.recurring_expense_id,
         # Taksitler kayit henuz gecici haldeyken baglanir; bu sayede
         # koleksiyona atama bir veritabani okumasi tetiklemez.
         installments=_build_installments(

@@ -69,12 +69,12 @@ async def run_polling(settings: Settings, session_factory) -> None:
     try:
         bot = build_bot(settings)
         dispatcher = build_dispatcher(settings, session_factory)
-        if settings.enable_reminders:
-            # Hatirlatmalar botun omrune baglidir: bot yoksa gonderecek kanal
-            # da yoktur, bot dururken zamanlayicinin ayakta kalmasi anlamsizdir.
-            reminder_task = asyncio.create_task(
-                run_scheduler(bot, settings, session_factory)
-            )
+        # Zamanlayici botun omrune baglidir: bot yoksa gonderecek kanal da
+        # yoktur. `enable_reminders` kapaliyken de calisir, cunku sabit gider
+        # uretimi bildirim ayarindan bagimsizdir.
+        reminder_task = asyncio.create_task(
+            run_scheduler(bot, settings, session_factory)
+        )
         # Birikmis guncellemeler atlanir: yeniden baslatmada eski mesajlara
         # toplu yanit vermek kafa karistirici olurdu.
         await bot.delete_webhook(drop_pending_updates=True)

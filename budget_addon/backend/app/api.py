@@ -37,6 +37,9 @@ from .schemas import (
     PaymentMethodCreateIn,
     PaymentMethodOut,
     PaymentMethodUpdateIn,
+    RecurringExpenseCreateIn,
+    RecurringExpenseOut,
+    RecurringExpenseUpdateIn,
     SchedulePreviewIn,
     SearchResultOut,
     SchedulePreviewOut,
@@ -44,7 +47,12 @@ from .schemas import (
     UserOut,
 )
 from .security.identity import current_user
-from .services import reports, search as search_service, settings_service
+from .services import (
+    recurring,
+    reports,
+    search as search_service,
+    settings_service,
+)
 from .services.expenses import (
     ExpenseError,
     ExpenseInput,
@@ -562,3 +570,93 @@ async def remove_category(
         await settings_service.delete_category(session, user=user, category=category)
     except settings_service.SettingsError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Sabit giderler
+# ---------------------------------------------------------------------------
+
+
+def _recurring_out(template) -> RecurringExpenseOut:
+    return RecurringExpenseOut(
+        id=template.id,
+        name=template.name,
+        category_id=template.category_id,
+        payment_method_id=template.payment_method_id,
+        amount=Money.of(template.amount_minor),
+        day_of_month=template.day_of_month,
+        start_date=template.start_date,
+        notes=template.notes,
+        is_active=template.is_active,
+    )
+
+
+@router.get("/recurring", response_model=list[RecurringExpenseOut])
+async def read_recurring(
+    include_inactive: bool = True,
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[RecurringExpenseOut]:
+    templates = await recurring.list_templates(
+        session, include_inactive=include_inactive
+    )
+    return [_recurring_out(template) for template in templates]
+
+
+@router.post(
+    "/recurring",
+    response_model=RecurringExpenseOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_recurring(
+    payload: RecurringExpenseCreateIn,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> RecurringExpenseOut:
+    try:
+        template = await recurring.create_template(
+            session,
+            user=user,
+            name=payload.name,
+            category_id=payload.category_id,
+            payment_method_id=payload.payment_method_id,
+            amount=payload.amount_minor,
+            day_of_month=payload.day_of_month,
+            start_date=payload.start_date,
+            notes=payload.notes,
+        )
+    except (recurring.RecurringError, ValueError) as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    return _recurring_out(template)
+
+
+@router.patch("/recurring/{template_id}", response_model=RecurringExpenseOut)
+async def edit_recurring(
+    template_id: int,
+    payload: RecurringExpenseUpdateIn,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> RecurringExpenseOut:
+    template = await recurring.get_template(session, template_id)
+    if template is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Sabit gider bulunamadı")
+    changes = payload.model_dump(exclude_unset=True, exclude_none=True)
+    if not changes:
+        return _recurring_out(template)
+    try:
+        await recurring.update_template(session, user=user, template=template, **changes)
+    except (recurring.RecurringError, ValueError) as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    return _recurring_out(template)
+
+
+@router.delete("/recurring/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_recurring(
+    template_id: int,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    template = await recurring.get_template(session, template_id)
+    if template is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Sabit gider bulunamadı")
+    await recurring.delete_template(session, user=user, template=template)
