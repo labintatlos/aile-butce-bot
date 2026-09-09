@@ -19,7 +19,12 @@ from ..config import Settings
 from ..models.category import Category
 from ..models.payment_method import TYPE_CASH, PaymentMethod
 from ..models.user import User
-from ..services import reports, search as search_service, settings_service
+from ..services import (
+    budgets,
+    reports,
+    search as search_service,
+    settings_service,
+)
 from ..services.expenses import (
     ExpenseError,
     ExpenseInput,
@@ -103,7 +108,10 @@ async def add_expense_prompt(message: Message, settings: Settings) -> None:
 async def monthly(message: Message, session: AsyncSession, settings: Settings) -> None:
     today = local_today(settings.timezone)
     report = await reports.monthly_spending(session, year=today.year, month=today.month)
-    await message.answer(messages.monthly_report(report))
+    statuses = await budgets.monthly_status(
+        session, year=today.year, month=today.month
+    )
+    await message.answer(messages.monthly_report(report, budget_statuses=statuses))
 
 
 @router.message(F.text == keyboards.BUTTON_STATEMENTS)

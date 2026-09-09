@@ -33,6 +33,7 @@ class CategoryOut(BaseModel):
     name: str
     emoji: str
     is_active: bool
+    monthly_budget_minor: int | None = None
 
 
 class PaymentMethodOut(BaseModel):
@@ -227,6 +228,7 @@ class CategoryCreateIn(BaseModel):
     name: str = Field(min_length=1, max_length=64)
     emoji: str = Field(default="", max_length=8)
     sort_order: int = 0
+    monthly_budget_minor: int | None = Field(default=None, gt=0)
 
 
 class CategoryUpdateIn(BaseModel):
@@ -234,6 +236,22 @@ class CategoryUpdateIn(BaseModel):
     emoji: str | None = Field(default=None, max_length=8)
     sort_order: int | None = None
     is_active: bool | None = None
+    monthly_budget_minor: int | None = Field(default=None, ge=0)
+    """Sıfır verilirse hedef kaldırılır.
+
+    `exclude_none` ile temizlenen bir gövdede `null` göndererek hedefi silmek
+    mümkün olmadığı için sıfır bu anlamı üstlenir."""
+
+
+class BudgetStatusOut(BaseModel):
+    category_id: int
+    name: str
+    emoji: str
+    budget: Money
+    spent: Money
+    remaining: Money
+    ratio: int
+    is_exceeded: bool
 
 
 class SearchResultOut(BaseModel):

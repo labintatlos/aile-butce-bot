@@ -32,7 +32,7 @@ from ..config import Settings
 from ..models.category import Category
 from ..models.payment_method import TYPE_CREDIT_CARD, PaymentMethod
 from ..models.user import User
-from ..services import recurring, settings_service
+from ..services import budgets, recurring, settings_service
 from ..services.finance.money import parse_amount_to_minor
 from ..services.quick_entry import fold
 from ..utils.time import local_today
@@ -619,3 +619,75 @@ async def _toggle_recurring(
     )
     state = "aktif edildi" if active else "durduruldu"
     await message.answer(f"✅ <b>{template.name}</b> {state}.", parse_mode="HTML")
+
+
+# ---------------------------------------------------------------------------
+# Bütçe hedefleri
+# ---------------------------------------------------------------------------
+
+
+@router.message(Command("butce"))
+async def show_budgets(
+    message: Message, session: AsyncSession, settings: Settings
+) -> None:
+    today = local_today(settings.timezone)
+    statuses = await budgets.monthly_status(
+        session, year=today.year, month=today.month
+    )
+    await message.answer(messages.budget_list(statuses), parse_mode="HTML")
+
+
+@router.message(Command("butceayarla"))
+async def set_budget(message: Message, user: User, session: AsyncSession) -> None:
+    raw_name, separator, raw_amount = _arguments(message).partition(NAME_SEPARATOR)
+    if not separator:
+        await message.answer(
+            "<b>Kategori hedefi</b>\n\n"
+            "<code>/butceayarla Market | 4000</code>\n\n"
+            "Hedefi kaldırmak için: <code>/butcesil Market</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    category = _match_by_name(
+        raw_name, await settings_service.list_categories(session)
+    )
+    if category is None:
+        await message.answer(
+            f"'{raw_name.strip()}' kategorisi bulunamadı. Listeyi görmek için /kategori"
+        )
+        return
+    try:
+        amount_minor = parse_amount_to_minor(raw_amount.strip())
+    except ValueError as error:
+        await message.answer(f"⚠️ {error}")
+        return
+
+    await settings_service.update_category(
+        session,
+        user=user,
+        category=category,
+        changes={"monthly_budget_minor": amount_minor},
+    )
+    await message.answer(
+        f"🎯 <b>{category.name}</b> için aylık hedef {messages.money(amount_minor)}"
+        " olarak ayarlandı.",
+        parse_mode="HTML",
+    )
+
+
+@router.message(Command("butcesil"))
+async def clear_budget(message: Message, user: User, session: AsyncSession) -> None:
+    category = _match_by_name(
+        _arguments(message), await settings_service.list_categories(session)
+    )
+    if category is None:
+        await message.answer("Böyle bir kategori yok. Listeyi görmek için /kategori")
+        return
+
+    await settings_service.update_category(
+        session, user=user, category=category, changes={"monthly_budget_minor": None}
+    )
+    await message.answer(
+        f"🎯 <b>{category.name}</b> hedefi kaldırıldı.", parse_mode="HTML"
+    )

@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import Settings
 from ..models import NotificationLog, User
-from ..services import recurring, reminders
+from ..services import budgets, recurring, reminders
 from ..utils.time import local_now
 from . import messages
 
@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 TICK_SECONDS = 60
 
 KIND_RECURRING_CREATED = "recurring_created"
+KIND_BUDGET_ALERT = "budget_alert"
 
 
 async def _already_sent(session: AsyncSession, *, kind: str, reference: str) -> bool:
@@ -81,6 +82,10 @@ async def pending_reminders(
         items.append((notice.kind, notice.key, messages.card_notice(notice)))
     for summary in await reminders.period_summaries(session, today=today):
         items.append((summary.kind, summary.key, messages.period_summary(summary)))
+
+    statuses = await budgets.monthly_status(session, year=today.year, month=today.month)
+    for alert in budgets.alerts_for(statuses):
+        items.append((KIND_BUDGET_ALERT, alert.key, messages.budget_alert(alert)))
     return items
 
 

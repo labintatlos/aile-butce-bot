@@ -36,7 +36,9 @@ CARD_FIELDS = frozenset(
     {"name", "statement_day", "due_offset_days", "cutoff_inclusive",
      "credit_limit_minor", "owner_user_id", "notes", "is_active"}
 )
-CATEGORY_FIELDS = frozenset({"name", "emoji", "sort_order", "is_active"})
+CATEGORY_FIELDS = frozenset(
+    {"name", "emoji", "sort_order", "is_active", "monthly_budget_minor"}
+)
 
 
 class SettingsError(Exception):
@@ -192,11 +194,22 @@ async def list_categories(
 
 
 async def create_category(
-    session: AsyncSession, *, user: User, name: str, emoji: str = "", sort_order: int = 0
+    session: AsyncSession,
+    *,
+    user: User,
+    name: str,
+    emoji: str = "",
+    sort_order: int = 0,
+    monthly_budget_minor: int | None = None,
 ) -> Category:
     if await session.scalar(select(Category).where(Category.name == name)):
         raise SettingsError(f"'{name}' adında bir kategori zaten var")
-    category = Category(name=name, emoji=emoji, sort_order=sort_order)
+    category = Category(
+        name=name,
+        emoji=emoji,
+        sort_order=sort_order,
+        monthly_budget_minor=monthly_budget_minor,
+    )
     try:
         session.add(category)
         await session.flush()

@@ -16,7 +16,9 @@ EMPTY_PLANS = "Aktif taksitli alışveriş yok."
 TOP_CATEGORY_LIMIT = 6
 
 
-def monthly_report(report: reports.MonthlySpendingReport) -> str:
+def monthly_report(
+    report: reports.MonthlySpendingReport, *, budget_statuses=None
+) -> str:
     """§20'deki aylık harcama özeti.
 
     Tutarlar harcama toplamıdır; taksitli bir alışveriş burada tam tutarıyla
@@ -43,10 +45,19 @@ def monthly_report(report: reports.MonthlySpendingReport) -> str:
     ]
 
     if report.by_category:
+        # Hedefi olan kategoride tutar tek basina bir sey soylemez; oranini da
+        # gostermek raporu okunur kilar.
+        targets = {status.category_id: status for status in (budget_statuses or [])}
         lines += ["", "Kategoriler:"]
         for item in report.by_category[:TOP_CATEGORY_LIMIT]:
             label = f"{item.emoji} {item.name}".strip()
             lines.append(f"  {label}: {money(item.total_minor)}")
+            status = targets.get(item.id)
+            if status is not None:
+                lines.append(
+                    f"    {status.bar} %{status.ratio}"
+                    f" · hedef {money(status.budget_minor)}"
+                )
 
     if report.largest_expense is not None:
         biggest = report.largest_expense
@@ -464,4 +475,57 @@ def recurring_created_template(template, *, method_name: str) -> str:
         f"{money(template.amount_minor)} · her ayın {template.day_of_month}. günü\n"
         f"{method_name}\n\n"
         "Günü geldiğinde otomatik kaydedilecek ve haber verilecek."
+    )
+
+
+BUDGET_EMPTY = (
+    "Henüz kategori hedefi yok.\n\n"
+    "Bir kategoriye aylık hedef koyunca harcaman hedefin %80'ine geldiğinde ve"
+    " hedefi aştığında haber verilir.\n\n"
+    "<code>/butceayarla Market | 4000</code>"
+)
+
+
+def budget_list(statuses) -> str:
+    """`/butce` çıktısı: hedefi olan kategorilerin durumu."""
+    if not statuses:
+        return BUDGET_EMPTY
+
+    first = statuses[0]
+    lines = [f"🎯 <b>Bütçe hedefleri — {month_name(first.year, first.month)}</b>", ""]
+    for status in statuses:
+        label = f"{status.emoji} {status.name}".strip()
+        lines.append(f"{label}")
+        lines.append(
+            f"  {status.bar} %{status.ratio}\n"
+            f"  {money(status.spent_minor)} / {money(status.budget_minor)}"
+        )
+        if status.is_exceeded:
+            lines.append(f"  ⚠️ {money(status.overspend_minor)} aşıldı")
+        else:
+            lines.append(f"  Kalan: {money(status.remaining_minor)}")
+        lines.append("")
+    return "\n".join(lines).rstrip()
+
+
+def budget_alert(alert) -> str:
+    """Eşiği geçen kategorinin bildirimi."""
+    status = alert.status
+    label = f"{status.emoji} {status.name}".strip()
+    if status.is_exceeded:
+        heading = "🚨 Bütçe aşıldı"
+        closing = f"{money(status.overspend_minor)} hedefin üzerinde."
+    else:
+        heading = "⚠️ Bütçenin sonuna yaklaşıldı"
+        closing = f"Kalan: {money(status.remaining_minor)}"
+    return "\n".join(
+        [
+            heading,
+            "",
+            f"{label} — {month_name(status.year, status.month)}",
+            f"{status.bar} %{status.ratio}",
+            f"{money(status.spent_minor)} / {money(status.budget_minor)}",
+            "",
+            closing,
+        ]
     )

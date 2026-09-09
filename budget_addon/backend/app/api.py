@@ -37,6 +37,7 @@ from .schemas import (
     PaymentMethodCreateIn,
     PaymentMethodOut,
     PaymentMethodUpdateIn,
+    BudgetStatusOut,
     RecurringExpenseCreateIn,
     RecurringExpenseOut,
     RecurringExpenseUpdateIn,
@@ -48,6 +49,7 @@ from .schemas import (
 )
 from .security.identity import current_user
 from .services import (
+    budgets,
     recurring,
     reports,
     search as search_service,
@@ -478,6 +480,10 @@ async def edit_category(
     if category is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Kategori bulunamadı")
     changes = payload.model_dump(exclude_unset=True, exclude_none=True)
+    if changes.get("monthly_budget_minor") == 0:
+        # Sifir "hedefi kaldir" demektir: exclude_none bir null govdeyi zaten
+        # eliyor, dolayisiyla silme niyetini tasiyacak baska bir deger yok.
+        changes["monthly_budget_minor"] = None
     if not changes:
         return CategoryOut.model_validate(category)
     try:
@@ -660,3 +666,31 @@ async def remove_recurring(
     if template is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Sabit gider bulunamadı")
     await recurring.delete_template(session, user=user, template=template)
+
+
+@router.get("/reports/budgets", response_model=list[BudgetStatusOut])
+async def budget_report(
+    year: int | None = None,
+    month: int | None = None,
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> list[BudgetStatusOut]:
+    """Hedefi olan kategorilerin bu aydaki durumu."""
+    today = local_today(settings.timezone)
+    statuses = await budgets.monthly_status(
+        session, year=year or today.year, month=month or today.month
+    )
+    return [
+        BudgetStatusOut(
+            category_id=status.category_id,
+            name=status.name,
+            emoji=status.emoji,
+            budget=Money.of(status.budget_minor),
+            spent=Money.of(status.spent_minor),
+            remaining=Money.of(status.remaining_minor),
+            ratio=status.ratio,
+            is_exceeded=status.is_exceeded,
+        )
+        for status in statuses
+    ]
