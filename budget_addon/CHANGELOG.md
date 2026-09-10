@@ -1,5 +1,10 @@
 # Değişiklik Günlüğü
 
+## 2.0.3
+
+Chrome sayfayı İngilizce sanıp otomatik çevirdiğinde menü ve metinler
+bozuluyordu ("Onlar" gibi). Site artık tarayıcı çevirisine kapalı.
+
 ## 2.0.2
 
 Arayüz metinleri daha doğal bir Türkçeyle yeniden yazıldı; site adı her yerde
