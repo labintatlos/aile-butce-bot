@@ -14,6 +14,7 @@ from .installment import ExpenseInstallment
 from .notification import Notification, PushSubscription
 from .notification_log import NotificationLog
 from .payment_method import PaymentMethod
+from .personal_budget import PersonalBudget
 from .recurring_expense import RecurringExpense
 from .refund import Refund
 from .user import User
@@ -29,6 +30,7 @@ __all__ = [
     "Notification",
     "NotificationLog",
     "PaymentMethod",
+    "PersonalBudget",
     "PushSubscription",
     "RecurringExpense",
     "Refund",

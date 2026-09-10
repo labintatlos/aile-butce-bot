@@ -67,6 +67,16 @@ class Expense(TimestampMixin, Base):
     ortaktır. Kişisel işaretlenen harcama raporlarda görünmeye devam eder ama
     denkleştirmeye girmez: kimsenin kimseden yarısını istemesi beklenmez."""
 
+    owner_user_id: Mapped[int | None] = mapped_column(Integer, index=True, default=None)
+    """Kişisel harcamanın kime ait olduğu; ortak harcamada boştur.
+
+    Kaydı girenden bağımsızdır: Aykut, Aslıhan'ın ayakkabısını girebilir ve
+    harcama Aslıhan'ın yıllık kişisel bütçesinden düşer. `is_shared` bu alanla
+    her zaman uyumlu tutulur (`is_shared == (owner_user_id is None)`).
+
+    Yabancı anahtar `recurring_expense_id` ile aynı nedenle veritabanı
+    düzeyinde tanımlanmaz."""
+
     receipt_file_id: Mapped[str | None] = mapped_column(
         String(256), default=None
     )
@@ -115,7 +125,14 @@ class Expense(TimestampMixin, Base):
     # Kategori ve kullanici kucuk tablolardir; her zaman birlikte yuklenmeleri
     # asenkron oturumda beklenmedik tembel yukleme riskini ortadan kaldirir.
     category: Mapped["Category"] = relationship(lazy="selectin")
-    created_by: Mapped["User"] = relationship(lazy="selectin")
+    created_by: Mapped["User"] = relationship(
+        lazy="selectin", foreign_keys=[created_by_user_id]
+    )
+    owner: Mapped["User | None"] = relationship(
+        primaryjoin="foreign(Expense.owner_user_id) == User.id",
+        lazy="selectin",
+        viewonly=True,
+    )
 
     installments: Mapped[list["ExpenseInstallment"]] = relationship(
         back_populates="expense",

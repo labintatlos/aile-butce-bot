@@ -33,6 +33,8 @@ from .schemas import (
     NamedTotalOut,
     ObligationOut,
     ObligationsOut,
+    PersonalBudgetIn,
+    PersonalBudgetOut,
     CategoryCreateIn,
     CategoryUpdateIn,
     PaymentMethodCreateIn,
@@ -68,6 +70,7 @@ from .services import (
     exporting,
     forecast,
     income as income_service,
+    personal_budgets,
     recurring,
     refunds,
     reports,
@@ -112,6 +115,8 @@ def _expense_out(expense) -> ExpenseOut:
         installment_count=expense.installment_count,
         description=expense.description,
         is_shared=expense.is_shared,
+        owner_user_id=expense.owner_user_id,
+        owner_name=expense.owner.display_name if expense.owner else None,
         has_receipt=bool(expense.receipt_path),
         installments=[
             InstallmentOut(
@@ -170,10 +175,16 @@ async def bootstrap(
             .order_by(PaymentMethod.type, PaymentMethod.name)
         )
     ).all()
+    people = (
+        await session.scalars(
+            select(User).where(User.is_active.is_(True)).order_by(User.id)
+        )
+    ).all()
     return BootstrapOut(
         user=UserOut.model_validate(user),
         categories=[CategoryOut.model_validate(c) for c in categories],
         payment_methods=[PaymentMethodOut.model_validate(m) for m in methods],
+        people=[UserOut.model_validate(p) for p in people],
         today=local_today(settings.timezone),
         currency=DEFAULT_CURRENCY,
     )
@@ -239,6 +250,7 @@ async def create(
                 installment_count=payload.installment_count,
                 description=payload.description,
                 is_shared=payload.is_shared,
+                owner_user_id=payload.owner_user_id,
             ),
         )
     except (ExpenseError, ValueError) as exc:
@@ -316,14 +328,18 @@ async def remove(
 async def monthly_spending_report(
     year: int | None = None,
     month: int | None = Query(default=None, ge=1, le=12),
+    owner: str | None = Query(default=None, pattern=r"^(shared|\d+)$"),
     _user: User = Depends(current_user),
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
 ) -> MonthlySpendingOut:
-    """Aylık **harcama** raporu. Tutarlar harcama toplamıdır, taksit değil."""
+    """Aylık **harcama** raporu. Tutarlar harcama toplamıdır, taksit değil.
+
+    `owner=shared` yalnızca ortak, `owner=<kişi>` o kişinin kişisel
+    harcamalarını gösterir."""
     today = local_today(settings.timezone)
     report = await reports.monthly_spending(
-        session, year=year or today.year, month=month or today.month
+        session, year=year or today.year, month=month or today.month, owner=owner
     )
     largest = None
     if report.largest_expense is not None:
@@ -338,6 +354,62 @@ async def monthly_spending_report(
         by_user=[_named_total(item) for item in report.by_user],
         by_category=[_named_total(item) for item in report.by_category],
         largest_expense=largest,
+    )
+
+
+@router.get("/reports/personal-budgets", response_model=list[PersonalBudgetOut])
+async def personal_budget_report(
+    year: int | None = None,
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> list[PersonalBudgetOut]:
+    """Kişi başı yıllık kişisel bütçe, harcanan ve kalan."""
+    today = local_today(settings.timezone)
+    items = await personal_budgets.yearly_status(
+        session, year=year or today.year, today=today
+    )
+    return [
+        PersonalBudgetOut(
+            user_id=item.user_id,
+            name=item.name,
+            year=item.year,
+            budget=Money.of(item.budget_minor) if item.budget_minor is not None else None,
+            spent=Money.of(item.spent_minor),
+            remaining=(
+                Money.of(item.remaining_minor) if item.remaining_minor is not None else None
+            ),
+            ratio=item.ratio,
+            is_exceeded=item.is_exceeded,
+            expense_count=item.expense_count,
+            year_elapsed_ratio=item.year_elapsed_ratio,
+        )
+        for item in items
+    ]
+
+
+@router.put("/personal-budgets/{user_id}", response_model=list[PersonalBudgetOut])
+async def set_personal_budget(
+    user_id: int,
+    payload: PersonalBudgetIn,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> list[PersonalBudgetOut]:
+    """Bir kişinin o yılki kişisel bütçesini belirler; boş tutar kaldırır."""
+    try:
+        amount = (
+            parse_amount_to_minor(payload.amount)
+            if payload.amount and payload.amount.strip()
+            else None
+        )
+        await personal_budgets.set_budget(
+            session, user_id=user_id, year=payload.year, amount_minor=amount
+        )
+    except (personal_budgets.PersonalBudgetError, ValueError) as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    return await personal_budget_report(
+        year=payload.year, _user=user, session=session, settings=settings
     )
 
 

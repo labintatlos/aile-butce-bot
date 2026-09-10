@@ -132,6 +132,7 @@ export interface Bootstrap {
   user: UserSummary;
   categories: Category[];
   payment_methods: PaymentMethod[];
+  people: UserSummary[];
   today: string;
   currency: string;
   max_installments: number;
@@ -168,6 +169,8 @@ export interface Expense {
   installment_count: number;
   description: string | null;
   is_shared: boolean;
+  owner_user_id: number | null;
+  owner_name: string | null;
   tags: string[];
   has_receipt: boolean;
   installments: Installment[];
@@ -181,6 +184,7 @@ export interface ExpenseInput {
   installment_count: number;
   description: string | null;
   is_shared: boolean;
+  owner_user_id: number | null;
 }
 
 export interface SearchFilters {
@@ -297,6 +301,19 @@ export interface MonthlyPosition {
   expected_recurring: Money;
   outflow: Money;
   remaining: Money;
+}
+
+export interface PersonalBudget {
+  user_id: number;
+  name: string;
+  year: number;
+  budget: Money | null;
+  spent: Money;
+  remaining: Money | null;
+  ratio: number;
+  is_exceeded: boolean;
+  expense_count: number;
+  year_elapsed_ratio: number;
 }
 
 export interface BudgetStatus {
@@ -590,7 +607,14 @@ export const api = {
   deleteCategory: (id: number) => remove(`categories/${id}`),
 
   // Raporlar
-  spending: (query: YearMonthQuery) => get<MonthlySpending>("reports/spending/monthly", query),
+  spending: (query: YearMonthQuery & { owner?: string }) =>
+    get<MonthlySpending>("reports/spending/monthly", query),
+  personalBudgets: (year?: number) => get<PersonalBudget[]>("reports/personal-budgets", { year }),
+  setPersonalBudget: (userId: number, year: number, amount: string | null) =>
+    request<PersonalBudget[]>(`personal-budgets/${userId}`, {
+      method: "PUT",
+      body: JSON.stringify({ year, amount }),
+    }),
   position: () => get<MonthlyPosition>("reports/position"),
   budgets: (query: YearMonthQuery) => get<BudgetStatus[]>("reports/budgets", query),
   cards: () => get<CardUsage[]>("reports/cards"),

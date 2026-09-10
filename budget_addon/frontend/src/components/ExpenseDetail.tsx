@@ -47,7 +47,10 @@ function changedFields(item: Expense, input: ExpenseInput): Partial<ExpenseInput
   if ((input.description ?? "") !== (item.description ?? "")) {
     changes.description = input.description ?? "";
   }
-  if (input.is_shared !== item.is_shared) changes.is_shared = input.is_shared;
+  if (input.owner_user_id !== item.owner_user_id) {
+    changes.is_shared = input.is_shared;
+    if (input.owner_user_id !== null) changes.owner_user_id = input.owner_user_id;
+  }
   return changes;
 }
 
@@ -150,7 +153,9 @@ export function ExpenseDetail({
 
       <div className="badges">
         <span className="badge accent">{installmentLabel(item.installment_count)}</span>
-        <span className="badge">{item.is_shared ? "Ortak gider" : "Kişisel"}</span>
+        <span className="badge">
+          {item.is_shared ? "Ortak gider" : `${item.owner_name ?? ""} kişisel`.trim()}
+        </span>
         {item.tags.map((tag) => (
           <span className="badge" key={tag}>
             #{tag}

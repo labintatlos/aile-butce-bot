@@ -179,31 +179,45 @@ async def list_for_expense(session: AsyncSession, expense_id: int) -> list[Refun
 # ---------------------------------------------------------------------------
 
 
-async def total_in_month(session: AsyncSession, *, year: int, month: int) -> int:
+def _with_expense_filter(statement, expense_filter: tuple):
+    """Rapor harcamaları süzüyorsa iadeler de aynı harcamalarla sınırlanır."""
+    if not expense_filter:
+        return statement
+    return statement.join(Expense, Refund.expense_id == Expense.id).where(*expense_filter)
+
+
+async def total_in_month(
+    session: AsyncSession, *, year: int, month: int, expense_filter: tuple = ()
+) -> int:
     """Bir ayda alınan iadelerin toplamı."""
     start, end = month_bounds(year, month)
     return await session.scalar(
-        select(func.coalesce(func.sum(Refund.amount_minor), 0)).where(
-            Refund.refund_date >= start, Refund.refund_date <= end, *_live()
+        _with_expense_filter(
+            select(func.coalesce(func.sum(Refund.amount_minor), 0)).where(
+                Refund.refund_date >= start, Refund.refund_date <= end, *_live()
+            ),
+            expense_filter,
         )
     )
 
 
 async def by_category_in_month(
-    session: AsyncSession, *, year: int, month: int
+    session: AsyncSession, *, year: int, month: int, expense_filter: tuple = ()
 ) -> dict[int, int]:
     """Kategori kimliğine göre ay içindeki iade toplamları."""
     start, end = month_bounds(year, month)
     rows = await session.execute(
-        select(Refund.category_id, func.coalesce(func.sum(Refund.amount_minor), 0))
-        .where(Refund.refund_date >= start, Refund.refund_date <= end, *_live())
-        .group_by(Refund.category_id)
+        _with_expense_filter(
+            select(Refund.category_id, func.coalesce(func.sum(Refund.amount_minor), 0))
+            .where(Refund.refund_date >= start, Refund.refund_date <= end, *_live()),
+            expense_filter,
+        ).group_by(Refund.category_id)
     )
     return dict(rows.all())
 
 
 async def cash_total_in_month(
-    session: AsyncSession, *, year: int, month: int
+    session: AsyncSession, *, year: int, month: int, expense_filter: tuple = ()
 ) -> int:
     """Nakit harcamalardan ay içinde geri alınan tutar."""
     start, end = month_bounds(year, month)
@@ -215,6 +229,7 @@ async def cash_total_in_month(
             Refund.refund_date >= start,
             Refund.refund_date <= end,
             *_live(),
+            *expense_filter,
         )
     )
 

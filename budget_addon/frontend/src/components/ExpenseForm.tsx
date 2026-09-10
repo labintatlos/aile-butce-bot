@@ -19,7 +19,9 @@ import {
 } from "../format";
 import { errorMessage } from "../hooks";
 import { Icon } from "./icons";
-import { Field, Toggle } from "./ui";
+import { Field, Segmented } from "./ui";
+
+const SHARED = "shared";
 
 const PREVIEW_DEBOUNCE_MS = 350;
 
@@ -66,7 +68,20 @@ export function ExpenseForm({
   const [description, setDescription] = useState(
     initial?.description ?? defaults?.description ?? "",
   );
-  const [isShared, setIsShared] = useState(initial?.is_shared ?? true);
+  // "shared" ya da kisisel harcamanin sahibinin kimligi.
+  const [ownership, setOwnership] = useState<string>(
+    initial?.owner_user_id ? String(initial.owner_user_id) : SHARED,
+  );
+  const ownershipOptions = useMemo(
+    () => [
+      { value: SHARED, label: "Ortak" },
+      ...bootstrap.people.map((person) => ({
+        value: String(person.id),
+        label: `${person.display_name} kişisel`,
+      })),
+    ],
+    [bootstrap.people],
+  );
 
   const [preview, setPreview] = useState<SchedulePreview | null>(null);
   const [saving, setSaving] = useState(false);
@@ -117,7 +132,8 @@ export function ExpenseForm({
         amount: amount.trim(),
         installment_count: installmentCount,
         description: description.trim() || null,
-        is_shared: isShared,
+        is_shared: ownership === SHARED,
+        owner_user_id: ownership === SHARED ? null : Number(ownership),
       });
     } catch (cause: unknown) {
       setError(
@@ -228,12 +244,16 @@ export function ExpenseForm({
       </Field>
 
       <div className="full">
-        <Toggle
-          checked={isShared}
-          onChange={setIsShared}
-          label="Ortak gider"
-          hint="Kapalıysa kişisel harcama sayılır ve denkleştirmeye girmez."
-        />
+        <Field
+          label="Kimin harcaması?"
+          hint={
+            ownership === SHARED
+              ? "Ortak gider olarak denkleştirmeye girer."
+              : "Seçilen kişinin yıllık kişisel bütçesinden düşer, denkleştirmeye girmez."
+          }
+        >
+          <Segmented options={ownershipOptions} value={ownership} onChange={setOwnership} />
+        </Field>
       </div>
 
       {preview && isCreditCard && (

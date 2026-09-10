@@ -268,7 +268,11 @@ export function Expenses() {
                       <td>{shortDate(expense.transaction_date)}</td>
                       <td className="wrap">
                         {expense.description || <span className="muted">—</span>}
-                        {!expense.is_shared && <span className="badge ml">Kişisel</span>}
+                        {!expense.is_shared && (
+                          <span className="badge ml">
+                            {`${expense.owner_name ?? ""} kişisel`.trim()}
+                          </span>
+                        )}
                       </td>
                       <td>
                         {expense.category.emoji} {expense.category.name}

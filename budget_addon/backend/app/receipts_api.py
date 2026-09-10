@@ -171,7 +171,8 @@ async def quick_entry(
                 transaction_date=local_today(settings.timezone),
                 amount=entry.amount_minor,
                 description=entry.description,
-                # `#kisisel` yazan kisi harcamanin ortak gidere sayilmamasini ister.
+                # `#kisisel` yazan kisi harcamanin kendi kisisel butcesinden
+                # dusmesini ister.
                 is_shared=not tags.marks_personal(entry.description),
             ),
         )

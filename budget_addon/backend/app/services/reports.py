@@ -96,12 +96,30 @@ class MonthlySpendingReport:
         return self.by_category[0] if self.by_category else None
 
 
+OWNER_SHARED = "shared"
+"""Rapor süzgecinde ortak harcamalar; bir kişinin kimliği ise o kişinin
+kişisel harcamaları anlamına gelir."""
+
+
+def owner_filter(owner: str | None) -> tuple:
+    if owner is None:
+        return ()
+    if owner == OWNER_SHARED:
+        return (Expense.owner_user_id.is_(None),)
+    return (Expense.owner_user_id == int(owner),)
+
+
 async def monthly_spending(
-    session: AsyncSession, *, year: int, month: int
+    session: AsyncSession, *, year: int, month: int, owner: str | None = None
 ) -> MonthlySpendingReport:
-    """§20'deki aylık harcama raporunu üretir."""
+    """§20'deki aylık harcama raporunu üretir.
+
+    `owner` verilirse yalnızca ortak (`"shared"`) veya o kişinin kişisel
+    harcamaları sayılır; iadeler de aynı harcamalarla sınırlanır.
+    """
     start, end = month_bounds(year, month)
-    in_month = (Expense.transaction_date >= start, Expense.transaction_date <= end)
+    scope = owner_filter(owner)
+    in_month = (Expense.transaction_date >= start, Expense.transaction_date <= end, *scope)
 
     totals = (
         await session.execute(
@@ -179,10 +197,14 @@ async def monthly_spending(
     # Iadeler her yerde ayni sekilde dusulur: rapor "net harcama" gosterir.
     # Tek noktadan yapilmasi, site, panel ve HA sensorlerinin ayni sayiyi
     # gormesini garanti eder.
-    refunded_total = await refunds.total_in_month(session, year=year, month=month)
-    refunded_cash = await refunds.cash_total_in_month(session, year=year, month=month)
+    refunded_total = await refunds.total_in_month(
+        session, year=year, month=month, expense_filter=scope
+    )
+    refunded_cash = await refunds.cash_total_in_month(
+        session, year=year, month=month, expense_filter=scope
+    )
     refunded_by_category = await refunds.by_category_in_month(
-        session, year=year, month=month
+        session, year=year, month=month, expense_filter=scope
     )
     by_category = _net_categories(by_category, refunded_by_category)
 

@@ -1,5 +1,19 @@
 # Değişiklik Günlüğü
 
+## 2.1.0
+
+**Kişisel yıllık bütçeler.** Harcama eklerken artık "Ortak", "Aykut kişisel"
+veya "Aslıhan kişisel" seçilebiliyor. Kişisel harcama, kimin kartıyla
+alındığına ve kaydı kimin girdiğine bakılmaksızın sahibinin yıllık kişisel
+bütçesinden düşer ve ortak gider denkleştirmesine girmez. Taksitli kişisel
+alışverişin tamamı alışveriş tarihinde bütçeden düşer; iadeler geri eklenir.
+
+Özet ekranındaki "Kişisel bütçeler" kartında her kişinin yıllık bütçesi,
+harcadığı ve kalan tutar, yılın ne kadarının geçtiğiyle birlikte görünür;
+bütçeler aynı karttan düzenlenir. Bütçe her yıl sıfırlanır. Raporlarda aylık
+harcama Tümü / Ortak / kişi bazında süzülebilir. Daha önce kişisel işaretlenen
+harcamalar, kaydı giren kişiye ait sayılır.
+
 ## 2.0.5
 
 Son ödeme tarihi geçen taksit artık kendiliğinden ödenmiş sayılıyor. Kart

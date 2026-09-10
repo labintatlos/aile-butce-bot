@@ -68,20 +68,30 @@ function MonthlyReport() {
   const { bootstrap } = useSession();
   const today = yearMonthOf(bootstrap.today);
   const [period, setPeriod] = useState<YearMonth>(today);
+  const [owner, setOwner] = useState("all");
+  const ownerOptions = [
+    { value: "all", label: "Tümü" },
+    { value: "shared", label: "Ortak" },
+    ...bootstrap.people.map((person) => ({
+      value: String(person.id),
+      label: `${person.display_name} kişisel`,
+    })),
+  ];
   const state = useAsync(async () => {
     const [spending, budgets, tags, settlement] = await Promise.all([
-      api.spending(period),
+      api.spending({ ...period, owner: owner === "all" ? undefined : owner }),
       api.budgets(period),
       api.tags(period),
       api.settlement(period),
     ]);
     return { spending, budgets, tags, settlement };
-  }, [period.year, period.month]);
+  }, [period.year, period.month, owner]);
 
   return (
     <div className="stack">
       <div className="row between wrap">
         <MonthNav value={period} onChange={setPeriod} max={today} />
+        <Segmented options={ownerOptions} value={owner} onChange={setOwner} />
         {state.loading && state.data && <span className="spinner" />}
       </div>
 

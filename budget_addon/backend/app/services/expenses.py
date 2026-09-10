@@ -40,7 +40,12 @@ FINANCIAL_FIELDS = frozenset(
 )
 """Değişmeleri hâlinde taksit planının yeniden üretilmesi gereken alanlar."""
 
-EDITABLE_FIELDS = FINANCIAL_FIELDS | {"category_id", "description", "is_shared"}
+EDITABLE_FIELDS = FINANCIAL_FIELDS | {
+    "category_id",
+    "description",
+    "is_shared",
+    "owner_user_id",
+}
 
 
 class ExpenseError(Exception):
@@ -57,6 +62,26 @@ class ExpenseInput:
     description: str | None = None
     recurring_expense_id: int | None = None
     is_shared: bool = True
+    owner_user_id: int | None = None
+    """Kişisel harcamanın sahibi. Verilirse harcama kişiseldir; `is_shared`
+    yanlış verilip sahip boş bırakılırsa sahip kaydı giren kişidir."""
+
+
+async def _resolve_owner(
+    session: AsyncSession,
+    *,
+    is_shared: bool,
+    owner_user_id: int | None,
+    fallback_user_id: int,
+) -> int | None:
+    """Harcamanın sahibini bulur; ortaksa `None` döner."""
+    if is_shared and owner_user_id is None:
+        return None
+    owner_id = owner_user_id or fallback_user_id
+    owner = await session.get(User, owner_id)
+    if owner is None or not owner.is_active:
+        raise ExpenseError("Kişisel harcamanın sahibi bulunamadı")
+    return owner_id
 
 
 async def _load_payment_method(
@@ -140,6 +165,7 @@ def _audit_payload(expense: Expense) -> dict[str, object]:
         "installment_count": expense.installment_count,
         "description": expense.description,
         "is_shared": expense.is_shared,
+        "owner_user_id": expense.owner_user_id,
     }
 
 
@@ -154,6 +180,12 @@ async def create_expense(
     method = await _load_payment_method(session, data.payment_method_id)
     installment_count = _resolve_installment_count(method, data.installment_count)
     total_minor = parse_amount_to_minor(data.amount)
+    owner_id = await _resolve_owner(
+        session,
+        is_shared=data.is_shared,
+        owner_user_id=data.owner_user_id,
+        fallback_user_id=user.id,
+    )
 
     snapshot = _snapshot_of(method)
     expense = Expense(
@@ -166,7 +198,8 @@ async def create_expense(
         installment_count=installment_count,
         description=data.description,
         recurring_expense_id=data.recurring_expense_id,
-        is_shared=data.is_shared,
+        is_shared=owner_id is None,
+        owner_user_id=owner_id,
         # Taksitler kayit henuz gecici haldeyken baglanir; bu sayede
         # koleksiyona atama bir veritabani okumasi tetiklemez.
         installments=_build_installments(
@@ -233,6 +266,18 @@ async def update_expense(
     unknown = set(changes) - EDITABLE_FIELDS
     if unknown:
         raise ExpenseError(f"Düzenlenemeyen alan: {', '.join(sorted(unknown))}")
+
+    if {"is_shared", "owner_user_id"} & set(changes):
+        requested_owner = changes.pop("owner_user_id", None)
+        shared = bool(changes.pop("is_shared", expense.is_shared)) and requested_owner is None
+        owner_id = await _resolve_owner(
+            session,
+            is_shared=shared,
+            owner_user_id=requested_owner,
+            fallback_user_id=expense.owner_user_id or expense.created_by_user_id,
+        )
+        changes["owner_user_id"] = owner_id
+        changes["is_shared"] = owner_id is None
 
     before = _audit_payload(expense)
     touches_finance = bool(FINANCIAL_FIELDS & set(changes))

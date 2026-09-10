@@ -63,6 +63,8 @@ class BootstrapOut(BaseModel):
     user: UserOut
     categories: list[CategoryOut]
     payment_methods: list[PaymentMethodOut]
+    people: list[UserOut] = Field(default_factory=list)
+    """Kişisel harcama seçicisi için etkin kişiler."""
     today: date
     currency: str
     max_installments: int = MAX_INSTALLMENTS
@@ -80,6 +82,8 @@ class ExpenseCreateIn(BaseModel):
     is_shared: bool = True
     """Harcama ortak mı. Varsayılan ortaktır; kişisel olan denkleştirmeye
     girmez."""
+    owner_user_id: int | None = None
+    """Kişisel harcamanın sahibi; verilirse harcama kişiseldir."""
 
 
 class ExpenseUpdateIn(BaseModel):
@@ -94,6 +98,7 @@ class ExpenseUpdateIn(BaseModel):
     transaction_date: date | None = None
     amount: str | None = Field(default=None, max_length=32)
     is_shared: bool | None = None
+    owner_user_id: int | None = None
     installment_count: int | None = Field(
         default=None, ge=MIN_INSTALLMENTS, le=MAX_INSTALLMENTS
     )
@@ -121,6 +126,8 @@ class ExpenseOut(BaseModel):
     installment_count: int
     description: str | None
     is_shared: bool = True
+    owner_user_id: int | None = None
+    owner_name: str | None = None
     tags: list[str] = Field(default_factory=list)
     has_receipt: bool = False
     installments: list[InstallmentOut]
@@ -165,6 +172,25 @@ class MonthlySpendingOut(BaseModel):
     by_user: list[NamedTotalOut]
     by_category: list[NamedTotalOut]
     largest_expense: ExpenseOut | None = None
+
+
+class PersonalBudgetOut(BaseModel):
+    user_id: int
+    name: str
+    year: int
+    budget: Money | None = None
+    spent: Money
+    remaining: Money | None = None
+    ratio: int
+    is_exceeded: bool
+    expense_count: int
+    year_elapsed_ratio: int
+
+
+class PersonalBudgetIn(BaseModel):
+    year: int = Field(ge=2000, le=2100)
+    amount: str | None = Field(default=None, max_length=32)
+    """Boş bırakılırsa o yılın bütçesi kaldırılır."""
 
 
 class StatementOut(BaseModel):
