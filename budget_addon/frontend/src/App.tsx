@@ -226,7 +226,7 @@ function Shell({ route, visit }: { route: Route; visit: number }) {
           <span className="brand-mark">
             <Icon name="wallet" size={20} />
           </span>
-          <span>Aile Bütçe<small className="brand-caption">Birlikte, daha dengeli.</small></span>
+          <span>Aile Bütçesi<small className="brand-caption">Birlikte, daha dengeli.</small></span>
         </div>
 
         <button type="button" className="btn primary block" onClick={() => navigate("yeni")}>

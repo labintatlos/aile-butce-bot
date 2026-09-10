@@ -31,7 +31,7 @@ export function People() {
     <>
       <PageHeader
         title="Kişiler"
-        subtitle="Siteye kimlerin girebileceğini yönetin"
+        subtitle="Siteye erişebilecek kişileri yönetin"
         actions={
           <button type="button" className="btn primary" onClick={() => setEditing("new")}>
             <Icon name="plus" size={18} />
@@ -155,14 +155,14 @@ function PersonForm({
       }
     >
       <form id="person-form" className="stack" onSubmit={submit} noValidate>
-        <Field label="İsim">
+        <Field label="Ad">
           <input
             className="input"
             value={displayName}
             onChange={(event) => setDisplayName(event.target.value)}
           />
         </Field>
-        <Field label="Kullanıcı adı" hint="Türkçe karakter kullanmadan; harf, rakam, nokta veya tire.">
+        <Field label="Kullanıcı adı" hint="Türkçe karakter kullanmayın. Harf, rakam, nokta veya tire kullanabilirsiniz.">
           <input
             className="input"
             autoComplete="off"

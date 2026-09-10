@@ -1,5 +1,11 @@
 # Değişiklik Günlüğü
 
+## 2.0.2
+
+Arayüz metinleri daha doğal bir Türkçeyle yeniden yazıldı; site adı her yerde
+"Aile Bütçesi" oldu. Bildirim ayarlarında hatırlatma saati artık doğru
+gösteriliyor.
+
 ## 2.0.1
 
 Arayüz daha ferah kartlar, zümrüt yeşili görsel tema ve yenilenmiş giriş

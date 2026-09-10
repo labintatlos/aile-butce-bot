@@ -126,7 +126,7 @@ export function NotificationSettingsCard() {
             void save({ reminders_enabled: value }, value ? "Hatırlatmalar açıldı." : "Hatırlatmalar kapatıldı.")
           }
           label="Hatırlatmalar"
-          hint={`Ekstre kesimi, son ödeme, bütçe ve kart limiti uyarıları her gün ${hour}'da oluşturulur.`}
+          hint={`Ekstre kesimi, son ödeme, bütçe ve kart limiti uyarıları her gün saat ${hour} itibarıyla oluşturulur.`}
         />
         <div className="divider" />
         <Toggle
@@ -134,7 +134,7 @@ export function NotificationSettingsCard() {
           disabled={busy || pushBlocked}
           onChange={(value) => void togglePush(value)}
           label="Bu cihazda anlık bildirim"
-          hint={push ? PUSH_HINTS[push] : "Denetleniyor…"}
+          hint={push ? PUSH_HINTS[push] : "Durum kontrol ediliyor…"}
         />
         <div className="divider" />
         {data.email_available ? (

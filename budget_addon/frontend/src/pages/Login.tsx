@@ -63,7 +63,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
           <span className="brand-mark">
             <Icon name="wallet" size={20} />
           </span>
-          Aile Bütçe
+          Aile Bütçesi
         </div>
 
         <h1>Tekrar hoş geldiniz</h1>
@@ -129,7 +129,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
       <aside className="auth-aside" aria-hidden="true">
         <span className="auth-eyebrow">DAHA DENGELİ BİR YARIN İÇİN</span>
         <h2>Bugünü takip edin.<br />Yarını birlikte planlayın.</h2>
-        <p className="auth-description">Gelirler, harcamalar ve ortak hedefler. Ailenizin bütçesine tek bir yerden, net bir bakış.</p>
+        <p className="auth-description">Gelirlerinizi, harcamalarınızı ve ortak hedeflerinizi tek bir yerden izleyin.</p>
         <ul>
           {HIGHLIGHTS.map((item) => (
             <li key={item.title}>

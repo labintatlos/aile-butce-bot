@@ -115,7 +115,7 @@ export function SettlementView({ settlement }: { settlement: Settlement }) {
         ) : (
           <span>
             <strong>{settlement.debtor_name}</strong>, {settlement.creditor_name} kişisine{" "}
-            <strong>{settlement.transfer.formatted}</strong> vermeli.
+            <strong>{settlement.transfer.formatted}</strong> ödemeli.
           </span>
         )}
       </div>
@@ -138,7 +138,7 @@ export function StatementList({ items, limit }: { items: Statement[]; limit?: nu
           <span className="list-main">
             <span className="list-title">{row.payment_method_name}</span>
             <span className="list-sub">
-              Kesim {shortDate(row.statement_date)} · Son ödeme {shortDate(row.due_date)}
+              Hesap kesimi {shortDate(row.statement_date)} · Son ödeme {shortDate(row.due_date)}
             </span>
           </span>
           <span className="list-end">

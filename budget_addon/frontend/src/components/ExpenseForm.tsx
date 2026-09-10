@@ -255,7 +255,7 @@ export function ExpenseForm({
             )}
             {preview.first_due_date && (
               <div>
-                <dt>İlk son ödeme</dt>
+                <dt>İlk ödeme tarihi</dt>
                 <dd>{longDate(preview.first_due_date)}</dd>
               </div>
             )}

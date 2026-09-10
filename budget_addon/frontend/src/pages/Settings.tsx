@@ -247,7 +247,7 @@ function PasswordForm({ onClose, onSaved }: { onClose: () => void; onSaved: (me:
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (next.length < 8) return setError("Yeni şifre en az 8 karakter olmalıdır.");
-    if (next !== repeat) return setError("Yeni şifreler aynı değil.");
+    if (next !== repeat) return setError("Yeni şifreler eşleşmiyor.");
     setBusy(true);
     setError(null);
     try {

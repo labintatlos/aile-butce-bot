@@ -48,7 +48,7 @@ export function Setup({ onSuccess }: { onSuccess: () => void }) {
     if (isNew && !displayName.trim()) return setError("Adınızı yazın.");
     if (!username.trim()) return setError("Bir kullanıcı adı belirleyin.");
     if (password.length < 8) return setError("Şifre en az 8 karakter olmalıdır.");
-    if (password !== repeat) return setError("Şifreler aynı değil.");
+    if (password !== repeat) return setError("Şifreler eşleşmiyor.");
     setBusy(true);
     setError(null);
     try {
@@ -73,7 +73,7 @@ export function Setup({ onSuccess }: { onSuccess: () => void }) {
           <span className="brand-mark">
             <Icon name="wallet" size={20} />
           </span>
-          Aile Bütçe
+          Aile Bütçesi
         </div>
 
         <h1>İlk kurulum</h1>
@@ -101,19 +101,19 @@ export function Setup({ onSuccess }: { onSuccess: () => void }) {
                 </div>
               )}
               <button className="btn primary lg block" type="submit" disabled={busy}>
-                {busy ? "Denetleniyor…" : "Devam et"}
+                {busy ? "Doğrulanıyor…" : "Devam et"}
               </button>
             </form>
           </>
         ) : (
           <>
             <p className="muted">
-              Yönetici hesabınızı oluşturun. Diğer kişileri sonra <strong>Kişiler</strong> ekranından
+              Yönetici hesabınızı oluşturun. Diğer kişileri daha sonra <strong>Kişiler</strong> ekranından
               ekleyebilirsiniz.
             </p>
             <form className="stack" onSubmit={complete} noValidate>
               {people.length > 0 && (
-                <Field label="Siz kimsiniz?" hint="Mevcut bir kişiyi seçerseniz geçmiş kayıtları sizde kalır.">
+                <Field label="Siz kimsiniz?" hint="Mevcut bir kişiyi seçerseniz o kişinin geçmiş kayıtları hesabınıza bağlanır.">
                   <select
                     className="select"
                     value={personId}
@@ -138,7 +138,7 @@ export function Setup({ onSuccess }: { onSuccess: () => void }) {
                   />
                 </Field>
               )}
-              <Field label="Kullanıcı adı" hint="Türkçe karakter kullanmadan; harf, rakam, nokta veya tire.">
+              <Field label="Kullanıcı adı" hint="Türkçe karakter kullanmayın. Harf, rakam, nokta veya tire kullanabilirsiniz.">
                 <input
                   className="input"
                   autoComplete="username"

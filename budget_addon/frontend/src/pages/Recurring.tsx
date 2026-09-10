@@ -38,7 +38,7 @@ export function Recurring() {
   const header = (
     <PageHeader
       title="Sabit giderler"
-      subtitle="Her ay seçilen günde harcama olarak kendiliğinden kaydedilir."
+      subtitle="Her ay seçtiğiniz günde otomatik olarak harcama kaydı oluşturulur."
       actions={
         <button type="button" className="btn primary" onClick={() => setEditing("new")}>
           <Icon name="plus" size={18} />
@@ -292,7 +292,7 @@ function RecurringForm({
               checked={isActive}
               onChange={setIsActive}
               label="Aktif"
-              hint="Pasif şablon silinmez, yalnızca her ay kaydedilmez."
+              hint="Pasif şablon korunur ancak otomatik harcama kaydı oluşturmaz."
             />
           </div>
         )}

@@ -121,8 +121,8 @@ function QuickEntry({
           </button>
         </div>
         <span className="muted small">
-          Tutar ve kategori yazın; bugünün tarihiyle nakit olarak kaydedilir. #kisisel yazarsanız ortak
-          gidere sayılmaz.
+          Tutarı ve kategoriyi yazın; harcama bugünün tarihiyle nakit olarak kaydedilir. #kisisel
+          yazarsanız ortak gider olarak sayılmaz.
         </span>
         {error && (
           <div className="alert danger" role="alert">
@@ -158,7 +158,7 @@ function SavedExpense({
             <Icon name="check" size={30} />
           </div>
           <h2>Harcama kaydedildi</h2>
-          <p className="muted">Kayıt no {expense.public_id}</p>
+          <p className="muted">Kayıt numarası: {expense.public_id}</p>
           <div className="detail-amount mt">{expense.total.formatted}</div>
 
           <dl className="kv">
@@ -185,7 +185,7 @@ function SavedExpense({
             </div>
             {isCreditCard && first && (
               <div>
-                <dt>İlk son ödeme</dt>
+                <dt>İlk ödeme tarihi</dt>
                 <dd>{longDate(first.due_date)}</dd>
               </div>
             )}

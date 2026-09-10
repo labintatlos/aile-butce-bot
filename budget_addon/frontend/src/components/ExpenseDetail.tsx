@@ -190,7 +190,7 @@ export function ExpenseDetail({
           <dd>{item.created_by}</dd>
         </div>
         <div>
-          <dt>Kayıt no</dt>
+          <dt>Kayıt numarası</dt>
           <dd>{item.public_id}</dd>
         </div>
         {refundedMinor > 0 && (

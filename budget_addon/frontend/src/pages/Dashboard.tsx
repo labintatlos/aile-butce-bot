@@ -43,7 +43,7 @@ export function Dashboard() {
   const header = (
     <PageHeader
       title={`Merhaba, ${me.display_name}`}
-      subtitle={`Bütçenize birlikte göz atalım. · ${longDate(bootstrap.today)}`}
+      subtitle={`Bütçenize birlikte göz atalım · ${longDate(bootstrap.today)}`}
       actions={
         <button type="button" className="btn primary desktop-only" onClick={() => navigate("yeni")}>
           <Icon name="plus" size={18} />
@@ -96,7 +96,7 @@ export function Dashboard() {
 
         <div className="grid stats pair">
           <Stat
-            label="Bu ay harcama"
+            label="Bu ayki harcama"
             value={spending.total.formatted}
             hint={`${spending.transaction_count} işlem`}
             icon="wallet"
@@ -106,7 +106,7 @@ export function Dashboard() {
           <Stat
             label="Sabit gider"
             value={position.expected_recurring.formatted}
-            hint="Bu ay bekleyen"
+            hint="Bu ay beklenen"
             icon="repeat"
           />
         </div>
@@ -115,7 +115,7 @@ export function Dashboard() {
       <div className="quick-actions" aria-label="Hızlı işlemler">
         <button type="button" onClick={() => navigate("gelirler")}><span className="quick-icon"><Icon name="income" /></span><span><strong>Gelirleri yönet</strong><small>Bütçenizi güncel tutun</small></span><Icon name="chevronRight" size={18} /></button>
         <button type="button" onClick={() => navigate("sabit")}><span className="quick-icon"><Icon name="repeat" /></span><span><strong>Sabit giderler</strong><small>Düzenli ödemelerinizi takip edin</small></span><Icon name="chevronRight" size={18} /></button>
-        <button type="button" onClick={() => navigate("raporlar")}><span className="quick-icon"><Icon name="chart" /></span><span><strong>Raporları incele</strong><small>Harcama dağılımınızı keşfedin</small></span><Icon name="chevronRight" size={18} /></button>
+        <button type="button" onClick={() => navigate("raporlar")}><span className="quick-icon"><Icon name="chart" /></span><span><strong>Raporları incele</strong><small>Harcama dağılımınızı görüntüleyin</small></span><Icon name="chevronRight" size={18} /></button>
       </div>
 
       <div className="grid two">
