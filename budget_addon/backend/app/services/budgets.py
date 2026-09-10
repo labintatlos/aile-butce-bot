@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Category, Expense
 from ..utils.time import month_bounds
+from . import refunds
 
 WARNING_RATIO = 80
 """Yüzde kaçta uyarı verileceği.
@@ -101,6 +102,10 @@ async def monthly_status(
         ).all()
     )
 
+    # Iade edilen tutar kategoriyi rahatlatmalidir: geri alinan para
+    # harcanmis sayilirsa hedef haksiz yere asilmis gorunur.
+    refunded = await refunds.by_category_in_month(session, year=year, month=month)
+
     categories = (
         await session.scalars(
             select(Category).where(Category.monthly_budget_minor.is_not(None))
@@ -113,7 +118,10 @@ async def monthly_status(
             name=category.name,
             emoji=category.emoji,
             budget_minor=category.monthly_budget_minor or 0,
-            spent_minor=spent_by_category.get(category.id, 0),
+            spent_minor=(
+                spent_by_category.get(category.id, 0)
+                - refunded.get(category.id, 0)
+            ),
             year=year,
             month=month,
         )

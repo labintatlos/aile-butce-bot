@@ -29,6 +29,7 @@ from ..models.installment import STATUS_CANCELLED, STATUS_PAID, ExpenseInstallme
 from ..models.payment_method import TYPE_CASH, TYPE_CREDIT_CARD, PaymentMethod
 from ..models.user import User
 from ..utils.time import month_bounds
+from . import refunds
 from .finance.dates import MONTHS_PER_YEAR
 
 BASIS_STATEMENT = "statement"
@@ -83,6 +84,11 @@ class MonthlySpendingReport:
     card_total_minor: int
     by_user: list[NamedTotal] = field(default_factory=list)
     by_category: list[NamedTotal] = field(default_factory=list)
+    refunded_minor: int = 0
+    """Ay içinde alınan iadelerin toplamı.
+
+    `total_minor` bu tutar düşülmüş **net** harcamadır; iade ayrıca
+    gösterilebilsin diye ham hâliyle de taşınır."""
     largest_expense: Expense | None = None
 
     @property
@@ -170,17 +176,53 @@ async def monthly_spending(
         .limit(1)
     )
 
+    # Iadeler her yerde ayni sekilde dusulur: rapor "net harcama" gosterir.
+    # Tek noktadan yapilmasi, bot, API ve HA sensorlerinin ayni sayiyi
+    # gormesini garanti eder.
+    refunded_total = await refunds.total_in_month(session, year=year, month=month)
+    refunded_cash = await refunds.cash_total_in_month(session, year=year, month=month)
+    refunded_by_category = await refunds.by_category_in_month(
+        session, year=year, month=month
+    )
+    by_category = _net_categories(by_category, refunded_by_category)
+
     return MonthlySpendingReport(
         year=year,
         month=month,
-        total_minor=totals[0],
+        total_minor=totals[0] - refunded_total,
         transaction_count=totals[1],
-        cash_total_minor=by_type.get(TYPE_CASH, 0),
-        card_total_minor=by_type.get(TYPE_CREDIT_CARD, 0),
+        cash_total_minor=by_type.get(TYPE_CASH, 0) - refunded_cash,
+        card_total_minor=(
+            by_type.get(TYPE_CREDIT_CARD, 0) - (refunded_total - refunded_cash)
+        ),
         by_user=by_user,
         by_category=by_category,
+        refunded_minor=refunded_total,
         largest_expense=largest,
     )
+
+
+def _net_categories(
+    categories: list[NamedTotal], refunded: dict[int, int]
+) -> list[NamedTotal]:
+    """Kategori toplamlarından iadeleri düşer ve sırayı yeniden kurar.
+
+    Sıralama yeniden yapılır: iade sonrası en yüksek kategori değişmiş
+    olabilir ve rapor sıralamayı ham tutara göre bırakırsa yanıltır.
+    """
+    if not refunded:
+        return categories
+    netted = [
+        NamedTotal(
+            id=item.id,
+            name=item.name,
+            emoji=item.emoji,
+            total_minor=item.total_minor - refunded.get(item.id, 0),
+            transaction_count=item.transaction_count,
+        )
+        for item in categories
+    ]
+    return sorted(netted, key=lambda item: item.total_minor, reverse=True)
 
 
 # ---------------------------------------------------------------------------
@@ -236,13 +278,21 @@ async def upcoming_statements(
         )
     ).all()
 
+    # Iade, dustugu ekstreye alacak yazilir. Taksit satirlarina dokunulmaz:
+    # gecmis yeniden hesaplanmaz, yalnizca ekstre toplami netlesir.
+    credits = {
+        (credit.payment_method_id, credit.statement_date): credit.total_minor
+        for credit in await refunds.statement_credits(session, since=since)
+    }
+
     return [
         StatementSummary(
             payment_method_id=row.payment_method_id,
             payment_method_name=row.payment_method_name_snapshot,
             statement_date=row.statement_date,
             due_date=row.due_date,
-            total_minor=row.total,
+            total_minor=row.total
+            - credits.get((row.payment_method_id, row.statement_date), 0),
             installment_count=row.count,
         )
         for row in rows

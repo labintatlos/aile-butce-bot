@@ -45,6 +45,8 @@ from .schemas import (
     RecurringExpenseCreateIn,
     RecurringExpenseOut,
     RecurringExpenseUpdateIn,
+    RefundCreateIn,
+    RefundOut,
     SchedulePreviewIn,
     SearchResultOut,
     SchedulePreviewOut,
@@ -58,6 +60,7 @@ from .services import (
     cashflow,
     income as income_service,
     recurring,
+    refunds,
     reports,
     search as search_service,
     settings_service,
@@ -808,3 +811,72 @@ async def card_usage_report(
         )
         for usage in await cards.card_usage(session)
     ]
+
+
+# ---------------------------------------------------------------------------
+# İadeler
+# ---------------------------------------------------------------------------
+
+
+def _refund_out(refund) -> RefundOut:
+    return RefundOut(
+        id=refund.id,
+        expense_id=refund.expense_id,
+        amount=Money.of(refund.amount_minor),
+        refund_date=refund.refund_date,
+        statement_date=refund.statement_date,
+        due_date=refund.due_date,
+        notes=refund.notes,
+    )
+
+
+@router.get("/expenses/{expense_id}/refunds", response_model=list[RefundOut])
+async def read_refunds(
+    expense_id: int,
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[RefundOut]:
+    return [
+        _refund_out(refund)
+        for refund in await refunds.list_for_expense(session, expense_id)
+    ]
+
+
+@router.post(
+    "/expenses/{expense_id}/refunds",
+    response_model=RefundOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_refund(
+    expense_id: int,
+    payload: RefundCreateIn,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> RefundOut:
+    try:
+        refund = await refunds.create_refund(
+            session,
+            user=user,
+            expense_id=expense_id,
+            amount=payload.amount_minor,
+            refund_date=payload.refund_date or local_today(settings.timezone),
+            notes=payload.notes,
+        )
+    except refunds.RefundError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    return _refund_out(refund)
+
+
+@router.delete("/refunds/{refund_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_refund(
+    refund_id: int,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    refund = await refunds.get_refund(session, refund_id)
+    if refund is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "İade kaydı bulunamadı")
+    await refunds.soft_delete_refund(session, user=user, refund=refund)

@@ -28,7 +28,7 @@ from ..models.installment import STATUS_CANCELLED, STATUS_PAID, ExpenseInstallme
 from ..models.payment_method import TYPE_CASH, TYPE_CREDIT_CARD, PaymentMethod
 from ..utils.time import month_bounds
 from . import income as income_service
-from . import recurring
+from . import recurring, refunds
 
 INACTIVE_STATUSES = (STATUS_PAID, STATUS_CANCELLED)
 
@@ -130,7 +130,19 @@ async def monthly_position(
         income_minor=await income_service.monthly_total(
             session, year=today.year, month=today.month
         ),
-        card_due_minor=await _card_due_in_month(session, start=start, end=end),
-        cash_spent_minor=await _cash_spent_in_month(session, start=start, end=end),
+        # Iade, cikisi azaltir: kart iadesi ekstrenin son odeme gununde,
+        # nakit iade ise alindigi gun cebe doner.
+        card_due_minor=(
+            await _card_due_in_month(session, start=start, end=end)
+            - await refunds.card_credit_due_in_month(
+                session, year=today.year, month=today.month
+            )
+        ),
+        cash_spent_minor=(
+            await _cash_spent_in_month(session, start=start, end=end)
+            - await refunds.cash_total_in_month(
+                session, year=today.year, month=today.month
+            )
+        ),
         expected_recurring_minor=await _expected_recurring(session, today=today),
     )

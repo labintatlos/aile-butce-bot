@@ -341,3 +341,22 @@ class MonthlyPositionOut(BaseModel):
     expected_recurring: Money
     outflow: Money
     remaining: Money
+
+
+class RefundOut(BaseModel):
+    """İade kaydı. Harcamanın taksit planı bundan etkilenmez."""
+
+    id: int
+    expense_id: int
+    amount: Money
+    refund_date: date
+    statement_date: date | None = None
+    due_date: date | None = None
+    notes: str | None = None
+
+
+class RefundCreateIn(BaseModel):
+    amount_minor: int = Field(gt=0)
+    refund_date: date | None = None
+    """Boş bırakılırsa bugün kabul edilir."""
+    notes: str | None = Field(default=None, max_length=500)

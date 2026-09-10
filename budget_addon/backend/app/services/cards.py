@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.expense import Expense
 from ..models.installment import STATUS_SCHEDULED, ExpenseInstallment
 from ..models.payment_method import TYPE_CREDIT_CARD, PaymentMethod
+from . import refunds
 
 NEAR_LIMIT_RATIO = 90
 """Yüzde kaçta uyarı verileceği.
@@ -100,6 +101,9 @@ async def card_usage(session: AsyncSession) -> list[CardUsage]:
         ).all()
     )
 
+    # Iade, karta baglanmis limiti serbest birakir.
+    refunded = await refunds.by_card(session)
+
     cards = (
         await session.scalars(
             select(PaymentMethod)
@@ -116,7 +120,9 @@ async def card_usage(session: AsyncSession) -> list[CardUsage]:
             payment_method_id=card.id,
             name=card.name,
             credit_limit_minor=card.credit_limit_minor,
-            outstanding_minor=outstanding.get(card.id, 0),
+            outstanding_minor=max(
+                outstanding.get(card.id, 0) - refunded.get(card.id, 0), 0
+            ),
         )
         for card in cards
     ]

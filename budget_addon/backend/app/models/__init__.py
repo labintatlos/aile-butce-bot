@@ -13,6 +13,7 @@ from .installment import ExpenseInstallment
 from .notification_log import NotificationLog
 from .payment_method import PaymentMethod
 from .recurring_expense import RecurringExpense
+from .refund import Refund
 from .user import User
 
 __all__ = [
@@ -25,6 +26,7 @@ __all__ = [
     "NotificationLog",
     "PaymentMethod",
     "RecurringExpense",
+    "Refund",
     "User",
     "format_public_id",
 ]

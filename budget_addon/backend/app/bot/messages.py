@@ -661,3 +661,35 @@ def card_limit_alert(alert) -> str:
             closing,
         ]
     )
+
+
+def refund_usage() -> str:
+    return (
+        "<b>İade kaydı</b>\n\n"
+        "<code>/iade 184 500</code>\n"
+        "<code>/iade EXP-000184 500</code>\n\n"
+        "İkinci sayı iade edilen tutardır; tamamı iade edildiyse harcamanın"
+        " tutarını yaz. Kısmi iade de yazılabilir.\n\n"
+        "Harcama silinmez: alışveriş gerçekten oldu ve taksitleri ekstreye"
+        " girdi. İade ayrı bir alacak olarak düşülür."
+    )
+
+
+def refund_receipt(*, refund, expense_public_id: str, remaining_minor: int) -> str:
+    """İade kaydedildikten sonra gösterilen özet."""
+    lines = [
+        "↩️ İade kaydedildi",
+        "",
+        money(refund.amount_minor),
+        f"İşlem: #{expense_public_id}",
+    ]
+    if refund.statement_date is not None:
+        lines += [
+            "",
+            f"Alacak ekstresi: {long_date(refund.statement_date)}",
+        ]
+    if remaining_minor > 0:
+        lines += ["", f"Bu harcamadan iade edilebilecek kalan: {money(remaining_minor)}"]
+    else:
+        lines += ["", "Harcamanın tamamı iade edildi."]
+    return "\n".join(lines)

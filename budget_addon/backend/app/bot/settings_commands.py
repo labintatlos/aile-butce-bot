@@ -32,7 +32,15 @@ from ..config import Settings
 from ..models.category import Category
 from ..models.payment_method import TYPE_CREDIT_CARD, PaymentMethod
 from ..models.user import User
-from ..services import budgets, cards, income, recurring, settings_service
+from ..services import (
+    budgets,
+    cards,
+    income,
+    recurring,
+    refunds,
+    settings_service,
+)
+from ..services.expenses import get_expense
 from ..services.finance.money import parse_amount_to_minor
 from ..services.quick_entry import fold
 from ..utils.time import local_today
@@ -792,3 +800,50 @@ async def set_card_limit(message: Message, user: User, session: AsyncSession) ->
 async def show_card_usage(message: Message, session: AsyncSession) -> None:
     usages = await cards.card_usage(session)
     await message.answer(messages.card_usage_list(usages), parse_mode="HTML")
+
+
+# ---------------------------------------------------------------------------
+# İadeler
+# ---------------------------------------------------------------------------
+
+
+def _expense_id_from(raw: str) -> int | None:
+    """`184` ya da `EXP-000184` biçimindeki kimliği sayıya çevirir."""
+    cleaned = raw.strip().upper().removeprefix("#").removeprefix("EXP-")
+    return int(cleaned) if cleaned.isdigit() else None
+
+
+@router.message(Command("iade"))
+async def add_refund(
+    message: Message, user: User, session: AsyncSession, settings: Settings
+) -> None:
+    raw_id, _, raw_amount = _arguments(message).partition(" ")
+    expense_id = _expense_id_from(raw_id)
+    if expense_id is None or not raw_amount.strip():
+        await message.answer(messages.refund_usage(), parse_mode="HTML")
+        return
+
+    try:
+        refund = await refunds.create_refund(
+            session,
+            user=user,
+            expense_id=expense_id,
+            amount=raw_amount.strip(),
+            refund_date=local_today(settings.timezone),
+        )
+    except (refunds.RefundError, ValueError) as error:
+        await message.answer(f"⚠️ {error}")
+        return
+
+    expense = await get_expense(session, expense_id)
+    remaining = expense.total_amount_minor - await refunds.refunded_total(
+        session, expense_id
+    )
+    await message.answer(
+        messages.refund_receipt(
+            refund=refund,
+            expense_public_id=expense.public_id,
+            remaining_minor=remaining,
+        ),
+        parse_mode="HTML",
+    )
