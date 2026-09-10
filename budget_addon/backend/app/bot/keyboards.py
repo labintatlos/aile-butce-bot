@@ -39,6 +39,7 @@ CALLBACK_DELETE_CONFIRM = "expense:delete:yes"
 CALLBACK_DELETE_CANCEL = "expense:delete:no"
 CALLBACK_CATEGORY = "quick:category"
 CALLBACK_PAYMENT = "quick:payment"
+CALLBACK_RECEIPT = "expense:receipt"
 
 BASIS_STATEMENT_LABEL = "Ekstre Bazlı"
 BASIS_DUE_LABEL = "Son Ödeme Bazlı"
@@ -65,20 +66,32 @@ def main_menu(webapp_url: str | None) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
 
 
-def expense_actions(expense_id: int) -> InlineKeyboardMarkup:
-    """§18'deki kayıt mesajının altındaki düzenle/sil düğmeleri."""
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
+def expense_actions(expense_id: int, *, has_receipt: bool = False) -> InlineKeyboardMarkup:
+    """§18'deki kayıt mesajının altındaki düzenle/sil düğmeleri.
+
+    Fiş düğmesi yalnızca fotoğraf iliştirilmiş harcamada görünür: olmayan bir
+    şeyi açan bir düğme koymak, kullanıcıyı boş bir cevaba yollar.
+    """
+    rows = [
+        [
+            InlineKeyboardButton(
+                text="✏️ Düzenle", callback_data=f"{CALLBACK_EDIT}:{expense_id}"
+            ),
+            InlineKeyboardButton(
+                text="🗑 Sil", callback_data=f"{CALLBACK_DELETE}:{expense_id}"
+            ),
+        ]
+    ]
+    if has_receipt:
+        rows.append(
             [
                 InlineKeyboardButton(
-                    text="✏️ Düzenle", callback_data=f"{CALLBACK_EDIT}:{expense_id}"
-                ),
-                InlineKeyboardButton(
-                    text="🗑 Sil", callback_data=f"{CALLBACK_DELETE}:{expense_id}"
-                ),
+                    text="📎 Fişi göster",
+                    callback_data=f"{CALLBACK_RECEIPT}:{expense_id}",
+                )
             ]
-        ]
-    )
+        )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def delete_confirmation(expense_id: int) -> InlineKeyboardMarkup:

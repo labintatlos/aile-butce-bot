@@ -265,6 +265,10 @@ def expense_detail(expense) -> str:
         f"Ödeme: {expense.payment_method_name_snapshot}",
         f"Taksit: {installment_label(expense.installment_count)}",
         f"Tarih: {long_date(expense.transaction_date)}",
+    ]
+    if expense.receipt_file_id:
+        lines.append("📎 Fiş fotoğrafı var")
+    lines += [
         "",
         "Kategoriyi aşağıdan değiştirebilirsin. Tutar, tarih, kart veya taksit"
         " sayısını değiştirmek taksit planını yeniden kurar; bunun için formu"
@@ -693,3 +697,18 @@ def refund_receipt(*, refund, expense_public_id: str, remaining_minor: int) -> s
     else:
         lines += ["", "Harcamanın tamamı iade edildi."]
     return "\n".join(lines)
+
+
+RECEIPT_NO_TARGET = (
+    "📎 Fişi hangi harcamaya iliştireceğimi bilemedim.\n\n"
+    "Fotoğrafı gönderirken açıklamasına tutarı yaz:\n"
+    "<code>500 market</code>\n\n"
+    "Ya da önce harcamayı kaydet, hemen ardından fotoğrafı gönder."
+)
+
+RECEIPT_MISSING = "Bu harcamada fiş fotoğrafı yok."
+
+
+def receipt_attached(*, public_id: str, description: str | None) -> str:
+    detail = f" — {description}" if description else ""
+    return f"📎 Fiş #{public_id}{detail} harcamasına iliştirildi."

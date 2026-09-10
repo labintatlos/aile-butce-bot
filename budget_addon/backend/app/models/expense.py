@@ -60,6 +60,18 @@ class Expense(TimestampMixin, Base):
     currency: Mapped[str] = mapped_column(String(3), default=DEFAULT_CURRENCY)
     installment_count: Mapped[int] = mapped_column(Integer, default=1)
     description: Mapped[str | None] = mapped_column(Text, default=None)
+    receipt_file_id: Mapped[str | None] = mapped_column(
+        String(256), default=None
+    )
+    """Fiş fotoğrafının Telegram dosya kimliği.
+
+    Fotoğrafın kendisi saklanmaz: Telegram dosyayı zaten tutuyor ve bu kimlik
+    aynı bot için kalıcıdır. Böylece eklenti disk doldurmaz ve fiş, kullanıcının
+    zaten baktığı yerde, sohbetin içinde açılır.
+
+    Tutar fotoğraftan **okunmaz**. Fiş yalnızca kanıttır; tutarı kullanıcı
+    yazar, çünkü finansal hesapta tahmin yürütülmez."""
+
     recurring_expense_id: Mapped[int | None] = mapped_column(
         Integer, index=True, default=None
     )

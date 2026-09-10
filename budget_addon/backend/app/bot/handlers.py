@@ -7,6 +7,8 @@ servislerden gelir.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import logging
 
 from aiogram import F, Router
@@ -27,6 +29,8 @@ from ..services import (
     settings_service,
 )
 from ..services.expenses import (
+    attach_receipt,
+    latest_expense_for,
     ExpenseError,
     ExpenseInput,
     create_expense,
@@ -342,5 +346,104 @@ async def edit_requested(query: CallbackQuery, session: AsyncSession) -> None:
         messages.expense_detail(expense),
         reply_markup=keyboards.category_choices(categories),
         parse_mode="HTML",
+    )
+    await query.answer()
+
+
+# ---------------------------------------------------------------------------
+# Fiş fotoğrafları
+# ---------------------------------------------------------------------------
+
+
+@router.message(F.photo)
+async def receipt_photo(
+    message: Message, user: User, session: AsyncSession, settings: Settings
+) -> None:
+    """Fiş fotoğrafını bir harcamaya iliştirir.
+
+    İki yol vardır ve ikisi de deterministiktir:
+
+    - Fotoğrafın açıklaması hızlı giriş olarak okunabiliyorsa (`500 market`)
+      harcama oluşturulur ve fiş ona iliştirilir.
+    - Açıklama yoksa, kullanıcının son kaydettiği harcamaya iliştirilir.
+
+    Tutar hiçbir zaman fotoğraftan okunmaz.
+    """
+    # En buyuk boy secilir: Telegram ayni fotografi birkac cozunurlukte
+    # gonderir ve sonuncusu en buyugudur.
+    file_id = message.photo[-1].file_id
+    caption = (message.caption or "").strip()
+
+    if caption:
+        expense = await _expense_from_caption(message, user, session, settings, caption)
+        if expense is None:
+            return
+    else:
+        expense = await latest_expense_for(
+            session, user=user, now=datetime.now(timezone.utc)
+        )
+        if expense is None:
+            await message.answer(messages.RECEIPT_NO_TARGET, parse_mode="HTML")
+            return
+
+    await attach_receipt(session, user=user, expense=expense, file_id=file_id)
+    await message.answer(
+        messages.receipt_attached(
+            public_id=expense.public_id, description=expense.description
+        ),
+        reply_markup=keyboards.expense_actions(expense.id, has_receipt=True),
+    )
+
+
+async def _expense_from_caption(
+    message: Message, user: User, session: AsyncSession, settings: Settings, caption: str
+):
+    """Fotoğraf açıklamasından harcama oluşturur; olmazsa `None` döner."""
+    categories = await _active_categories(session)
+    try:
+        entry = parse_quick_entry(caption, categories)
+    except NotAnExpense:
+        await message.answer(messages.RECEIPT_NO_TARGET, parse_mode="HTML")
+        return None
+
+    if entry.needs_category_choice:
+        await message.answer(
+            messages.quick_entry_needs_category(entry.amount_minor),
+            reply_markup=keyboards.category_choices(entry.candidates),
+        )
+        return None
+
+    cash = await _cash_method(session)
+    if cash is None:
+        await message.answer(GENERIC_ERROR)
+        logger.error("Nakit ödeme yöntemi bulunamadı; seed çalışmamış olabilir")
+        return None
+
+    try:
+        return await create_expense(
+            session,
+            user=user,
+            data=ExpenseInput(
+                payment_method_id=cash.id,
+                category_id=entry.category.id,
+                transaction_date=local_today(settings.timezone),
+                amount=entry.amount_minor,
+                description=entry.description,
+            ),
+        )
+    except (ExpenseError, ValueError) as exc:
+        await message.answer(f"⚠️ {exc}")
+        return None
+
+
+@router.callback_query(F.data.startswith(keyboards.CALLBACK_RECEIPT))
+async def show_receipt(query: CallbackQuery, session: AsyncSession) -> None:
+    expense_id = keyboards.parse_callback(query.data, keyboards.CALLBACK_RECEIPT)
+    expense = await get_expense(session, expense_id) if expense_id else None
+    if expense is None or not expense.receipt_file_id:
+        await query.answer(messages.RECEIPT_MISSING, show_alert=True)
+        return
+    await query.message.answer_photo(
+        expense.receipt_file_id, caption=f"📎 Fiş — #{expense.public_id}"
     )
     await query.answer()
