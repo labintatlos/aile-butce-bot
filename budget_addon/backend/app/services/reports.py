@@ -469,3 +469,89 @@ async def future_obligations(
             )
         )
     return obligations
+
+
+# ---------------------------------------------------------------------------
+# Yıllık karşılaştırma
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class MonthComparison:
+    """Bir ayın bu yılki ve geçen yılki net harcaması."""
+
+    month: int
+    this_year_minor: int
+    last_year_minor: int
+
+    @property
+    def difference_minor(self) -> int:
+        return self.this_year_minor - self.last_year_minor
+
+    @property
+    def change_percent(self) -> int | None:
+        """Yüzde değişim. Geçen yıl kayıt yoksa oran hesaplanmaz."""
+        if self.last_year_minor <= 0:
+            return None
+        return round(self.difference_minor * 100 / self.last_year_minor)
+
+
+@dataclass(frozen=True, slots=True)
+class YearComparison:
+    """Bir yılın aylık dökümü ve önceki yılla karşılaştırması."""
+
+    year: int
+    months: list[MonthComparison] = field(default_factory=list)
+
+    @property
+    def this_year_total_minor(self) -> int:
+        return sum(item.this_year_minor for item in self.months)
+
+    @property
+    def last_year_total_minor(self) -> int:
+        return sum(item.last_year_minor for item in self.months)
+
+    @property
+    def difference_minor(self) -> int:
+        return self.this_year_total_minor - self.last_year_total_minor
+
+    @property
+    def busiest_month(self) -> MonthComparison | None:
+        recorded = [item for item in self.months if item.this_year_minor > 0]
+        return max(recorded, key=lambda item: item.this_year_minor, default=None)
+
+
+async def _net_month_total(session: AsyncSession, *, year: int, month: int) -> int:
+    """Bir ayın iadeler düşülmüş harcama toplamı."""
+    start, end = month_bounds(year, month)
+    spent = await session.scalar(
+        select(func.coalesce(func.sum(Expense.total_amount_minor), 0)).where(
+            Expense.deleted_at.is_(None),
+            Expense.transaction_date >= start,
+            Expense.transaction_date <= end,
+        )
+    )
+    refunded = await refunds.total_in_month(session, year=year, month=month)
+    return spent - refunded
+
+
+async def yearly_comparison(session: AsyncSession, *, year: int) -> YearComparison:
+    """Ayları geçen yılın aynı aylarıyla karşılaştırır.
+
+    Kıyas aynı ayla yapılır, önceki ayla değil: harcama mevsimseldir ve
+    ocak ile aralığı yan yana koymak yanıltır.
+    """
+    months = []
+    for month in range(1, MONTHS_PER_YEAR + 1):
+        months.append(
+            MonthComparison(
+                month=month,
+                this_year_minor=await _net_month_total(
+                    session, year=year, month=month
+                ),
+                last_year_minor=await _net_month_total(
+                    session, year=year - 1, month=month
+                ),
+            )
+        )
+    return YearComparison(year=year, months=months)

@@ -7,7 +7,14 @@ Telegram'a bağlı olmadıkları için doğrudan test edilebilirler.
 from __future__ import annotations
 
 from ..services import reminders, reports
-from .formatting import installment_label, long_date, money, month_name, short_date
+from .formatting import (
+    MONTH_NAMES,
+    installment_label,
+    long_date,
+    money,
+    month_name,
+    short_date,
+)
 
 EMPTY_MONTH = "Bu ay henüz harcama kaydı yok."
 EMPTY_STATEMENTS = "Yaklaşan ekstre bulunmuyor."
@@ -760,3 +767,86 @@ def tag_detail(total, expenses) -> str:
     if len(expenses) > TAG_DETAIL_LIMIT:
         lines.append(f"… ve {len(expenses) - TAG_DETAIL_LIMIT} kayıt daha")
     return "\n".join(lines)
+
+
+def month_forecast(estimate) -> str:
+    """`🔮 Tahmin`: bu gidişle ay sonunda ne olur."""
+    lines = [
+        f"🔮 <b>{month_name(estimate.year, estimate.month)} tahmini</b>",
+        "",
+        f"Bu gidişle ay sonu: <b>{money(estimate.total_minor)}</b>",
+        "",
+        f"Şu ana kadar: {money(estimate.spent_so_far_minor)}"
+        f"  ({estimate.days_elapsed}/{estimate.days_in_month} gün)",
+        f"Ayın kalanında beklenen: {money(estimate.remaining_minor)}",
+        "",
+        "Nasıl hesaplandı:",
+        f"  Sabit giderler: {money(estimate.fixed_minor)}",
+        f"  Değişken harcama tahmini: {money(estimate.variable_forecast_minor)}",
+        f"    bu ayın hızı: {money(estimate.variable_run_rate_minor)}",
+    ]
+    if estimate.has_history:
+        lines.append(
+            f"    son 3 ay ortalaması: {money(estimate.variable_history_minor)}"
+        )
+        lines += [
+            "",
+            "ℹ️ Ay ilerledikçe tahmin bu ayın kendi hızına ağırlık verir;"
+            " başındayken geçmiş aylara.",
+        ]
+    else:
+        lines += [
+            "",
+            "ℹ️ Henüz geçmiş ay verisi yok; tahmin yalnızca bu ayın hızına"
+            " dayanıyor ve zamanla isabetlenecek.",
+        ]
+    return "\n".join(lines)
+
+
+def yearly_comparison(comparison) -> str:
+    """`/yil` çıktısı: aylar geçen yılın aynı aylarıyla yan yana."""
+    recorded = [item for item in comparison.months if item.this_year_minor or item.last_year_minor]
+    if not recorded:
+        return f"{comparison.year} yılında kayıt yok."
+
+    lines = [f"📅 <b>{comparison.year} — {comparison.year - 1} karşılaştırması</b>", ""]
+    for item in recorded:
+        label = MONTH_NAMES[item.month - 1]
+        change = item.change_percent
+        if change is None:
+            marker = ""
+        elif change > 0:
+            marker = f"  🔺 %{change}"
+        elif change < 0:
+            marker = f"  🔻 %{abs(change)}"
+        else:
+            marker = "  ="
+        lines.append(f"{label}: {money(item.this_year_minor)}{marker}")
+
+    lines += [
+        "",
+        f"{comparison.year} toplam: {money(comparison.this_year_total_minor)}",
+        f"{comparison.year - 1} toplam: {money(comparison.last_year_total_minor)}",
+    ]
+    difference = comparison.difference_minor
+    if comparison.last_year_total_minor:
+        direction = "fazla" if difference > 0 else "az"
+        lines.append(f"Fark: {money(abs(difference))} daha {direction}")
+
+    busiest = comparison.busiest_month
+    if busiest is not None:
+        lines += [
+            "",
+            f"En yüksek ay: {MONTH_NAMES[busiest.month - 1]}"
+            f" ({money(busiest.this_year_minor)})",
+        ]
+    return "\n".join(lines)
+
+
+EXPORT_USAGE = (
+    "<b>Dışa aktarma</b>\n\n"
+    "<code>/disaaktar</code> — bu ay\n"
+    "<code>/disaaktar 2026-08</code> — belirli bir ay\n"
+    "<code>/disaaktar 2026</code> — bütün yıl\n\n"
+    "Dosya CSV olarak gelir ve Excel'de doğrudan açılır."
+)

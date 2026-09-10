@@ -25,7 +25,7 @@ import logging
 
 from aiogram import Router
 from aiogram.filters import Command
-from aiogram.types import Message
+from aiogram.types import BufferedInputFile, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import Settings
@@ -35,9 +35,12 @@ from ..models.user import User
 from ..services import (
     budgets,
     cards,
+    exporting,
+    forecast,
     income,
     recurring,
     refunds,
+    reports,
     settings_service,
     tags,
 )
@@ -868,3 +871,66 @@ async def show_tags(message: Message, session: AsyncSession) -> None:
     total = await tags.total_for(session, wanted)
     expenses = await tags.expenses_for(session, wanted)
     await message.answer(messages.tag_detail(total, expenses), parse_mode="HTML")
+
+
+@router.message(Command("tahmin"))
+async def show_forecast(
+    message: Message, session: AsyncSession, settings: Settings
+) -> None:
+    estimate = await forecast.month_forecast(
+        session, today=local_today(settings.timezone)
+    )
+    await message.answer(messages.month_forecast(estimate), parse_mode="HTML")
+
+
+# ---------------------------------------------------------------------------
+# Yıllık karşılaştırma ve dışa aktarma
+# ---------------------------------------------------------------------------
+
+
+@router.message(Command("yil"))
+async def yearly_report(
+    message: Message, session: AsyncSession, settings: Settings
+) -> None:
+    raw_year = _arguments(message)
+    year = int(raw_year) if raw_year.isdigit() else local_today(settings.timezone).year
+    comparison = await reports.yearly_comparison(session, year=year)
+    await message.answer(messages.yearly_comparison(comparison), parse_mode="HTML")
+
+
+def parse_period(raw: str, today) -> tuple[int, int | None] | None:
+    """`2026-08`, `2026` veya boş girdiyi (yıl, ay) çiftine çevirir.
+
+    Anlaşılmayan girdide tahmin yürütülmez; `None` döner ve kullanıma dair
+    açıklama gösterilir.
+    """
+    raw = raw.strip()
+    if not raw:
+        return today.year, today.month
+    if raw.isdigit() and len(raw) == 4:
+        return int(raw), None
+    year, separator, month = raw.partition("-")
+    if separator and year.isdigit() and month.isdigit() and 1 <= int(month) <= 12:
+        return int(year), int(month)
+    return None
+
+
+@router.message(Command("disaaktar"))
+async def export_csv(
+    message: Message, session: AsyncSession, settings: Settings
+) -> None:
+    period = parse_period(_arguments(message), local_today(settings.timezone))
+    if period is None:
+        await message.answer(messages.EXPORT_USAGE, parse_mode="HTML")
+        return
+
+    year, month = period
+    start, end = exporting.month_range(year, month)
+    content = await exporting.expenses_csv(session, start=start, end=end)
+    await message.answer_document(
+        BufferedInputFile(
+            content.encode("utf-8"),
+            filename=exporting.filename_for(year=year, month=month),
+        ),
+        caption=f"📄 {start.isoformat()} – {end.isoformat()} harcamaları",
+    )

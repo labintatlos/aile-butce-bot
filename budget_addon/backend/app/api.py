@@ -11,6 +11,7 @@ import logging
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,6 +42,8 @@ from .schemas import (
     CardUsageOut,
     IncomeCreateIn,
     IncomeOut,
+    MonthComparisonOut,
+    MonthForecastOut,
     MonthlyPositionOut,
     RecurringExpenseCreateIn,
     RecurringExpenseOut,
@@ -50,6 +53,7 @@ from .schemas import (
     SchedulePreviewIn,
     SearchResultOut,
     TagTotalOut,
+    YearComparisonOut,
     SchedulePreviewOut,
     StatementOut,
     UserOut,
@@ -59,6 +63,8 @@ from .services import (
     budgets,
     cards,
     cashflow,
+    exporting,
+    forecast,
     income as income_service,
     recurring,
     refunds,
@@ -900,3 +906,96 @@ async def tag_report(
         )
         for item in await tags.totals(session, year=year, month=month)
     ]
+
+
+@router.get("/reports/forecast", response_model=MonthForecastOut)
+async def forecast_report(
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> MonthForecastOut:
+    """Bu gidişle ay sonunda ne olacağı."""
+    estimate = await forecast.month_forecast(
+        session, today=local_today(settings.timezone)
+    )
+    return MonthForecastOut(
+        year=estimate.year,
+        month=estimate.month,
+        days_elapsed=estimate.days_elapsed,
+        days_in_month=estimate.days_in_month,
+        spent_so_far=Money.of(estimate.spent_so_far_minor),
+        fixed=Money.of(estimate.fixed_minor),
+        variable_forecast=Money.of(estimate.variable_forecast_minor),
+        variable_run_rate=Money.of(estimate.variable_run_rate_minor),
+        variable_history=Money.of(estimate.variable_history_minor),
+        total=Money.of(estimate.total_minor),
+        remaining=Money.of(estimate.remaining_minor),
+    )
+
+
+@router.get("/reports/yearly", response_model=YearComparisonOut)
+async def yearly_report(
+    year: int | None = None,
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> YearComparisonOut:
+    """Ayları geçen yılın aynı aylarıyla karşılaştırır."""
+    target = year or local_today(settings.timezone).year
+    comparison = await reports.yearly_comparison(session, year=target)
+    return YearComparisonOut(
+        year=comparison.year,
+        months=[
+            MonthComparisonOut(
+                month=item.month,
+                this_year=Money.of(item.this_year_minor),
+                last_year=Money.of(item.last_year_minor),
+                change_percent=item.change_percent,
+            )
+            for item in comparison.months
+        ],
+        this_year_total=Money.of(comparison.this_year_total_minor),
+        last_year_total=Money.of(comparison.last_year_total_minor),
+    )
+
+
+@router.get("/export/expenses.csv", response_class=PlainTextResponse)
+async def export_expenses(
+    year: int | None = None,
+    month: int | None = None,
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> PlainTextResponse:
+    """Harcamaları CSV olarak indirir. Ay verilmezse bütün yıl gelir."""
+    today = local_today(settings.timezone)
+    target_year = year or today.year
+    start, end = exporting.month_range(target_year, month)
+    content = await exporting.expenses_csv(session, start=start, end=end)
+    filename = exporting.filename_for(year=target_year, month=month)
+    return PlainTextResponse(
+        content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/export/incomes.csv", response_class=PlainTextResponse)
+async def export_incomes(
+    year: int | None = None,
+    month: int | None = None,
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> PlainTextResponse:
+    """Gelirleri CSV olarak indirir."""
+    today = local_today(settings.timezone)
+    target_year = year or today.year
+    start, end = exporting.month_range(target_year, month)
+    content = await exporting.incomes_csv(session, start=start, end=end)
+    filename = exporting.filename_for(year=target_year, month=month, kind="gelir")
+    return PlainTextResponse(
+        content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

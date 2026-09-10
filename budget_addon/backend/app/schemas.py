@@ -372,3 +372,38 @@ class TagTotalOut(BaseModel):
     tag: str
     total: Money
     transaction_count: int
+
+
+class MonthForecastOut(BaseModel):
+    """Ay sonu harcama tahmini ve dayanakları.
+
+    Dayanaklar da döndürülür: tahmin bir kara kutu değildir, kullanıcı hangi
+    sayıdan geldiğini görebilmelidir.
+    """
+
+    year: int
+    month: int
+    days_elapsed: int
+    days_in_month: int
+    spent_so_far: Money
+    fixed: Money
+    variable_forecast: Money
+    variable_run_rate: Money
+    variable_history: Money
+    total: Money
+    remaining: Money
+
+
+class MonthComparisonOut(BaseModel):
+    month: int
+    this_year: Money
+    last_year: Money
+    change_percent: int | None = None
+    """Geçen yıl aynı ayda kayıt yoksa oran hesaplanmaz."""
+
+
+class YearComparisonOut(BaseModel):
+    year: int
+    months: list[MonthComparisonOut]
+    this_year_total: Money
+    last_year_total: Money
