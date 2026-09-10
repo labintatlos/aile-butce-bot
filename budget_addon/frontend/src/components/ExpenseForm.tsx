@@ -25,11 +25,14 @@ const PREVIEW_DEBOUNCE_MS = 350;
 
 export function ExpenseForm({
   initial,
+  defaults,
   submitLabel,
   onSubmit,
   onCancel,
 }: {
   initial?: Expense;
+  /** Hızlı girişte kategorisi bulunamayan metinden gelen tutar ve açıklama. */
+  defaults?: { amount: string; description: string };
   submitLabel: string;
   onSubmit: (input: ExpenseInput) => Promise<void>;
   onCancel?: () => void;
@@ -47,7 +50,9 @@ export function ExpenseForm({
     return active;
   }, [bootstrap.categories, initial]);
 
-  const [amount, setAmount] = useState(initial ? minorToInput(initial.total.minor) : "");
+  const [amount, setAmount] = useState(
+    initial ? minorToInput(initial.total.minor) : (defaults?.amount ?? ""),
+  );
   const [transactionDate, setTransactionDate] = useState(
     initial?.transaction_date ?? bootstrap.today,
   );
@@ -58,7 +63,9 @@ export function ExpenseForm({
   });
   const [installmentCount, setInstallmentCount] = useState(initial?.installment_count ?? 1);
   const [categoryId, setCategoryId] = useState<number | null>(initial?.category.id ?? null);
-  const [description, setDescription] = useState(initial?.description ?? "");
+  const [description, setDescription] = useState(
+    initial?.description ?? defaults?.description ?? "",
+  );
   const [isShared, setIsShared] = useState(initial?.is_shared ?? true);
 
   const [preview, setPreview] = useState<SchedulePreview | null>(null);

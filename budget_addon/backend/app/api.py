@@ -111,7 +111,7 @@ def _expense_out(expense) -> ExpenseOut:
         installment_count=expense.installment_count,
         description=expense.description,
         is_shared=expense.is_shared,
-        has_receipt=bool(expense.receipt_file_id),
+        has_receipt=bool(expense.receipt_path),
         installments=[
             InstallmentOut(
                 number=line.installment_number,

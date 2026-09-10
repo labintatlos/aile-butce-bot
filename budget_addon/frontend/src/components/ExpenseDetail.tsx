@@ -19,6 +19,7 @@ import {
 import { errorMessage, useAsync } from "../hooks";
 import { ExpenseForm } from "./ExpenseForm";
 import { Icon } from "./icons";
+import { ReceiptPanel } from "./ReceiptPanel";
 import { ConfirmButton, ErrorNote, Field, Loading, Modal, useToast } from "./ui";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -156,6 +157,17 @@ export function ExpenseDetail({
           </span>
         ))}
         {item.has_receipt && <span className="badge success">Fiş eklendi</span>}
+      </div>
+
+      <div className="mt">
+        <ReceiptPanel
+          expenseId={item.id}
+          hasReceipt={item.has_receipt}
+          onChange={() => {
+            expense.reload();
+            onChanged();
+          }}
+        />
       </div>
 
       <dl className="kv">

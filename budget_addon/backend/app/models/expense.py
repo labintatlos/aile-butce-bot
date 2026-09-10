@@ -77,7 +77,13 @@ class Expense(TimestampMixin, Base):
     zaten baktığı yerde, sohbetin içinde açılır.
 
     Tutar fotoğraftan **okunmaz**. Fiş yalnızca kanıttır; tutarı kullanıcı
-    yazar, çünkü finansal hesapta tahmin yürütülmez."""
+    yazar, çünkü finansal hesapta tahmin yürütülmez.
+
+    Site fişleri kendisi saklar (`receipt_path`); bu sütun yalnızca Telegram
+    döneminden kalan ve henüz aktarılmamış fişler için durur."""
+
+    receipt_path: Mapped[str | None] = mapped_column(String(64), default=None)
+    """Veri dizinindeki `receipts/` klasöründe fiş fotoğrafının dosya adı."""
 
     recurring_expense_id: Mapped[int | None] = mapped_column(
         Integer, index=True, default=None

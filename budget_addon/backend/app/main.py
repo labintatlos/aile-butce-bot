@@ -26,6 +26,7 @@ from .admin_api import router as admin_router
 from .api import router
 from .auth_api import router as auth_router
 from .notifications_api import router as notifications_router
+from .receipts_api import router as receipts_router
 from .services.scheduler import start_scheduler_task
 from .security.setup import announce_setup_code, ensure_setup_code, setup_required
 from .bot.runner import start_polling_task
@@ -131,6 +132,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth_router)
     app.include_router(admin_router)
     app.include_router(notifications_router)
+    app.include_router(receipts_router)
 
     @app.get("/health")
     async def health() -> dict[str, str]:

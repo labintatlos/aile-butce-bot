@@ -84,6 +84,14 @@ export interface AdminUser {
   has_login: boolean;
 }
 
+export interface QuickEntryResult {
+  /** Doluysa harcama kaydedildi. */
+  expense: Expense | null;
+  amount_minor: number | null;
+  description: string | null;
+  candidate_ids: number[];
+}
+
 export interface AppNotification {
   id: number;
   kind: string;
@@ -552,6 +560,19 @@ export const api = {
     patch<Expense>(`expenses/${id}`, changes),
   deleteExpense: (id: number) => remove(`expenses/${id}`),
   searchExpenses: (filters: SearchFilters) => get<SearchResult>("expenses", { ...filters }),
+  quickEntry: (text: string) => post<QuickEntryResult>("expenses/quick", { text }),
+
+  // Fis fotografi
+  uploadReceipt: (expenseId: number, image: Blob) =>
+    request<void>(`expenses/${expenseId}/receipt`, {
+      method: "PUT",
+      body: image,
+      headers: { "Content-Type": image.type || "image/jpeg" },
+    }),
+  deleteReceipt: (expenseId: number) => remove(`expenses/${expenseId}/receipt`),
+  /** `version` degisince tarayici fotografi yeniden ister. */
+  receiptUrl: (expenseId: number, version: number) =>
+    `${API_BASE}/expenses/${expenseId}/receipt?v=${version}`,
 
   // Iadeler
   refunds: (expenseId: number) => get<Refund[]>(`expenses/${expenseId}/refunds`),
