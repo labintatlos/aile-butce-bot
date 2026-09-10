@@ -114,6 +114,7 @@ class ExpenseOut(BaseModel):
     public_id: str
     created_by: str
     category: CategoryOut
+    payment_method_id: int | None = None
     payment_method_name: str
     transaction_date: date
     total: Money

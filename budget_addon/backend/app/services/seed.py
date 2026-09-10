@@ -127,6 +127,44 @@ async def seed_payment_methods(session: AsyncSession) -> int:
     return created
 
 
+async def seed_web_logins(session: AsyncSession, settings: Settings) -> int:
+    """Web girişlerini yapılandırmayla eşitler; değişen kullanıcı sayısını döndürür.
+
+    Yapılandırma tek doğruluk kaynağıdır. Şifre zaten tutuyorsa özet yeniden
+    üretilmez; böylece her açılışta açık oturumlar düşmez. Listeden çıkarılan
+    kişinin kullanıcı adı ve şifresi silinir, oturumu da kendiliğinden kapanır.
+    """
+    from ..security.passwords import hash_password, verify_password
+
+    logins = settings.web_logins
+    users = (await session.scalars(select(User).order_by(User.id))).all()
+    before = {user.id: (user.username, user.password_hash) for user in users}
+
+    # Iki kisi kullanici adlarini takas ederse benzersizlik kisiti ara adimda
+    # patlamasin diye once artik kullanilmayacak adlar bosaltilir.
+    for user in users:
+        wanted = logins.get(user.telegram_user_id)
+        if wanted is None:
+            user.username = None
+            user.password_hash = None
+        elif user.username != wanted.username:
+            user.username = None
+    await session.flush()
+
+    for user in users:
+        wanted = logins.get(user.telegram_user_id)
+        if wanted is None:
+            continue
+        if user.username != wanted.username or not verify_password(
+            wanted.password, user.password_hash
+        ):
+            user.username = wanted.username
+            user.password_hash = hash_password(wanted.password)
+    return sum(
+        1 for user in users if before[user.id] != (user.username, user.password_hash)
+    )
+
+
 async def seed_all(session: AsyncSession, settings: Settings) -> dict[str, int]:
     """Tüm başlangıç verisini tek transaction içinde oluşturur."""
     try:
@@ -135,6 +173,8 @@ async def seed_all(session: AsyncSession, settings: Settings) -> dict[str, int]:
             "payment_methods": await seed_payment_methods(session),
             "users": await seed_users(session, settings),
         }
+        await session.flush()
+        counts["web_logins"] = await seed_web_logins(session, settings)
         await session.commit()
     except Exception:
         await session.rollback()

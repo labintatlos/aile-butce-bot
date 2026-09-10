@@ -19,6 +19,12 @@ class User(TimestampMixin, Base):
     ha_user_id: Mapped[str | None] = mapped_column(
         String(64), unique=True, index=True, default=None
     )
+    username: Mapped[str | None] = mapped_column(
+        String(32), unique=True, index=True, default=None
+    )
+    """Web sitesi kullanıcı adı. Boşsa bu kişi web sitesine giriş yapamaz."""
+    password_hash: Mapped[str | None] = mapped_column(String(255), default=None)
+    """Web şifresinin scrypt özeti; düz şifre hiçbir yerde saklanmaz."""
     display_name: Mapped[str] = mapped_column(String(64))
     role: Mapped[str] = mapped_column(String(16), default=ROLE_MEMBER)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

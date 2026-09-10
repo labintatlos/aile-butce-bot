@@ -104,6 +104,7 @@ def _expense_out(expense) -> ExpenseOut:
         public_id=expense.public_id,
         created_by=expense.created_by.display_name if expense.created_by else "",
         category=CategoryOut.model_validate(expense.category),
+        payment_method_id=expense.payment_method_id,
         payment_method_name=expense.payment_method_name_snapshot,
         transaction_date=expense.transaction_date,
         total=Money.of(expense.total_amount_minor),

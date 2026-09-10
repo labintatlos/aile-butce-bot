@@ -43,6 +43,7 @@ export TELEGRAM_BOT_TOKEN
 export AUTHORIZED_TELEGRAM_IDS
 export_optional 'user_display_names' USER_DISPLAY_NAMES
 export_optional 'ha_user_map' HA_USER_MAP
+export_optional 'web_users' WEB_USERS
 export_optional 'webapp_public_url' WEBAPP_PUBLIC_URL
 export_optional 'timezone' TIMEZONE
 export_optional 'log_level' LOG_LEVEL
@@ -93,8 +94,9 @@ fi
 #
 #   8099 (Ingress) : yalnızca Supervisor ağından erişilir, X-Remote-User-Id
 #                    başlığına güvenir, Telegram botunu da bu süreç çalıştırır.
-#   8100 (genel)   : internete açılabilir, başlığa güvenmez, yalnızca imzalı
-#                    Telegram initData kabul eder.
+#   8100 (genel)   : web sitesi ve Telegram Mini App. İnternete açılabilir,
+#                    başlığa güvenmez; kimlik yalnızca kullanıcı adı/şifreyle
+#                    verilen oturum çerezinden veya imzalı initData'dan gelir.
 #
 # Bot yalnızca ilk süreçte açıktır: Telegram aynı bot için tek bir getUpdates
 # tüketicisine izin verir, ikinci süreç sürekli çakışma hatası üretirdi.
@@ -104,13 +106,13 @@ fi
 # her ikisini de arka plana alıp `wait` ile beklemek, gerçek hatayı gizleyip
 # her başarısızlığı anlamsız bir "exit code 1" hâline getiriyordu.
 
-if bashio::var.has_value "${WEBAPP_PUBLIC_URL}"; then
-  bashio::log.info "Telegram Mini App sunucusu başlatılıyor (port ${PUBLIC_PORT})"
+if bashio::var.has_value "${WEB_USERS}" || bashio::var.has_value "${WEBAPP_PUBLIC_URL}"; then
+  bashio::log.info "Web sitesi sunucusu başlatılıyor (port ${PUBLIC_PORT})"
   TRUST_INGRESS_HEADERS="false" ENABLE_BOT="false" \
     python -m uvicorn app.main:app \
     --host 0.0.0.0 --port "${PUBLIC_PORT}" --log-level "${LOG_LEVEL}" &
 else
-  bashio::log.info "webapp_public_url boş; Mini App sunucusu başlatılmadı. Arayüz Home Assistant panelinden kullanılabilir."
+  bashio::log.info "web_users ve webapp_public_url boş; web sitesi sunucusu başlatılmadı. Arayüz Home Assistant panelinden kullanılabilir."
 fi
 
 bashio::log.info "Ingress arayüzü başlatılıyor (port ${INGRESS_PORT})"

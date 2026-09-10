@@ -1,5 +1,37 @@
 # Değişiklik Günlüğü
 
+## 1.5.0
+
+Bu sürümle sistem tam bir web sitesine dönüşüyor. Telegram botu ve Home
+Assistant paneli olduğu gibi çalışmaya devam ediyor; web sitesi aynı
+veritabanını ve aynı hesap kurallarını kullanıyor.
+
+**Kullanıcı adı ve şifreyle giriş.** `web_users` ayarına
+`telegram_id:kullanici_adi:sifre` yazılan kişi web sitesine girebiliyor. Şifre
+veritabanına yalnızca scrypt özeti olarak yazılıyor; oturum imzalı ve
+JavaScript'in okuyamadığı bir çerezde duruyor. Şifre değiştirildiğinde veya kişi
+listeden çıkarıldığında açık oturumlar kendiliğinden kapanıyor. Aynı adresten 15
+dakikada 10 hatalı denemeden sonra giriş geçici olarak durduruluyor; doğru
+şifreyle giren hiçbir zaman yavaşlatılmıyor.
+
+**Botta ne varsa sitede de var.** Özet ekranı, taksit ve ekstre önizlemeli
+harcama girişi, aranabilir ve filtrelenebilir harcama listesi, harcama
+düzenleme ve silme, iadeler, gelirler, sabit giderler, aylık / kart / yıllık
+raporlar, bütçe hedefleri, kart limitleri, etiketler, ortak gider
+denkleştirmesi, CSV dışa aktarma (ay veya bütün yıl), kart ve kategori
+ayarları, hatırlatıcıyı açıp kapama.
+
+**Telefon ve bilgisayar.** Geniş ekranda kenar çubuklu masaüstü düzeni, telefonda
+alt gezinme çubuğu. Açık ve koyu tema cihaz ayarını izliyor; Telegram içinde
+Telegram'ın renkleri kullanılıyor.
+
+**Yayın.** Web sitesi 8100 portundaki genel sunucudan sunuluyor. Bu sunucu artık
+`web_users` veya `webapp_public_url` doluysa başlıyor ve Ingress başlığına
+güvenmiyor.
+
+Fiş fotoğrafları Telegram'da kalıyor; sitede yalnızca "fiş eklendi" işareti
+görünüyor.
+
 ## 1.4.0
 
 Bu sürüm sistemi bir harcama defterinden bütçe yöneticisine çeviriyor. Taksit

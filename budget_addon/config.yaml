@@ -1,6 +1,6 @@
 name: Aile Bütçe Takip
-description: Telegram üzerinden aile bütçesi ve kredi kartı taksit takibi
-version: "1.4.0"
+description: Aile bütçesi ve kredi kartı taksit takibi — web sitesi, Telegram botu ve HA paneli
+version: "1.5.0"
 slug: family_budget
 url: https://github.com/labintatlos/aile-butce-bot
 arch:
@@ -18,12 +18,14 @@ panel_icon: mdi:wallet
 panel_title: Bütçe
 
 # Ingress portu disariya acilmaz: X-Remote-User-Id basligina yalnizca
-# Supervisor agindan gelen istekte guvenilir. Telegram Mini App icin kullanilan
-# 8100 ise basliga guvenmeyen ayri bir surectir.
+# Supervisor agindan gelen istekte guvenilir. Web sitesi ve Telegram Mini App
+# icin kullanilan 8100 ise basliga guvenmeyen ayri bir surectir; orada kimlik
+# yalnizca kullanici adi/sifre ile verilen oturum cerezinden veya imzali
+# Telegram initData'sindan gelir.
 ports:
   8100/tcp: null
 ports_description:
-  8100/tcp: Telegram Mini App için genel erişim (yalnızca imzalı initData kabul eder)
+  8100/tcp: Web sitesi ve Telegram Mini App (kullanıcı adı/şifre veya imzalı initData)
 
 # HA'nin config, ssl, share veya media klasorlerine erisim istenmez.
 map: []
@@ -37,6 +39,7 @@ options:
   authorized_telegram_ids: ""
   user_display_names: ""
   ha_user_map: ""
+  web_users: ""
   webapp_public_url: ""
   timezone: Europe/Istanbul
   log_level: info
@@ -52,6 +55,7 @@ schema:
   authorized_telegram_ids: str
   user_display_names: str
   ha_user_map: str?
+  web_users: password?
   webapp_public_url: str?
   timezone: str
   log_level: list(debug|info|warning|error)

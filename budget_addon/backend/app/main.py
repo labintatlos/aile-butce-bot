@@ -23,6 +23,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api import router
+from .auth_api import router as auth_router
 from .bot.runner import start_polling_task
 from .ha_publisher import start_publisher_task
 from .config import Settings, get_settings
@@ -113,6 +114,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     app.include_router(router)
+    app.include_router(auth_router)
 
     @app.get("/health")
     async def health() -> dict[str, str]:

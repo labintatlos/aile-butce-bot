@@ -49,6 +49,7 @@ Eklentinin **Yapılandırma** sekmesinde:
 | `authorized_telegram_ids` | İki kimlik, virgülle: `111111111,222222222` |
 | `user_display_names` | `111111111:Aykut,222222222:Aslıhan` |
 | `ha_user_map` | Home Assistant kimliği eşlemesi (aşağıya bak) |
+| `web_users` | Web sitesi girişleri ([Web sitesi](#web-sitesi) bölümüne bak); istemiyorsan boş bırak |
 | `webapp_public_url` | Şimdilik **boş bırak** |
 | `timezone` | `Europe/Istanbul` |
 | `backup_retention` | Kaç yedek saklanacak (varsayılan 14) |
@@ -87,6 +88,10 @@ bir tablet hesabı) **ikisini de aynı Telegram kimliğine** eşle.
   buradan açılır; ek bir kurulum gerekmez.
 - **Telegram:** Bota `/start` yaz. Menüden raporlara ulaşabilir, ya da
   doğrudan `500 market` gibi yazarak hızlı kayıt yapabilirsin.
+- **Web sitesi:** Telefondan veya bilgisayardan kullanıcı adı ve şifreyle.
+  Kurulumu aşağıdaki [Web sitesi](#web-sitesi) bölümünde.
+
+Üçü aynı veriyi görür; birinden girilen harcama diğerlerinde de hemen görünür.
 
 ## 6. Kredi kartlarını ayarla
 
@@ -134,6 +139,46 @@ adını kendi içinde saklar.
 
 ---
 
+## Web sitesi
+
+Bütçeyi Home Assistant'a girmeden, telefondan veya bilgisayardan kullanıcı adı
+ve şifreyle açmak için. Botta yapılabilen her şey sitede de yapılabilir: özet,
+harcama girişi ve düzenleme, iadeler, gelirler, sabit giderler, raporlar, CSV
+dışa aktarma, kart ve kategori ayarları.
+
+1. Eklenti ayarlarında `web_users` alanına her kişi için
+   `telegram_id:kullanici_adi:sifre` yaz, kişileri virgülle ayır:
+
+   ```
+   111111111:aykut:UzunBirSifre1,222222222:aslihan:BaskaBirSifre2
+   ```
+
+   - Kullanıcı adı 3-32 karakter olur; küçük harf, rakam, nokta, alt çizgi veya
+     tire kullanılabilir.
+   - Şifre en az 8 karakter olmalı ve **virgül içermemeli**.
+   - Telegram kimliği `authorized_telegram_ids` listesinde olmalı.
+
+2. **Kaydet** ve eklentiyi yeniden başlat. Günlükte
+   `Web sitesi sunucusu başlatılıyor (port 8100)` satırı görünür.
+3. Eklentinin **Ağ** bölümünde 8100 portuna bir numara ver (örneğin `8100`).
+   Ev ağından `http://homeassistant.local:8100` adresiyle açılır.
+4. Dışarıdan erişmek için bu portu **HTTPS** veren bir adrese yönlendir
+   (Keenetic için KeenDNS; adımlar `docs/DEPLOYMENT_HA.md` dosyasında). Modemde
+   portu doğrudan düz HTTP olarak internete açma: şifre şifrelenmeden gider.
+
+Bilinmesi gerekenler:
+
+- Şifre veritabanına düz metin olarak değil, yalnızca özet olarak yazılır.
+- **Beni hatırla** işaretliyse oturum 30 gün, değilse tarayıcı kapanana kadar
+  (en fazla 12 saat) açık kalır.
+- Şifreyi değiştirmek için `web_users` alanını güncelleyip eklentiyi yeniden
+  başlat; o kişinin açık oturumlarının hepsi kapanır. Bir kişiyi listeden
+  çıkarmak onun web erişimini kapatır.
+- Aynı adresten 15 dakika içinde 10 hatalı deneme yapılırsa giriş 15 dakika
+  durdurulur. Doğru şifreyle giren kişi hiçbir zaman yavaşlatılmaz.
+- Fiş fotoğrafları Telegram'da kalır; sitede yalnızca "fiş eklendi" işareti
+  görünür.
+
 ## Telegram Mini App (isteğe bağlı)
 
 Formu Home Assistant yerine doğrudan Telegram içinden açmak istersen, dışarıya
@@ -144,8 +189,9 @@ Ingress bu iş için kullanılamaz; Telegram'ın istemcisinde Home Assistant otu
 Keenetic modemin varsa **KeenDNS** bunu ücretsiz sağlar. Adımlar
 `docs/DEPLOYMENT_HA.md` dosyasındadır.
 
-Adres hazır olduğunda `webapp_public_url` alanına yaz ve eklentiyi yeniden
-başlat. Bu adres girilene kadar sistem tam işlevlidir; yalnızca Telegram
+Web sitesi için bir HTTPS adresi zaten açtıysan Mini App için de aynısı
+kullanılır. Adres hazır olduğunda `webapp_public_url` alanına yaz ve eklentiyi
+yeniden başlat. Bu adres girilene kadar sistem tam işlevlidir; yalnızca Telegram
 içinden form açma özelliği kapalı kalır.
 
 ---

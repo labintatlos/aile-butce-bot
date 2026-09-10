@@ -6,7 +6,9 @@ Tüm sırlar ortam değişkenlerinden okunur; hiçbiri koda veya depoya yazılma
 
 from __future__ import annotations
 
+import re
 from functools import lru_cache
+from typing import NamedTuple
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -20,6 +22,14 @@ DEFAULT_DUE_REMINDER_DAYS = 3
 DEFAULT_HA_PUBLISH_MINUTES = 15
 INGRESS_PORT = 8099
 PUBLIC_PORT = 8100
+
+USERNAME_PATTERN = re.compile(r"[a-z0-9._-]{3,32}")
+MIN_PASSWORD_LENGTH = 8
+
+
+class WebLogin(NamedTuple):
+    username: str
+    password: str
 
 
 class Settings(BaseSettings):
@@ -75,6 +85,15 @@ class Settings(BaseSettings):
 
     user_display_names: str = Field(default="", description="telegram_id:Ad,...")
 
+    web_users: str = ""
+    """Web sitesi girişleri: `telegram_id:kullanici_adi:sifre`, virgülle ayrılmış.
+
+    Şifre veritabanına yalnızca özet olarak yazılır. Buradan bir kişi
+    çıkarılırsa o kişinin web girişi kapanır; şifre değiştirilirse açık
+    oturumları geçersiz olur."""
+    session_secret: str = ""
+    """Oturum çerezlerini imzalayan anahtar. Boşsa veri dizininde üretilir."""
+
     @field_validator("reminder_hour")
     @classmethod
     def _check_reminder_hour(cls, value: int) -> int:
@@ -116,6 +135,45 @@ class Settings(BaseSettings):
         }
 
     @property
+    def web_logins(self) -> dict[int, WebLogin]:
+        """`telegram_id:kullanici_adi:sifre` girdilerini ayrıştırır.
+
+        Hata mesajları girdinin kendisini **yazmaz**: girdide şifre vardır ve
+        mesaj eklenti günlüğüne düşer.
+        """
+        logins: dict[int, WebLogin] = {}
+        usernames: set[str] = set()
+        for item in _split_list(self.web_users):
+            parts = item.split(":", 2)
+            if len(parts) != 3 or any(is_blank(part) for part in parts):
+                raise ValueError(
+                    "'web_users' ayarındaki bir girdi hatalı. Beklenen biçim: "
+                    "telegram_id:kullanici_adi:sifre (örn. 111111111:aykut:GizliSifre1)"
+                )
+            telegram_id = _as_int(parts[0].strip(), field="web_users")
+            username = parts[1].strip().lower()
+            password = parts[2].strip()
+            if not USERNAME_PATTERN.fullmatch(username):
+                raise ValueError(
+                    f"'web_users' ayarındaki {username!r} kullanıcı adı geçersiz. "
+                    "3-32 karakter olmalı; harf, rakam, nokta, alt çizgi veya tire "
+                    "kullanılabilir."
+                )
+            if len(password) < MIN_PASSWORD_LENGTH:
+                raise ValueError(
+                    f"'web_users' ayarında {username!r} için şifre en az "
+                    f"{MIN_PASSWORD_LENGTH} karakter olmalıdır."
+                )
+            if telegram_id in logins or username in usernames:
+                raise ValueError(
+                    f"'web_users' ayarında {telegram_id} kimliği veya {username!r} "
+                    "kullanıcı adı birden fazla kez geçiyor."
+                )
+            logins[telegram_id] = WebLogin(username, password)
+            usernames.add(username)
+        return logins
+
+    @property
     def public_url(self) -> str:
         """Yapılandırılmışsa Mini App adresi, aksi halde boş dize."""
         return "" if is_blank(self.webapp_public_url) else self.webapp_public_url.strip()
@@ -137,6 +195,12 @@ class Settings(BaseSettings):
             )
         self.ha_user_mapping
         self.display_names
+        for telegram_id in self.web_logins:
+            if telegram_id not in self.authorized_ids:
+                raise ValueError(
+                    f"'web_users' ayarındaki {telegram_id} kimliği "
+                    "'authorized_telegram_ids' listesinde yok."
+                )
 
     def safe_summary(self) -> dict[str, object]:
         """Loglanabilir özet. Bot token'ı asla yer almaz."""
@@ -149,6 +213,7 @@ class Settings(BaseSettings):
             "authorized_user_count": len(self.authorized_ids),
             "trust_ingress_headers": self.trust_ingress_headers,
             "ha_user_mappings": len(self.ha_user_mapping),
+            "web_login_count": len(self.web_logins),
             "webapp_public_url_configured": bool(self.public_url),
             "telegram_bot_token_configured": bool(self.telegram_bot_token),
             "enable_reminders": self.enable_reminders,

@@ -1,266 +1,299 @@
 /**
- * Harcama giriş formu.
+ * Uygulama kabuğu.
  *
- * Aynı bileşen üç bağlamda çalışır: Home Assistant paneli, Telegram Mini App
- * ve tarayıcı. Fark yalnızca kimliğin nereden geldiğidir (bkz. api.ts).
+ * Aynı arayüz üç bağlamda çalışır: web sitesi (kullanıcı adı ve şifre),
+ * Home Assistant paneli ve Telegram Mini App. Açılışta `/api/me` sorulur;
+ * kimlik bağlamdan geliyorsa doğrudan içeri girilir, gelmiyorsa giriş ekranı
+ * gösterilir.
  *
- * Tasarım hedefi hız: normal bir harcama az sayıda dokunuşla girilebilmeli.
- * Ancak hız uğruna doğruluk feda edilmez — kredi kartı seçiliyse kaydetmeden
- * önce taksit ve ekstre özeti gösterilir (§17).
+ * Masaüstünde sol kenar çubuğu, telefonda alt gezinme çubuğu kullanılır.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
-  ApiError,
   api,
+  ApiError,
+  AUTH_REQUIRED_EVENT,
   type Bootstrap,
-  type Expense,
-  type PaymentMethod,
-  type SchedulePreview,
+  type Me,
+  type UserSummary,
 } from "./api";
-import { AmountInput } from "./components/AmountInput";
-import { CategoryPicker } from "./components/CategoryPicker";
-import { InstallmentPicker } from "./components/InstallmentPicker";
-import { PaymentMethodPicker } from "./components/PaymentMethodPicker";
-import { SchedulePreviewCard } from "./components/SchedulePreview";
-import { SavedReceipt } from "./components/SavedReceipt";
-import { Reports } from "./components/Reports";
-import { longDate, looksLikeAmount } from "./format";
-import { applyTelegramTheme, haptic } from "./telegram";
+import { Icon, type IconName } from "./components/icons";
+import { Loading, ToastProvider } from "./components/ui";
+import { authSourceLabel, initialOf, SessionContext, useSession, type Session } from "./context";
+import { errorMessage, useHashRoute, type Route } from "./hooks";
+import { Dashboard } from "./pages/Dashboard";
+import { Expenses } from "./pages/Expenses";
+import { Incomes } from "./pages/Incomes";
+import { Login } from "./pages/Login";
+import { More } from "./pages/More";
+import { NewExpense } from "./pages/NewExpense";
+import { Recurring } from "./pages/Recurring";
+import { Reports } from "./pages/Reports";
+import { Settings } from "./pages/Settings";
+import { applyTelegramTheme, isInsideTelegram } from "./telegram";
 
-const PREVIEW_DEBOUNCE_MS = 350;
+type Phase =
+  | { kind: "loading" }
+  | { kind: "login" }
+  | { kind: "failed"; message: string }
+  | { kind: "ready"; me: Me; bootstrap: Bootstrap; users: UserSummary[] };
 
-type View = "add" | "report";
+const NAV: readonly { route: Route; label: string; icon: IconName }[] = [
+  { route: "ozet", label: "Özet", icon: "home" },
+  { route: "harcamalar", label: "Harcamalar", icon: "list" },
+  { route: "gelirler", label: "Gelirler", icon: "income" },
+  { route: "raporlar", label: "Raporlar", icon: "chart" },
+  { route: "sabit", label: "Sabit Giderler", icon: "repeat" },
+  { route: "ayarlar", label: "Ayarlar", icon: "settings" },
+];
+
+const MOBILE_NAV: readonly { route: Route; label: string; icon: IconName }[] = [
+  { route: "ozet", label: "Özet", icon: "home" },
+  { route: "harcamalar", label: "Harcamalar", icon: "list" },
+  { route: "yeni", label: "Ekle", icon: "plus" },
+  { route: "raporlar", label: "Raporlar", icon: "chart" },
+  { route: "diger", label: "Menü", icon: "more" },
+];
+
+const MENU_ROUTES: readonly Route[] = ["diger", "gelirler", "sabit", "ayarlar"];
+
+const TITLES: Record<Route, string> = {
+  ozet: "Özet",
+  harcamalar: "Harcamalar",
+  yeni: "Yeni Harcama",
+  gelirler: "Gelirler",
+  raporlar: "Raporlar",
+  sabit: "Sabit Giderler",
+  ayarlar: "Ayarlar",
+  diger: "Menü",
+};
+
+// Bottaki "Harcama Ekle" dugmesi Mini App'i acar; Telegram kullanicisinin
+// alistigi akis bozulmasin diye orada dogrudan forma girilir.
+const DEFAULT_ROUTE: Route = isInsideTelegram() ? "yeni" : "ozet";
 
 export default function App() {
-  const [view, setView] = useState<View>("add");
-  const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [phase, setPhase] = useState<Phase>({ kind: "loading" });
+  const [route, navigate, visit] = useHashRoute(DEFAULT_ROUTE);
 
-  const [amount, setAmount] = useState("");
-  const [transactionDate, setTransactionDate] = useState("");
-  const [paymentMethodId, setPaymentMethodId] = useState<number | null>(null);
-  const [installmentCount, setInstallmentCount] = useState(1);
-  const [categoryId, setCategoryId] = useState<number | null>(null);
-  const [description, setDescription] = useState("");
-
-  const [preview, setPreview] = useState<SchedulePreview | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saved, setSaved] = useState<Expense | null>(null);
+  const load = useCallback(async () => {
+    try {
+      const [me, bootstrap, users] = await Promise.all([api.me(), api.bootstrap(), api.users()]);
+      setPhase({ kind: "ready", me, bootstrap, users });
+    } catch (cause: unknown) {
+      if (cause instanceof ApiError && cause.status === 401) {
+        setPhase({ kind: "login" });
+      } else {
+        setPhase({ kind: "failed", message: errorMessage(cause, "Bağlantı kurulamadı.") });
+      }
+    }
+  }, []);
 
   useEffect(() => {
     applyTelegramTheme();
-    api
-      .bootstrap()
-      .then((data) => {
-        setBootstrap(data);
-        setTransactionDate(data.today);
-        const cash = data.payment_methods.find((m) => m.type === "cash");
-        setPaymentMethodId(cash?.id ?? data.payment_methods[0]?.id ?? null);
-      })
-      .catch((error: unknown) =>
-        setLoadError(error instanceof ApiError ? error.message : "Bağlantı kurulamadı."),
-      );
-  }, []);
-
-  const selectedMethod: PaymentMethod | undefined = useMemo(
-    () => bootstrap?.payment_methods.find((m) => m.id === paymentMethodId),
-    [bootstrap, paymentMethodId],
-  );
-  const isCreditCard = selectedMethod?.type === "credit_card";
-
-  // Nakit secildiginde taksit her zaman 1'dir (§8).
-  useEffect(() => {
-    if (!isCreditCard) setInstallmentCount(1);
-  }, [isCreditCard]);
-
-  const canPreview =
-    isCreditCard && looksLikeAmount(amount) && paymentMethodId !== null && transactionDate !== "";
+    void load();
+  }, [load]);
 
   useEffect(() => {
-    if (!canPreview || paymentMethodId === null) {
-      setPreview(null);
-      return;
-    }
-    // Her tusa basista sunucuya gitmemek icin kisa bir bekleme.
-    const timer = window.setTimeout(() => {
-      api
-        .preview({
-          payment_method_id: paymentMethodId,
-          transaction_date: transactionDate,
-          amount,
-          installment_count: installmentCount,
-        })
-        .then(setPreview)
-        .catch(() => setPreview(null));
-    }, PREVIEW_DEBOUNCE_MS);
-    return () => window.clearTimeout(timer);
-  }, [canPreview, paymentMethodId, transactionDate, amount, installmentCount]);
-
-  const ready =
-    looksLikeAmount(amount) &&
-    transactionDate !== "" &&
-    paymentMethodId !== null &&
-    categoryId !== null &&
-    !saving;
-
-  const submit = useCallback(async () => {
-    if (!ready || paymentMethodId === null || categoryId === null) return;
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const expense = await api.createExpense({
-        payment_method_id: paymentMethodId,
-        category_id: categoryId,
-        transaction_date: transactionDate,
-        amount,
-        installment_count: installmentCount,
-        description: description.trim() || null,
-      });
-      haptic("success");
-      setSaved(expense);
-    } catch (error: unknown) {
-      haptic("error");
-      setSaveError(
-        error instanceof ApiError
-          ? error.message
-          : "İşlem kaydedilemedi. Verileriniz kaydedilmedi. Lütfen tekrar deneyin.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }, [ready, paymentMethodId, categoryId, transactionDate, amount, installmentCount, description]);
-
-  const reset = useCallback(() => {
-    setSaved(null);
-    setAmount("");
-    setDescription("");
-    setInstallmentCount(1);
-    setPreview(null);
+    const onAuthRequired = () =>
+      setPhase((current) => (current.kind === "ready" ? { kind: "login" } : current));
+    window.addEventListener(AUTH_REQUIRED_EVENT, onAuthRequired);
+    return () => window.removeEventListener(AUTH_REQUIRED_EVENT, onAuthRequired);
   }, []);
 
-  if (loadError) {
+  const retry = useCallback(() => {
+    setPhase({ kind: "loading" });
+    void load();
+  }, [load]);
+
+  const session = useMemo<Session | null>(() => {
+    if (phase.kind !== "ready") return null;
+    return {
+      me: phase.me,
+      bootstrap: phase.bootstrap,
+      users: phase.users,
+      navigate,
+      refresh: async () => {
+        const [bootstrap, users] = await Promise.all([api.bootstrap(), api.users()]);
+        setPhase((current) => (current.kind === "ready" ? { ...current, bootstrap, users } : current));
+      },
+      setMe: (me: Me) =>
+        setPhase((current) => (current.kind === "ready" ? { ...current, me } : current)),
+      logout: async () => {
+        try {
+          await api.logout();
+        } catch {
+          // Cerez zaten gecersizse de cikis yapilmis sayilir.
+        }
+        setPhase({ kind: "login" });
+      },
+    };
+  }, [phase, navigate]);
+
+  if (phase.kind === "loading") {
     return (
-      <main className="screen">
-        <p className="error" role="alert">
-          {loadError}
-        </p>
-      </main>
+      <div className="center-screen">
+        <Loading />
+      </div>
     );
   }
 
-  // Sekmeler her iki gorunumde de aynidir; tek yerde tanimlanip ikisine de
-  // verilir ki biri degisince digeri geride kalmasin.
-  const tabs = (
-    <nav className="tabs">
-      <button
-        type="button"
-        className={view === "add" ? "tab active" : "tab"}
-        onClick={() => setView("add")}
-      >
-        Harcama Ekle
-      </button>
-      <button
-        type="button"
-        className={view === "report" ? "tab active" : "tab"}
-        onClick={() => setView("report")}
-      >
-        Rapor
-      </button>
-    </nav>
-  );
-
-  if (!bootstrap) {
-    return (
-      <main className="screen">
-        <p className="hint">Yükleniyor…</p>
-      </main>
-    );
+  if (phase.kind === "login") {
+    return <Login onSuccess={retry} />;
   }
 
-  if (view === "report") {
+  if (phase.kind === "failed" || !session) {
     return (
-      <>
-        {tabs}
-        <Reports />
-      </>
+      <div className="center-screen">
+        <div className="empty">
+          <span className="empty-icon">
+            <Icon name="lock" size={22} />
+          </span>
+          <strong>Erişim sağlanamadı</strong>
+          <span>{phase.kind === "failed" ? phase.message : ""}</span>
+          <div className="empty-action">
+            <button type="button" className="btn secondary" onClick={retry}>
+              Tekrar dene
+            </button>
+          </div>
+        </div>
+      </div>
     );
-  }
-
-  if (saved) {
-    return <SavedReceipt expense={saved} onNew={reset} />;
   }
 
   return (
-    <>
-    {tabs}
-    <main className="screen">
-      <header className="header">
-        <h1>Harcama Ekle</h1>
-        <p className="hint">
-          {bootstrap.user.display_name} · {longDate(transactionDate || bootstrap.today)}
-        </p>
-      </header>
-
-      <AmountInput value={amount} onChange={setAmount} />
-
-      <label className="field">
-        <span className="label">Harcama Tarihi</span>
-        <input
-          className="control"
-          type="date"
-          value={transactionDate}
-          max={bootstrap.today}
-          onChange={(event) => setTransactionDate(event.target.value)}
-        />
-      </label>
-
-      <PaymentMethodPicker
-        methods={bootstrap.payment_methods}
-        selectedId={paymentMethodId}
-        onSelect={setPaymentMethodId}
-      />
-
-      <InstallmentPicker
-        value={installmentCount}
-        max={bootstrap.max_installments}
-        disabled={!isCreditCard}
-        onChange={setInstallmentCount}
-      />
-
-      <CategoryPicker
-        categories={bootstrap.categories}
-        selectedId={categoryId}
-        onSelect={setCategoryId}
-      />
-
-      <label className="field">
-        <span className="label">Açıklama</span>
-        <input
-          className="control"
-          type="text"
-          inputMode="text"
-          placeholder="İsteğe bağlı"
-          maxLength={200}
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-        />
-      </label>
-
-      {preview && <SchedulePreviewCard preview={preview} />}
-
-      {saveError && (
-        <p className="error" role="alert">
-          {saveError}
-        </p>
-      )}
-
-      <button className="submit" type="button" disabled={!ready} onClick={submit}>
-        {saving ? "KAYDEDİLİYOR…" : "KAYDET"}
-      </button>
-    </main>
-    </>
+    <SessionContext.Provider value={session}>
+      <ToastProvider>
+        <Shell route={route} visit={visit} />
+      </ToastProvider>
+    </SessionContext.Provider>
   );
+}
+
+function Shell({ route, visit }: { route: Route; visit: number }) {
+  const { me, navigate, logout } = useSession();
+  const initial = initialOf(me.display_name);
+
+  return (
+    <div className="shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <span className="brand-mark">
+            <Icon name="wallet" size={20} />
+          </span>
+          Aile Bütçe
+        </div>
+
+        <button type="button" className="btn primary block" onClick={() => navigate("yeni")}>
+          <Icon name="plus" size={18} />
+          Harcama ekle
+        </button>
+
+        <nav className="nav" aria-label="Ana menü">
+          {NAV.map((item) => (
+            <button
+              key={item.route}
+              type="button"
+              className={route === item.route ? "nav-link active" : "nav-link"}
+              aria-current={route === item.route ? "page" : undefined}
+              onClick={() => navigate(item.route)}
+            >
+              <Icon name={item.icon} />
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="sidebar-foot">
+          <span className="avatar">{initial}</span>
+          <span className="sidebar-user">
+            <strong>{me.display_name}</strong>
+            <span>{me.username ? `@${me.username}` : authSourceLabel(me.auth_source)}</span>
+          </span>
+          {me.auth_source === "session" && (
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => void logout()}
+              aria-label="Çıkış yap"
+              title="Çıkış yap"
+            >
+              <Icon name="logout" size={18} />
+            </button>
+          )}
+        </div>
+      </aside>
+
+      <div className="content">
+        <header className="topbar">
+          <div className="brand">
+            <span className="brand-mark">
+              <Icon name="wallet" size={18} />
+            </span>
+            {TITLES[route]}
+          </div>
+          <button
+            type="button"
+            className="avatar avatar-btn"
+            onClick={() => navigate("diger")}
+            aria-label="Menü"
+          >
+            {initial}
+          </button>
+        </header>
+
+        <main className="main">
+          <Page key={visit} route={route} />
+        </main>
+      </div>
+
+      <nav className="bottom-nav" aria-label="Alt menü">
+        {MOBILE_NAV.map((item) => {
+          const active =
+            item.route === "diger" ? MENU_ROUTES.includes(route) : route === item.route;
+          return (
+            <button
+              key={item.route}
+              type="button"
+              className={active ? "active" : undefined}
+              aria-current={active ? "page" : undefined}
+              onClick={() => navigate(item.route)}
+            >
+              {item.route === "yeni" ? (
+                <span className="fab">
+                  <Icon name="plus" size={24} />
+                </span>
+              ) : (
+                <Icon name={item.icon} size={22} />
+              )}
+              {item.label}
+            </button>
+          );
+        })}
+      </nav>
+    </div>
+  );
+}
+
+function Page({ route }: { route: Route }) {
+  switch (route) {
+    case "ozet":
+      return <Dashboard />;
+    case "harcamalar":
+      return <Expenses />;
+    case "yeni":
+      return <NewExpense />;
+    case "gelirler":
+      return <Incomes />;
+    case "raporlar":
+      return <Reports />;
+    case "sabit":
+      return <Recurring />;
+    case "ayarlar":
+      return <Settings />;
+    case "diger":
+      return <More />;
+  }
 }

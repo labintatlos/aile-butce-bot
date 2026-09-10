@@ -1,12 +1,12 @@
 # Aile Bütçe Takip
 
-Aykut ve Aslıhan'ın harcamalarını Telegram üzerinden hızlıca kaydettiği, kredi
-kartı taksitlerini ve ekstre yükünü otomatik hesaplayan aile bütçe takip
-sistemi. Raspberry Pi 5 üzerinde Home Assistant OS altında bir add-on olarak
-çalışır.
+Aykut ve Aslıhan'ın harcamalarını web sitesinden ve Telegram üzerinden
+kaydettiği, kredi kartı taksitlerini ve ekstre yükünü otomatik hesaplayan aile
+bütçe takip sistemi. Raspberry Pi 5 üzerinde Home Assistant OS altında bir
+add-on olarak çalışır.
 
-> **Durum:** Backend, bot, arayüz ve eklenti paketlemesi tamamlandı; test
-> paketi (518 test) yeşil. Gerçek Telegram token'ı ve Raspberry Pi üzerinde
+> **Durum:** Backend, bot, web sitesi ve eklenti paketlemesi tamamlandı; test
+> paketi (544 test) yeşil. Gerçek Telegram token'ı ve Raspberry Pi üzerinde
 > uçtan uca doğrulama bekliyor. Ayrıntılar için
 > [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md), sürüm notları için
 > [CHANGELOG.md](budget_addon/CHANGELOG.md).
@@ -38,7 +38,12 @@ sistemi. Raspberry Pi 5 üzerinde Home Assistant OS altında bir add-on olarak
 
 **Erişim**
 
-- Yalnızca yetkilendirilmiş iki Telegram kullanıcısı tarafından kullanılabilir.
+- **Web sitesi:** kullanıcı adı ve şifreyle; telefon ve bilgisayar uyumlu.
+  Botta ne varsa sitede de var.
+- **Telegram botu** ve **Home Assistant paneli** aynı veriyle çalışmaya devam
+  eder.
+- Yalnızca yetkilendirilmiş kişiler kullanabilir; şifreler yalnızca özet
+  olarak saklanır.
 
 ## Temel ilkeler
 
