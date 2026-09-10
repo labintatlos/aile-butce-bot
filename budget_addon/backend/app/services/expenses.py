@@ -1,7 +1,7 @@
 """Harcama yaşam döngüsü: oluşturma, güncelleme, silme.
 
-Bu modül sistemin tek yazma yoludur. Telegram bot handler'ları da, Mini App
-API'si de buradan geçer; böylece iki arayüz arasında hesaplama farkı oluşamaz.
+Bu modül sistemin tek yazma yoludur. Web sitesi ve Home Assistant paneli
+buradan geçer; böylece iki giriş arasında hesaplama farkı oluşamaz.
 
 Harcama ve taksitleri **tek transaction** içinde yazılır: yarım veri (taksitsiz
 harcama) oluşamaz.
@@ -10,7 +10,7 @@ harcama) oluşamaz.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -329,59 +329,6 @@ async def restore_expense(
             entity_type=ENTITY_EXPENSE,
             entity_id=expense.id,
             action=ACTION_RESTORE,
-            new_data=_audit_payload(expense),
-        )
-        await session.commit()
-    except Exception:
-        await session.rollback()
-        raise
-    return expense
-
-
-RECEIPT_ATTACH_WINDOW_HOURS = 24
-"""Başlıksız bir fişin hangi harcamaya iliştirileceğini sınırlayan pencere.
-
-Kullanıcı önce tutarı yazıp sonra fotoğrafı gönderir; aradaki süre saniyeler
-olur. Pencereyi geniş tutmak, günler önceki bir harcamaya yanlışlıkla fiş
-iliştirmeye yol açardı.
-"""
-
-
-async def latest_expense_for(
-    session: AsyncSession, *, user: User, now: datetime
-) -> Expense | None:
-    """Kullanıcının son kaydettiği harcama. Fişi buna iliştirmek içindir."""
-    since = now - timedelta(hours=RECEIPT_ATTACH_WINDOW_HOURS)
-    return await session.scalar(
-        select(Expense)
-        .where(
-            Expense.created_by_user_id == user.id,
-            Expense.deleted_at.is_(None),
-            Expense.created_at >= since,
-        )
-        .order_by(Expense.created_at.desc(), Expense.id.desc())
-        .limit(1)
-    )
-
-
-async def attach_receipt(
-    session: AsyncSession, *, user: User, expense: Expense, file_id: str
-) -> Expense:
-    """Fiş fotoğrafını harcamaya iliştirir.
-
-    Fotoğrafın kendisi saklanmaz, yalnızca Telegram dosya kimliği tutulur.
-    Tutar fotoğraftan okunmaz; fiş yalnızca kanıttır.
-    """
-    before = _audit_payload(expense)
-    expense.receipt_file_id = file_id
-    try:
-        record_audit(
-            session,
-            user_id=user.id,
-            entity_type=ENTITY_EXPENSE,
-            entity_id=expense.id,
-            action=ACTION_UPDATE,
-            old_data=before,
             new_data=_audit_payload(expense),
         )
         await session.commit()

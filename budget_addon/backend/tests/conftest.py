@@ -79,8 +79,8 @@ async def async_session(async_engine):
 
 @pytest_asyncio.fixture()
 async def people(async_session):
-    aykut = User(telegram_user_id=111, display_name="Aykut", role=ROLE_OWNER)
-    aslihan = User(telegram_user_id=222, display_name="Aslıhan", role=ROLE_OWNER)
+    aykut = User(display_name="Aykut", role=ROLE_OWNER)
+    aslihan = User(display_name="Aslıhan", role=ROLE_OWNER)
     async_session.add_all([aykut, aslihan])
     await async_session.commit()
     return {"aykut": aykut, "aslihan": aslihan}
@@ -126,9 +126,6 @@ async def count_rows(async_session):
 # HTTP istemcileri: kimlik dogrulama yolunu uctan uca sinamak icin
 # --------------------------------------------------------------------------
 
-TEST_BOT_TOKEN = "123456:TEST-TOKEN-ONLY"
-AYKUT_TELEGRAM_ID = 111
-ASLIHAN_TELEGRAM_ID = 222
 AYKUT_HA_ID = "70bbe879b6f145d9ba41e2ae8e2b81aa"
 ASLIHAN_HA_ID = "6ab54aa06b034eb6b80c7956c66fbf3b"
 
@@ -137,12 +134,8 @@ def _test_settings(**overrides):
     from app.config import Settings
 
     defaults = dict(
-        telegram_bot_token=TEST_BOT_TOKEN,
-        authorized_telegram_ids=f"{AYKUT_TELEGRAM_ID},{ASLIHAN_TELEGRAM_ID}",
-        user_display_names=f"{AYKUT_TELEGRAM_ID}:Aykut,{ASLIHAN_TELEGRAM_ID}:Aslıhan",
-        ha_user_map=f"{AYKUT_HA_ID}:{AYKUT_TELEGRAM_ID},{ASLIHAN_HA_ID}:{ASLIHAN_TELEGRAM_ID}",
+        ha_user_map=f"{AYKUT_HA_ID}:aykut,{ASLIHAN_HA_ID}:aslihan",
         debug=False,
-        allow_dev_auth=False,
         trust_ingress_headers=True,
         _env_file=None,
     )
@@ -188,23 +181,30 @@ async def public_client(async_engine):
 
 
 @pytest_asyncio.fixture()
-async def dev_client(async_engine):
-    """Yerel gelistirme ornegi: dev basligi acik."""
-    settings = _test_settings(allow_dev_auth=True)
-    async with _build_client(async_engine, settings) as client:
-        yield client
+async def client_with(async_engine):
+    """Ayarlari teste gore degisen ornekler uretir."""
+    opened = []
+
+    def _make(**overrides):
+        client = _build_client(async_engine, _test_settings(**overrides))
+        opened.append(client)
+        return client
+
+    yield _make
+    for client in opened:
+        await client.aclose()
 
 
 @pytest_asyncio.fixture()
 async def seeded_users(async_session):
     aykut = User(
-        telegram_user_id=AYKUT_TELEGRAM_ID,
+        username="aykut",
         ha_user_id=AYKUT_HA_ID,
         display_name="Aykut",
         role=ROLE_OWNER,
     )
     aslihan = User(
-        telegram_user_id=ASLIHAN_TELEGRAM_ID,
+        username="aslihan",
         ha_user_id=ASLIHAN_HA_ID,
         display_name="Aslıhan",
         role=ROLE_OWNER,

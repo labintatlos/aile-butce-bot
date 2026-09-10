@@ -58,7 +58,7 @@ class UserOut(BaseModel):
 
 
 class BootstrapOut(BaseModel):
-    """Mini App'in açılışta ihtiyaç duyduğu her şey tek istekte."""
+    """Arayüzün açılışta ihtiyaç duyduğu her şey tek istekte."""
 
     user: UserOut
     categories: list[CategoryOut]

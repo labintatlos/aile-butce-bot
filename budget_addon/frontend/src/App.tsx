@@ -1,8 +1,8 @@
 /**
  * Uygulama kabuğu.
  *
- * Aynı arayüz üç bağlamda çalışır: web sitesi (kullanıcı adı ve şifre),
- * Home Assistant paneli ve Telegram Mini App. Açılışta `/api/me` sorulur;
+ * Aynı arayüz iki bağlamda çalışır: web sitesi (kullanıcı adı ve şifre) ve
+ * Home Assistant paneli. Açılışta `/api/me` sorulur;
  * kimlik bağlamdan geliyorsa doğrudan içeri girilir, gelmiyorsa giriş ekranı
  * gösterilir.
  *
@@ -36,7 +36,6 @@ import { Recurring } from "./pages/Recurring";
 import { Reports } from "./pages/Reports";
 import { Settings } from "./pages/Settings";
 import { Setup } from "./pages/Setup";
-import { applyTelegramTheme, isInsideTelegram } from "./telegram";
 
 type Phase =
   | { kind: "loading" }
@@ -79,9 +78,7 @@ const TITLES: Record<Route, string> = {
   diger: "Menü",
 };
 
-// Bottaki "Harcama Ekle" dugmesi Mini App'i acar; Telegram kullanicisinin
-// alistigi akis bozulmasin diye orada dogrudan forma girilir.
-const DEFAULT_ROUTE: Route = isInsideTelegram() ? "yeni" : "ozet";
+const DEFAULT_ROUTE: Route = "ozet";
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
@@ -103,7 +100,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    applyTelegramTheme();
     void load();
   }, [load]);
 
@@ -340,6 +336,7 @@ function Shell({ route, visit }: { route: Route; visit: number }) {
 }
 
 function Page({ route }: { route: Route }) {
+  const { me } = useSession();
   switch (route) {
     case "ozet":
       return <Dashboard />;
@@ -356,7 +353,9 @@ function Page({ route }: { route: Route }) {
     case "ayarlar":
       return <Settings />;
     case "kisiler":
-      return <People />;
+      // Menude gizli olsa da adres elle yazilabilir ya da cikis yapan
+      // yoneticiden kalmis olabilir; yonetici olmayan ozete duser.
+      return me.is_admin ? <People /> : <Dashboard />;
     case "bildirimler":
       return <Notifications />;
     case "diger":

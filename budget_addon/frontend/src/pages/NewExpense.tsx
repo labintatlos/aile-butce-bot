@@ -16,7 +16,6 @@ import { Card, PageHeader } from "../components/ui";
 import { useSession } from "../context";
 import { installmentLabel, longDate, minorToInput } from "../format";
 import { errorMessage } from "../hooks";
-import { haptic } from "../telegram";
 
 type Draft = { amount: string; description: string };
 
@@ -62,14 +61,7 @@ export function NewExpense() {
             defaults={draft ?? undefined}
             submitLabel="Kaydet"
             onSubmit={async (input) => {
-              try {
-                const expense = await api.createExpense(input);
-                haptic("success");
-                setSaved(expense);
-              } catch (cause) {
-                haptic("error");
-                throw cause;
-              }
+              setSaved(await api.createExpense(input));
             }}
           />
         </Card>

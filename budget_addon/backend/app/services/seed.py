@@ -18,7 +18,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import Settings
 from ..models.category import Category
 from ..models.payment_method import TYPE_CASH, TYPE_CREDIT_CARD, PaymentMethod
-from ..models.user import ROLE_OWNER, User
 
 logger = logging.getLogger(__name__)
 
@@ -65,37 +64,6 @@ async def seed_categories(session: AsyncSession) -> int:
     return created
 
 
-async def seed_users(session: AsyncSession, settings: Settings) -> int:
-    """Yetkili kullanıcıları yapılandırmadan oluşturur.
-
-    Telegram kimlikleri koda gömülmez; `AUTHORIZED_TELEGRAM_IDS` ve
-    `USER_DISPLAY_NAMES` ortam değişkenlerinden gelir. `HA_USER_MAP` verilmişse
-    Home Assistant kimliği de eşlenir.
-    """
-    existing = set(
-        (await session.scalars(select(User.telegram_user_id))).all()
-    )
-    names = settings.display_names
-    ha_by_telegram = {
-        telegram_id: ha_id for ha_id, telegram_id in settings.ha_user_mapping.items()
-    }
-
-    created = 0
-    for telegram_id in sorted(settings.authorized_ids):
-        if telegram_id in existing:
-            continue
-        session.add(
-            User(
-                telegram_user_id=telegram_id,
-                ha_user_id=ha_by_telegram.get(telegram_id),
-                display_name=names.get(telegram_id, f"Kullanıcı {telegram_id}"),
-                role=ROLE_OWNER,
-            )
-        )
-        created += 1
-    return created
-
-
 async def seed_payment_methods(session: AsyncSession) -> int:
     """Nakit ve başlangıç kartlarını oluşturur.
 
@@ -128,12 +96,15 @@ async def seed_payment_methods(session: AsyncSession) -> int:
 
 
 async def seed_all(session: AsyncSession, settings: Settings) -> dict[str, int]:
-    """Tüm başlangıç verisini tek transaction içinde oluşturur."""
+    """Tüm başlangıç verisini tek transaction içinde oluşturur.
+
+    Kişiler burada oluşturulmaz: ilk yönetici kurulum ekranında, diğerleri
+    Kişiler ekranında eklenir.
+    """
     try:
         counts = {
             "categories": await seed_categories(session),
             "payment_methods": await seed_payment_methods(session),
-            "users": await seed_users(session, settings),
         }
         await session.commit()
     except Exception:

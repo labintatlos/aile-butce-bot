@@ -1,5 +1,45 @@
 # Değişiklik Günlüğü
 
+## 2.0.0
+
+Telegram botu ve Telegram Mini App kaldırıldı. Sistem artık yalnızca
+kullanıcı adı ve şifreyle açılan bir web sitesi; aynı arayüz Home Assistant
+panelinde de açılmaya devam ediyor. Botta olup sitede olmayan her şey
+kaldırılmadan önce siteye taşındı:
+
+**Kişiler sitede yönetiliyor.** İlk açılışta günlükte bir kurulum kodu
+yazıyor; siteye bu kodla girilip yönetici hesabı oluşturuluyor. Diğer kişiler,
+şifre sıfırlama, yönetici yetkisi ve siteye giriş izni **Kişiler** ekranında.
+Herkes kendi şifresini **Ayarlar**'dan değiştirebiliyor.
+
+**Hatırlatmalar sitede, e-postada ve anlık bildirim olarak.** Ekstre kesimi,
+yaklaşan son ödeme, bütçe ve kart limiti uyarıları sitenin **Bildirimler**
+ekranına düşüyor; isteyen e-postayla veya telefonda anlık bildirim olarak da
+alıyor. E-posta için eklenti ayarlarına `smtp_*` alanları eklendi.
+
+**Fiş fotoğrafı ve hızlı giriş.** Fiş fotoğrafı sitede harcamaya yükleniyor ve
+eklentinin veri klasöründe saklanıyor. "500 market" gibi hızlı giriş sitede
+de botla aynı kurallarla çalışıyor.
+
+**Ayarlar sadeleşti.** `telegram_bot_token`, `authorized_telegram_ids`,
+`user_display_names`, `web_users` ve `webapp_public_url` kaldırıldı; hiçbir
+ayar zorunlu değil. Sitenin internet adresi yeni `site_url` alanına yazılıyor.
+`ha_user_map` artık `ha_kimliği:kullanıcı_adı` biçiminde; eski
+`ha_kimliği:telegram_kimliği` değerleri de tanınıyor. Web sitesi portu (8100)
+varsayılan olarak açık.
+
+**Güncellemeden önce:** 1.5.0'da **Kişiler** ekranında herkesin kullanıcı
+adı ve şifresi olduğundan emin olun. Güncellemeden sonra `site_url` alanına
+KeenDNS adresinizi yazın (bkz. `docs/DEPLOYMENT_HA.md`).
+
+Telegram döneminde bota gönderilmiş fiş fotoğrafları eklentide değil
+Telegram'da durur; sitede görünmez, Telegram sohbetinde kalmaya devam eder.
+Veritabanındaki eski Telegram kimlik sütunları veri kaybı olmasın diye
+silinmedi, yalnızca kullanılmıyor.
+
+Yönetici olmayan bir kişi **Kişiler** adresini elle açarsa artık özet ekranına
+yönlendiriliyor.
+
 ## 1.5.0
 
 Bu sürümle sistem tam bir web sitesine dönüşüyor. Telegram botu ve Home

@@ -136,7 +136,6 @@ def _settings(**overrides):
     from app.config import Settings
 
     defaults = dict(
-        authorized_telegram_ids="111",
         supervisor_token="test-token",
         _env_file=None,
     )

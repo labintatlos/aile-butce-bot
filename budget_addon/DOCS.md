@@ -1,31 +1,15 @@
 # Aile Bütçe Takip — Kurulum
 
-Bu eklenti, Telegram üzerinden aile bütçesi ve kredi kartı taksit takibi
-sağlar. Harcama girişi hem Home Assistant panelinden hem de Telegram
-üzerinden yapılabilir.
+Bu eklenti aile bütçesi ve kredi kartı taksit takibi için bir web sitesi
+çalıştırır. Site telefondan ve bilgisayardan kullanıcı adı ve şifreyle açılır;
+aynı arayüz Home Assistant'ın sol menüsünde de görünür.
+
+Home Assistant yalnızca sunucuyu çalıştıran makinedir. İnternetten erişim için
+Keenetic modemin KeenDNS hizmeti kullanılır (bkz. `docs/DEPLOYMENT_HA.md`).
 
 ---
 
-## 1. Telegram botunu oluştur
-
-1. Telegram'da **@BotFather**'a yaz.
-2. `/newbot` komutunu gönder.
-3. Bota bir ad ver (örneğin `Aile Bütçe`).
-4. Bir kullanıcı adı ver; `bot` ile bitmeli (örneğin `aile_butce_bot`).
-5. BotFather sana bir **token** verir. Bu token bir paroladır: kimseyle
-   paylaşma, ekran görüntüsüne alma.
-
-## 2. Telegram kullanıcı kimliklerini öğren
-
-Bot yalnızca izin verdiğin kişilerce kullanılabilir. Kimlikleri öğrenmek için:
-
-1. Telegram'da **@userinfobot**'a yaz.
-2. `/start` gönder; sana kendi sayısal kimliğini söyler.
-3. Aynısını eşinin telefonunda da yapın.
-
-Not: Bu kimlikler `123456789` gibi sayılardır, kullanıcı adı değildir.
-
-## 3. Eklentiyi kur
+## 1. Eklentiyi kur
 
 1. Home Assistant'ta **Ayarlar → Eklentiler → Eklenti Mağazası**'nı aç.
 2. Sağ üstteki **⋮** menüsünden **Depolar**'ı seç.
@@ -38,31 +22,119 @@ Not: Bu kimlikler `123456789` gibi sayılardır, kullanıcı adı değildir.
 4. Sayfayı yenile; **Aile Bütçe Takip** eklentisi listede görünür.
 5. Eklentiye tıkla ve **Kur** de. İlk kurulum arayüzün derlenmesini de
    içerdiği için birkaç dakika sürebilir.
+6. **Başlat**'a bas. Hiçbir ayarı doldurmak zorunlu değildir.
 
-## 4. Ayarları gir
+## 2. Yönetici hesabını oluştur
 
-Eklentinin **Yapılandırma** sekmesinde:
+1. Eklentinin **Günlük** sekmesini aç. Şuna benzer bir satır görürsün:
+
+   ```
+   İlk yönetici henüz oluşturulmadı. Siteyi açın ve şu kurulum kodunu girin: 1234-5678
+   ```
+
+2. Ev ağından siteyi aç: `http://homeassistant.local:8100` (açılmazsa
+   Raspberry Pi'nin IP adresini yaz, örneğin `http://192.168.1.50:8100`).
+3. **İlk kurulum** ekranında kodu gir, adını, kullanıcı adını ve şifreni yaz.
+
+Kod her yeniden başlatmada günlüğe tekrar yazılır ve yönetici oluşturulduktan
+sonra geçersiz olur.
+
+## 3. Diğer kişileri ekle
+
+**Kişiler** ekranında (yalnızca yöneticiler görür) **Kişi ekle**'ye bas:
+
+- **İsim** raporlarda görünen addır.
+- **Kullanıcı adı** 3-32 karakter; küçük harf, rakam, nokta, alt çizgi veya
+  tire.
+- **Şifre** en az 8 karakter.
+- **Yönetici** kişi başkalarını ekleyip şifre sıfırlayabilir.
+- **Siteye girebilir** kapatılırsa kişi silinmez, geçmiş kayıtları durur ama
+  giriş yapamaz; açık oturumları hemen kapanır.
+
+Herkes kendi şifresini **Ayarlar → Hesap → Şifre değiştir**'den değiştirebilir.
+Şifre değişince o kişinin diğer cihazlardaki oturumları kapanır.
+
+## 4. Kredi kartlarını ayarla
+
+Eklenti Nakit ve üç örnek kartla başlar. Kartların hesap kesim günü
+**bilinçli olarak yer tutucudur**; gerçek değeri girmeden taksit tarihleri
+anlamlı olmaz.
+
+**Ayarlar → Ödeme yöntemleri** bölümünde kartı aç ve düzenle:
 
 | Alan | Ne yazılır |
 |---|---|
-| `telegram_bot_token` | BotFather'dan aldığın token |
-| `authorized_telegram_ids` | İki kimlik, virgülle: `111111111,222222222` |
-| `user_display_names` | `111111111:Aykut,222222222:Aslıhan` |
-| `ha_user_map` | Home Assistant kimliği eşlemesi (aşağıya bak) |
-| `web_users` | Web sitesi girişleri ([Web sitesi](#web-sitesi) bölümüne bak); istemiyorsan boş bırak |
-| `webapp_public_url` | Şimdilik **boş bırak** |
-| `timezone` | `Europe/Istanbul` |
-| `backup_retention` | Kaç yedek saklanacak (varsayılan 14) |
+| Hesap kesim günü | Ekstrenin kesildiği ayın günü; bankanın uygulamasında "hesap kesim tarihi" |
+| Son ödeme | Kesimden kaç gün sonra (genellikle 10) |
+| Kredi limiti | İsteğe bağlı; doluysa limitin %90'ı bağlanınca uyarı gelir |
+| Sahibi | Kartın kime ait olduğu |
 
-**Kaydet**, sonra **Başlat**.
+**Son ödeme tarihini gün olarak girmezsin, sistem hesaplar.** Ekstre
+kesildikten sonraki gün sayısı eklenir; o gün hafta sonuna denk gelirse
+pazartesiye taşınır.
 
-### `ha_user_map` nedir
+Örnek: hesap kesim günü 26 olan bir kartla 8 Eylül'de 3.000 TL / 3 taksit
+harcama yaparsan taksitler 26 Eylül, 26 Ekim ve 26 Kasım ekstrelerine düşer;
+son ödemeleri sırasıyla 6 Ekim, 5 Kasım ve 7 Aralık olur (6 Aralık pazara
+denk geldiği için pazartesiye kaymıştır).
 
-Harcamayı kimin girdiğinin doğru kaydedilmesi için Home Assistant
-kullanıcılarını Telegram kimlikleriyle eşleştirmek gerekir. Eşlemesi olmayan
-bir Home Assistant kullanıcısı arayüzü açamaz — bu bilinçlidir: paylaşılan bir
-tablet hesabından girilen harcamanın kime ait olduğu belirlenemez ve kişi
-bazlı rapor sessizce yanlışlanırdı.
+Kategoriler aynı ekranın **Kategoriler** bölümündedir; simge, ad ve isteğe
+bağlı aylık bütçe hedefi girilir.
+
+### Silme hakkında bilinmesi gereken
+
+Bir kart veya kategori **hiçbir harcamada kullanılmıyorsa** gerçekten silinir.
+Kullanılıyorsa silinmez; bunun yerine **Aktif** işaretini kaldırarak gizlenir.
+Kaydı silmek, ona bağlı geçmiş harcamaların ödeme yöntemini veya kategorisini
+okunamaz hâle getirir ve eski raporlar bozulurdu. Pasif kart yeni harcamalarda
+görünmez ama geçmiş raporlarda yerinde kalır.
+
+Kart adını değiştirmek de geçmişi bozmaz: her harcama kaydedildiği andaki kart
+adını kendi içinde saklar.
+
+## 5. İnternetten eriş
+
+Ev dışından açmak için 8100 portunu **HTTPS** veren bir adrese yayınla.
+Keenetic modem için adımlar `docs/DEPLOYMENT_HA.md` içindedir. Adres hazır
+olunca eklenti ayarlarında `site_url` alanına yaz (örneğin
+`https://butce.evim.keenetic.pro`) ve eklentiyi yeniden başlat.
+
+Modemde 8100 portunu doğrudan düz HTTP olarak internete açma: şifre
+şifrelenmeden gider.
+
+## 6. Bildirimler
+
+Ekstre kesimi, yaklaşan son ödeme, haftalık ve aylık özet, bütçe ve kart
+limiti uyarıları her gün `reminder_hour` saatinde hazırlanır ve sitenin
+**Bildirimler** ekranına düşer. Her kişi **Ayarlar → Bildirimler**'den:
+
+- hatırlatmaları kendisi için kapatabilir,
+- **Bu cihazda anlık bildirim**'i açabilir (telefon kilitliyken de gelir;
+  site HTTPS adresinden açılmış olmalıdır),
+- e-posta adresini yazıp **E-postayla da gönder**'i açabilir.
+
+E-posta seçeneği yalnızca `smtp_host` ve `smtp_sender` doluysa görünür. Gmail
+için:
+
+| Alan | Değer |
+|---|---|
+| `smtp_host` | `smtp.gmail.com` |
+| `smtp_port` | `587` |
+| `smtp_security` | `starttls` |
+| `smtp_username` | Gmail adresin |
+| `smtp_password` | Google hesabında oluşturulan **uygulama şifresi** (normal şifre çalışmaz) |
+| `smtp_sender` | `Aile Bütçe <adresin@gmail.com>` |
+
+Ayarlardaki **Deneme gönder** düğmesi e-postanın ve anlık bildirimin gerçekten
+ulaştığını hemen gösterir.
+
+## 7. Home Assistant paneli
+
+Sol menüdeki **Bütçe** aynı siteyi Home Assistant oturumunla, şifre sormadan
+açar. Harcamayı kimin girdiğinin doğru kaydedilmesi için Home Assistant
+kullanıcısını sitedeki kişiyle eşleştirmek gerekir. Eşlemesi olmayan bir Home
+Assistant kullanıcısı paneli açamaz — bu bilinçlidir: paylaşılan bir tablet
+hesabından girilen harcamanın kime ait olduğu belirlenemezdi.
 
 Home Assistant kullanıcı kimliğini bulmak için **Geliştirici Araçları →
 Şablon** bölümüne şunu yapıştır:
@@ -73,133 +145,50 @@ Home Assistant kullanıcı kimliğini bulmak için **Geliştirici Araçları →
 {% endfor %}
 ```
 
-Çıkan kimlikleri şu biçimde yaz:
+`ha_user_map` alanına kimlik ve sitedeki kullanıcı adını yaz:
 
 ```
-70bbe879...:111111111,6ab54aa0...:222222222
+70bbe879...:aykut,6ab54aa0...:aslihan
 ```
 
-Bir kişinin birden fazla Home Assistant hesabı varsa (örneğin kendi hesabı ve
-bir tablet hesabı) **ikisini de aynı Telegram kimliğine** eşle.
-
-## 5. Kullanmaya başla
-
-- **Home Assistant paneli:** Sol menüde **Bütçe** görünür. Harcama formu
-  buradan açılır; ek bir kurulum gerekmez.
-- **Telegram:** Bota `/start` yaz. Menüden raporlara ulaşabilir, ya da
-  doğrudan `500 market` gibi yazarak hızlı kayıt yapabilirsin.
-- **Web sitesi:** Telefondan veya bilgisayardan kullanıcı adı ve şifreyle.
-  Kurulumu aşağıdaki [Web sitesi](#web-sitesi) bölümünde.
-
-Üçü aynı veriyi görür; birinden girilen harcama diğerlerinde de hemen görünür.
-
-## 6. Kredi kartlarını ayarla
-
-Eklenti üç örnek kart ile başlar ve bunların hesap kesim / son ödeme günleri
-**bilinçli olarak yer tutucudur** (1 ve 15). Gerçek değerleri girmeden taksit
-tarihleri anlamlı olmaz.
-
-Botta **⚙️ Ayarlar** yaz; kartlar numaralarıyla listelenir. Sonra:
-
-| Komut | Ne yapar |
-|---|---|
-| `/kartgun 2 26` | 2 numaralı kartın hesap kesim gününü 26 yapar |
-| `/kartekle Aykut Kredi Kartı 2 \| 26` | Yeni kart ekler (ad ile gün `\|` ile ayrılır) |
-| `/kartad 3 Yeni Kart Adı` | Kartın adını değiştirir |
-| `/kartsil 3` | Kartı siler |
-| `/kartpasif 3` · `/kartaktif 3` | Kartı gizler / geri açar |
-
-Girilecek tek şey **hesap kesim günü**: ekstrenin kesildiği ayın günü.
-Bankanın uygulamasında "hesap kesim tarihi" olarak geçer.
-
-**Son ödeme tarihini girmezsin, sistem hesaplar.** Ekstre kesildikten 10 gün
-sonrasıdır ve o gün hafta sonuna denk gelirse pazartesiye taşınır.
-
-Örnek: hesap kesim günü 26 olan bir kartla 8 Eylül'de 3.000 TL / 3 taksit
-harcama yaparsan taksitler 26 Eylül, 26 Ekim ve 26 Kasım ekstrelerine düşer;
-son ödemeleri sırasıyla 6 Ekim, 5 Kasım ve 7 Aralık olur (6 Aralık pazara
-denk geldiği için pazartesiye kaymıştır).
-
-Bankan 10 günden farklı çalışıyorsa vadeyi de yazabilirsin:
-`/kartgun 2 26 vade 12`
-
-Kategoriler için `/kategori` yaz; aynı mantıkla `/kategoriekle 🎬 Sinema`,
-`/kategoriad`, `/kategorisil`, `/kategoripasif` ve `/kategoriaktif` çalışır.
-
-### Silme hakkında bilinmesi gereken
-
-Bir kart veya kategori **hiçbir harcamada kullanılmıyorsa** gerçekten silinir.
-Kullanılıyorsa silinmez; bot bunun yerine pasife almayı önerir. Sebebi şu:
-kaydı silmek, ona bağlı geçmiş harcamaların ödeme yöntemini veya kategorisini
-okunamaz hâle getirir ve eski raporlar bozulur. Pasife alınan bir kart yeni
-harcamalarda görünmez ama geçmiş raporlarda yerinde kalır.
-
-Kart adını değiştirmek de geçmişi bozmaz: her harcama kaydedildiği andaki kart
-adını kendi içinde saklar.
+2.0 öncesinden kalan `70bbe879...:111111111` biçimindeki değerler de çalışmaya
+devam eder.
 
 ---
 
-## Web sitesi
+## Ayarlar
 
-Bütçeyi Home Assistant'a girmeden, telefondan veya bilgisayardan kullanıcı adı
-ve şifreyle açmak için. Botta yapılabilen her şey sitede de yapılabilir: özet,
-harcama girişi ve düzenleme, iadeler, gelirler, sabit giderler, raporlar, CSV
-dışa aktarma, kart ve kategori ayarları.
+| Alan | Ne işe yarar |
+|---|---|
+| `site_url` | Sitenin internet adresi; bildirim bağlantıları ve anlık bildirim için |
+| `ha_user_map` | Home Assistant paneli eşlemesi (bölüm 7) |
+| `timezone` | `Europe/Istanbul` |
+| `backup_retention` | Kaç yedek saklanacak (varsayılan 14) |
+| `enable_reminders` | Günlük hatırlatmaları tümüyle kapatır |
+| `reminder_hour` | Hatırlatmaların hazırlandığı saat (0-23) |
+| `due_reminder_days` | Son ödemeden kaç gün önce uyarılsın |
+| `smtp_*` | E-posta bildirimleri (bölüm 6) |
+| `publish_ha_sensors` | Bütçe değerlerini Home Assistant sensörlerine yazar |
 
-1. Eklenti ayarlarında `web_users` alanına her kişi için
-   `telegram_id:kullanici_adi:sifre` yaz, kişileri virgülle ayır:
-
-   ```
-   111111111:aykut:UzunBirSifre1,222222222:aslihan:BaskaBirSifre2
-   ```
-
-   - Kullanıcı adı 3-32 karakter olur; küçük harf, rakam, nokta, alt çizgi veya
-     tire kullanılabilir.
-   - Şifre en az 8 karakter olmalı ve **virgül içermemeli**.
-   - Telegram kimliği `authorized_telegram_ids` listesinde olmalı.
-
-2. **Kaydet** ve eklentiyi yeniden başlat. Günlükte
-   `Web sitesi sunucusu başlatılıyor (port 8100)` satırı görünür.
-3. Eklentinin **Ağ** bölümünde 8100 portuna bir numara ver (örneğin `8100`).
-   Ev ağından `http://homeassistant.local:8100` adresiyle açılır.
-4. Dışarıdan erişmek için bu portu **HTTPS** veren bir adrese yönlendir
-   (Keenetic için KeenDNS; adımlar `docs/DEPLOYMENT_HA.md` dosyasında). Modemde
-   portu doğrudan düz HTTP olarak internete açma: şifre şifrelenmeden gider.
-
-Bilinmesi gerekenler:
+## Güvenlik
 
 - Şifre veritabanına düz metin olarak değil, yalnızca özet olarak yazılır.
 - **Beni hatırla** işaretliyse oturum 30 gün, değilse tarayıcı kapanana kadar
   (en fazla 12 saat) açık kalır.
-- Şifreyi değiştirmek için `web_users` alanını güncelleyip eklentiyi yeniden
-  başlat; o kişinin açık oturumlarının hepsi kapanır. Bir kişiyi listeden
-  çıkarmak onun web erişimini kapatır.
 - Aynı adresten 15 dakika içinde 10 hatalı deneme yapılırsa giriş 15 dakika
-  durdurulur. Doğru şifreyle giren kişi hiçbir zaman yavaşlatılmaz.
-- Fiş fotoğrafları Telegram'da kalır; sitede yalnızca "fiş eklendi" işareti
-  görünür.
-
-## Telegram Mini App (isteğe bağlı)
-
-Formu Home Assistant yerine doğrudan Telegram içinden açmak istersen, dışarıya
-açık ve **geçerli sertifikaya sahip HTTPS** bir adres gerekir. Home Assistant
-Ingress bu iş için kullanılamaz; Telegram'ın istemcisinde Home Assistant oturum
-çerezi bulunmaz.
-
-Keenetic modemin varsa **KeenDNS** bunu ücretsiz sağlar. Adımlar
-`docs/DEPLOYMENT_HA.md` dosyasındadır.
-
-Web sitesi için bir HTTPS adresi zaten açtıysan Mini App için de aynısı
-kullanılır. Adres hazır olduğunda `webapp_public_url` alanına yaz ve eklentiyi
-yeniden başlat. Bu adres girilene kadar sistem tam işlevlidir; yalnızca Telegram
-içinden form açma özelliği kapalı kalır.
+  durdurulur. Doğru şifreyle giren kişi hiçbir zaman yavaşlatılmaz. Site
+  KeenDNS üzerinden açıldığında bütün internet istekleri modemden geliyormuş
+  gibi görünür; biri dışarıdan art arda yanlış şifre denerse ev dışından giriş
+  15 dakika bekletilebilir. Ev ağından giriş etkilenmez.
+- Fiş fotoğrafları `/data/receipts/` altında tahmin edilemeyen adlarla
+  saklanır ve yalnızca giriş yapmış kişilere gösterilir.
 
 ---
 
 ## Yedekleme
 
-Veritabanı `/data/budget.db` altındadır ve Home Assistant'ın kendi eklenti
-yedeklerine dahildir.
+Veritabanı `/data/budget.db`, fiş fotoğrafları `/data/receipts/` altındadır ve
+ikisi de Home Assistant'ın kendi eklenti yedeklerine dahildir.
 
 Elle yedek almak için eklentinin terminalinde:
 
@@ -218,18 +207,23 @@ yedekleme mekanizmasını kullanır; eklenti çalışırken de tutarlı bir yede
 
 ## Sorun giderme
 
-**Bot yanıt vermiyor.**
-Eklenti günlüğüne bak. `Telegram bot token yapılandırılmamış` yazıyorsa token
-alanı boştur. Token doğruysa ve bot hâlâ sessizse, Telegram kimliğinin
-`authorized_telegram_ids` içinde olduğundan emin ol.
+**Kurulum kodunu bulamıyorum.**
+Eklentiyi yeniden başlat; kod günlüğe tekrar yazılır. Günlükte kod yoksa
+yönetici zaten oluşturulmuştur, giriş ekranını kullan.
 
-**Bot "⛔ Bu botu kullanma yetkiniz bulunmuyor" diyor.**
-Telegram kimliğin listede değil. @userinfobot ile kimliğini doğrula ve
-ayarlara ekle, sonra eklentiyi yeniden başlat.
+**Şifremi unuttum.**
+Başka bir yönetici **Kişiler** ekranından yeni şifre verebilir. Tek yönetici
+sensen ve şifreni unuttuysan günlükteki hataları paylaş.
 
-**Panel açılıyor ama "Bu uygulamayı kullanma yetkiniz bulunmuyor" diyor.**
-Home Assistant kullanıcın `ha_user_map` içinde eşlenmemiş. Yukarıdaki şablonla
-kimliğini bul ve ekle.
+**Panel açılıyor ama "Bu uygulamayı kullanma yetkiniz yok" diyor.**
+Home Assistant kullanıcın `ha_user_map` içinde eşlenmemiş. Bölüm 7'deki
+şablonla kimliğini bul ve ekle.
+
+**Anlık bildirim seçeneği çalışmıyor.**
+Tarayıcılar anlık bildirime yalnızca HTTPS adreslerde izin verir. Siteyi
+`http://...:8100` yerine KeenDNS adresinden aç ve `site_url` alanının dolu
+olduğundan emin ol. iPhone'da önce siteyi **Ana Ekrana Ekle** ile uygulama
+gibi kurmak gerekir.
 
 **Eklenti başlamıyor, günlükte göç hatası var.**
 Veritabanı göçü başarısız olmuştur ve eklenti bilerek başlatılmamıştır;
@@ -239,22 +233,17 @@ verilerine dokunulmamıştır. Günlüğü paylaş.
 Supervisor günlüğü eklentinin kendi çıktısını göstermez. Eklentinin sayfasındaki
 **Günlük** sekmesine bak; gerçek hata orada yazar. Açılışta bir yapılandırma
 denetimi çalışır ve hatalı alanın adını söyler (örneğin
-`'user_display_names' ayarındaki 'Aykut' girdisi hatalı`).
+`'ha_user_map' ayarındaki 'aykut' girdisi hatalı`).
 
 **Günlükte "table _alembic_tmp_... already exists" yazıyor.**
 Daha önceki bir açılışta veritabanı göçü yarıda kesilmiş ve geriye geçici bir
-tablo kalmış demektir. 1.3.3 ve sonrası bunu açılışta kendisi temizler; eklenti
-güncelse yeniden başlatmak yeterlidir. Günlükte "Yarım kalmış göçten kalan ...
-siliniyor" satırını görürsün.
-
-**Günlükte "Telegram bot token geçersiz" yazıyor.**
-Token yanlış veya eksik girilmiş. BotFather'dan aldığın değeri
-`telegram_bot_token` alanına yapıştır ve eklentiyi yeniden başlat. Bu durumda
-bot çalışmaz ama Home Assistant panelindeki form çalışmaya devam eder.
+tablo kalmış demektir. Eklenti bunu açılışta kendisi temizler; yeniden
+başlatmak yeterlidir. Günlükte "Yarım kalmış göçten kalan ... siliniyor"
+satırını görürsün.
 
 **Taksit tarihleri yanlış görünüyor.**
-Kartın hesap kesim ve son ödeme günlerini kontrol et. Kurulumdaki yer tutucu
-değerler (1 ve 15) düzeltilmemiş olabilir. Kart ayarını değiştirmek **geçmiş
+Kartın hesap kesim gününü ve son ödeme gün sayısını kontrol et. Kurulumdaki
+yer tutucu değer düzeltilmemiş olabilir. Kart ayarını değiştirmek **geçmiş
 harcamaların taksit planını değiştirmez** — bu bilinçlidir; yeni ayar yalnızca
 sonraki harcamalara uygulanır.
 

@@ -1,6 +1,6 @@
 """Rapor uçlarının HTTP sözleşmesi.
 
-Mini App'teki rapor ekranı bu uçlardan besleniyor ve her tutarı sunucudan
+Sitedeki rapor ekranı bu uçlardan besleniyor ve her tutarı sunucudan
 geldiği gibi gösteriyor. Bir alan adı değişir veya `Money` yapısı bozulursa
 ekran sessizce boş kalırdı; bu testler sözleşmeyi yerinde tutar.
 """

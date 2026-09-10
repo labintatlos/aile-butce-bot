@@ -1,56 +1,46 @@
-# Home Assistant OS Dağıtımı
+# Home Assistant OS Dağıtımı ve KeenDNS
 
-Sistem iki farklı giriş noktası sunar ve bunlar birbirinin alternatifidir:
+Home Assistant OS burada yalnızca sunucuyu çalıştıran makinedir. Eklenti iki
+giriş sunar:
 
-| Giriş | Kimlik | Altyapı gereksinimi | Kurulum zorluğu |
-|---|---|---|---|
-| **Home Assistant paneli (Ingress)** | HA oturumu | **yok** | eklentiyi kur, bitti |
-| **Telegram Mini App** | imzalı `initData` | public HTTPS adres | KeenDNS veya tünel |
-
-Ingress ilk günden çalışır. Mini App isteğe bağlıdır ve sistemin çalışması için
-gerekli değildir.
+| Giriş | Kimlik | Nereden açılır |
+|---|---|---|
+| **Web sitesi** (port 8100) | kullanıcı adı ve şifre | ev ağından `http://homeassistant.local:8100`, dışarıdan KeenDNS adresi |
+| **Home Assistant paneli** (Ingress) | HA oturumu | HA'nın sol menüsündeki **Bütçe** |
 
 Eklentinin kurulumu ve ayarları `budget_addon/DOCS.md` içindedir. Bu belge
-yalnızca isteğe bağlı Mini App adımını anlatır.
+sitenin internete güvenli biçimde açılmasını anlatır.
 
 ---
 
-## Neden Ingress Mini App için kullanılamaz
-
-Home Assistant Ingress, add-on arayüzünü HA'nın kendi HTTPS'i ve kendi oturumu
-üzerinden sunar. Tarayıcıda çalışır çünkü HA oturum çerezin vardır.
-
-Telegram Mini App'i açan gömülü tarayıcıda o çerez **yoktur**. Ingress adresi
-Telegram içinde açıldığında kimlik doğrulamada takılır. Bu yüzden Mini App
-istiyorsan, uygulamaya doğrudan ulaşan ayrı bir public adres gerekir.
-
-Sistem bu ayrımı iki ayrı süreçle çözer:
+## İki süreç, bilinçli ayrım
 
 ```
                 Home Assistant Supervisor agi
                             |
                      port 8099 (Ingress)
                      X-Remote-User-Id'ye GUVENIR
-                     Telegram botunu bu surec calistirir
+                     hatirlatmalar ve sensorler burada calisir
                             |
                      [ ayni kod, ayni veritabani ]
                             |
-                     port 8100 (genel)
+                     port 8100 (web sitesi)
                      Basliga GUVENMEZ
-                     yalnizca imzali initData kabul eder
+                     yalnizca sifreyle verilen oturum cerezi
                             |
-                   KeenDNS / tunel uzerinden internet
+                   KeenDNS (HTTPS) uzerinden internet
 ```
 
-Genel portun başlığa güvenmemesi kritik: aksi halde adresi bilen herkes
+Web sitesi portunun başlığa güvenmemesi kritik: aksi halde adresi bilen herkes
 `X-Remote-User-Id` başlığını uydurup istediği kullanıcı gibi davranabilirdi.
 
 ---
 
-## KeenDNS ile public adres (Keenetic modem)
+## KeenDNS ile HTTPS adres (Keenetic modem)
 
 Keenetic modemler **KeenDNS** adında ücretsiz bir alan adı hizmeti sunar ve
-geçerli bir HTTPS sertifikası sağlar — Telegram'ın tek şartı budur.
+adres için geçerli bir HTTPS sertifikasını kendisi alır. Modemde port açmak
+gerekmez; modem gelen HTTPS isteğini ev ağındaki Raspberry Pi'ye iletir.
 
 ### Hangi mod?
 
@@ -58,59 +48,57 @@ KeenDNS iki modda çalışır ve aralarındaki fark yalnızca teknik değil, giz
 açısından da önemlidir:
 
 - **Doğrudan erişim** — servis sağlayıcın sana gerçek (public) IP veriyorsa
-  kullanılabilir. Trafik doğrudan modeme gelir, TLS uçtan uca senin cihazına
-  kadar şifreli kalır. **Tercih edilen mod.**
+  kullanılabilir. Trafik doğrudan modeme gelir; HTTPS modemde sonlanır.
+  **Tercih edilen mod.**
 - **Bulut üzerinden** — CGNAT arkasındaysan çalışır, ancak trafik Keenetic'in
-  sunucuları üzerinden röle edilir ve TLS orada sonlanır. Harcama verilerin
-  teknik olarak üçüncü bir tarafın altyapısından geçer. Kabul edilebilir olup
-  olmadığına bilerek karar ver.
+  sunucuları üzerinden röle edilir. Harcama verilerin teknik olarak üçüncü bir
+  tarafın altyapısından geçer. Kabul edilebilir olup olmadığına bilerek karar
+  ver.
 
 Hangi modda olduğunu KeenDNS ayar sayfası söyler; doğrudan erişim mümkün
 değilse arayüz bunu belirtir.
 
-### Adımlar
+### 1. Raspberry Pi'ye sabit IP ver
 
-1. Modem arayüzüne gir (genellikle `http://192.168.1.1` veya `my.keenetic.net`).
-2. **Alan adı** (KeenDNS) bölümünü aç.
-3. Bir ad seç ve kaydet; `birsey.keenetic.pro` gibi bir adres alırsın.
-4. Aynı bölümde bir **yayınlama / reverse proxy** kuralı ekle:
-   - Hedef: Raspberry Pi'nin yerel IP'si
-   - Port: **8100**
-   - Protokol: HTTP (dış tarafta HTTPS'i KeenDNS sağlar)
-5. Kaydet ve adresi bir tarayıcıda aç. Harcama formunu görüyorsan yol açıktır.
-   (Kimlik doğrulaması olmadan form veri gösteremez; "yetkiniz yok" mesajı
-   almak da adresin çalıştığı anlamına gelir.)
+Modem arayüzünde (`http://192.168.1.1` veya `my.keenetic.net`) **Cihaz
+listesi**'nde Raspberry Pi'yi bul, **Kayıtlı** yap ve **Sabit IP adresi**
+işaretle. Aksi halde IP değiştiğinde yönlendirme boşa düşer.
+
+### 2. KeenDNS adını al
+
+**Ağ kuralları → Alan adı** (bazı sürümlerde **Yönetim → KeenDNS**) bölümünde
+bir ad seç ve kaydet. `evim.keenetic.pro` gibi bir adres alırsın.
+
+### 3. Siteyi yayınla
+
+Aynı sayfadaki **Ev ağındaki web uygulamaları** listesine **Ekle**:
+
+| Alan | Değer |
+|---|---|
+| Ad | `butce` → adres `butce.evim.keenetic.pro` olur |
+| Cihaz | Raspberry Pi |
+| Protokol | HTTP (dış tarafta HTTPS'i KeenDNS sağlar) |
+| Port | `8100` |
+| Erişim | **Kimlik doğrulaması olmadan / herkese açık** |
+
+Erişimi modem şifresine bağlama: aile üyelerinin modem yöneticisi şifresini
+bilmesi gerekirdi. Site kendi kullanıcı adı ve şifresiyle korunur.
 
 Menü adları firmware sürümüne göre değişebilir; aradığın şey "alan adı" ve
-"yayınlama / uygulama yayınlama" başlıklarıdır.
+"web uygulaması yayınlama" başlıklarıdır.
 
-### Add-on tarafı
+### 4. Eklentiye adresi söyle
 
-1. Home Assistant'ta eklenti **Yapılandırma** sekmesini aç.
-2. `webapp_public_url` alanına adresi yaz:
-
-   ```
-   https://birsey.keenetic.pro
-   ```
-
-3. Eklentiyi yeniden başlat. Günlükte şunu görmelisin:
+1. Home Assistant'ta eklentinin **Yapılandırma** sekmesini aç.
+2. `site_url` alanına adresi yaz:
 
    ```
-   Telegram Mini App sunucusu başlatılıyor (port 8100)
+   https://butce.evim.keenetic.pro
    ```
 
-Bu alan boşken ikinci süreç hiç başlatılmaz; gereksiz yere port açılmaz.
-
-### BotFather tarafı
-
-Telegram'ın menü düğmesinden formu açması için:
-
-1. **@BotFather**'a `/mybots` yaz.
-2. Botunu seç → **Bot Settings** → **Menu Button** → **Configure menu button**.
-3. Adresi gir (`https://birsey.keenetic.pro`) ve düğme metni olarak
-   `Harcama Ekle` yaz.
-
-Bundan sonra bot menüsündeki **➕ Harcama Ekle** formu Telegram içinde açar.
+3. **Ağ** bölümünde 8100 portunun açık olduğundan emin ol (varsayılan
+   `8100`).
+4. Eklentiyi yeniden başlat.
 
 ---
 
@@ -119,23 +107,20 @@ Bundan sonra bot menüsündeki **➕ Harcama Ekle** formu Telegram içinde açar
 Keenetic kullanmıyorsan veya KeenDNS'in bulut modundan kaçınmak istiyorsan
 Cloudflare Tunnel ücretsiz bir seçenektir. Kendi alan adını gerektirir ancak
 modemde port açmayı gerektirmez. Tüneli Raspberry Pi'nin `8100` portuna
-yönlendir, gerisi aynıdır.
+yönlendir ve `site_url` alanına tünelin adresini yaz.
 
 ---
 
 ## Doğrulama
 
-Kurulum sonrası bunları kontrol et:
-
 | Kontrol | Beklenen |
 |---|---|
-| HA panelinde **Bütçe** görünüyor mu | evet |
-| Panelden harcama kaydedilebiliyor mu | evet |
-| Bota `/start` yanıt veriyor mu | evet |
-| Yetkisiz bir hesap bota yazınca | yalnızca `⛔` mesajı |
-| `https://<adres>/health` | `{"status":"ok"}` |
-| Telegram menü düğmesi formu açıyor mu | evet (Mini App kurulduysa) |
+| `https://butce.evim.keenetic.pro/health` | `{"status":"ok"}` |
+| Adresin kendisi | giriş ekranı; tarayıcıda kilit simgesi, sertifika uyarısı yok |
+| `https://butce.evim.keenetic.pro/api/bootstrap` (giriş yapmadan) | `401` |
+| Telefonun mobil verisiyle (Wi-Fi kapalı) giriş | özet ekranı açılır |
+| **Ayarlar → Bildirimler → Deneme gönder** | anlık bildirim telefona gelir |
+| HA panelinde **Bütçe** | aynı veri, şifre sormadan |
 
 Adres dışarıdan açıldığında `health` dışında hiçbir uç kimlik doğrulaması
-olmadan veri döndürmez; bunu doğrulamak istersen `https://<adres>/api/bootstrap`
-adresini tarayıcıda aç, `401` almalısın.
+olmadan veri döndürmez.

@@ -1,7 +1,7 @@
 """Denetim kaydı.
 
 Kim, neyi, ne zaman değiştirdi. `old_data` ve `new_data` JSON metnidir; içine
-bot token'ı, `initData` veya başka kimlik doğrulama verisi asla yazılmaz.
+şifre, oturum çerezi veya başka kimlik doğrulama verisi asla yazılmaz.
 """
 
 from __future__ import annotations

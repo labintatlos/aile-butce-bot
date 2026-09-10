@@ -1,5 +1,10 @@
 # Aile Bütçe ve Harcama Takip Sistemi — Uygulama Planı
 
+> **Tarihsel belge.** 2.0.0 sürümüyle Telegram botu ve Mini App kaldırıldı;
+> sistem artık kullanıcı adı ve şifreyle açılan bir web sitesidir. Aşağıdaki
+> Telegram'a dair bölümler ilk planı kayıt için korur. Güncel kurulum için
+> `budget_addon/DOCS.md` ve `docs/DEPLOYMENT_HA.md` geçerlidir.
+
 Bu doküman kod yazılmadan önce mimariyi, veri modelini, hesaplama akışını,
 güvenlik modelini, dağıtım yaklaşımını, geliştirme aşamalarını, riskleri ve
 kabul kriterlerini sabitler. Onaylandıktan sonra implementasyon bu plana göre

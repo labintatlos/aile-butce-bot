@@ -64,11 +64,7 @@ async def migrated_session(migrated_database):
 
 @pytest.fixture()
 def settings():
-    return Settings(
-        _env_file=None,
-        authorized_telegram_ids="111,222",
-        user_display_names="111:Aykut,222:Aslıhan",
-    )
+    return Settings(_env_file=None)
 
 
 async def test_seed_runs_against_the_migrated_schema(migrated_session, settings):
@@ -77,7 +73,6 @@ async def test_seed_runs_against_the_migrated_schema(migrated_session, settings)
 
     assert counts["categories"] == 16
     assert counts["payment_methods"] == 4
-    assert counts["users"] == 2
 
 
 async def test_timestamps_are_filled_in_on_the_migrated_schema(
@@ -102,7 +97,10 @@ async def test_an_expense_can_be_recorded_on_the_migrated_schema(
     from app.models.category import Category
     from app.models.user import User
 
-    user = await migrated_session.scalar(select(User))
+    # Kisiler seed ile gelmez; kurulum ekraninin yaptigi gibi ilk kisi eklenir.
+    user = User(display_name="Aykut", username="aykut", is_admin=True)
+    migrated_session.add(user)
+    await migrated_session.commit()
     category = await migrated_session.scalar(select(Category))
     card = await create_payment_method(
         migrated_session,

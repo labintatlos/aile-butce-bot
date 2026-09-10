@@ -2,7 +2,7 @@
 # Add-on başlatma betiği.
 #
 # Home Assistant seçeneklerini ortam değişkenlerine aktarır ve uygulamayı
-# başlatır. Bot token'ı hiçbir zaman ekrana veya loga yazılmaz.
+# başlatır. Şifreler hiçbir zaman ekrana veya loga yazılmaz.
 set -e
 
 readonly INGRESS_PORT=8099
@@ -11,19 +11,9 @@ readonly DATA_DIR="/data"
 
 cd /app
 
-# --- Zorunlu ayarlar ---------------------------------------------------------
-TELEGRAM_BOT_TOKEN="$(bashio::config 'telegram_bot_token')"
-AUTHORIZED_TELEGRAM_IDS="$(bashio::config 'authorized_telegram_ids')"
-
-if bashio::var.is_empty "${TELEGRAM_BOT_TOKEN}"; then
-  bashio::exit.nok "Telegram bot token girilmemiş. Eklenti ayarlarından 'telegram_bot_token' alanını doldurun."
-fi
-
-if bashio::var.is_empty "${AUTHORIZED_TELEGRAM_IDS}"; then
-  bashio::exit.nok "Yetkili Telegram kullanıcıları belirtilmemiş. 'authorized_telegram_ids' alanına virgülle ayrılmış kimlikleri yazın."
-fi
-
-# --- İsteğe bağlı ayarlar ----------------------------------------------------
+# --- Ayarlar -----------------------------------------------------------------
+# Hiçbir ayar zorunlu değildir: ilk yönetici sitede kurulum koduyla oluşturulur.
+#
 # `bashio::config` boş bırakılmış bir alan için boş dize değil **`null`**
 # döndürür. Bu değer olduğu gibi aktarılırsa uygulama onu gerçek bir ayar
 # sanar; açılışta çöker ve Supervisor günlüğünde yalnızca "exit code 1"
@@ -39,18 +29,20 @@ export_optional() {
   fi
 }
 
-export TELEGRAM_BOT_TOKEN
-export AUTHORIZED_TELEGRAM_IDS
-export_optional 'user_display_names' USER_DISPLAY_NAMES
+export_optional 'site_url' SITE_URL
 export_optional 'ha_user_map' HA_USER_MAP
-export_optional 'web_users' WEB_USERS
-export_optional 'webapp_public_url' WEBAPP_PUBLIC_URL
 export_optional 'timezone' TIMEZONE
 export_optional 'log_level' LOG_LEVEL
 export_optional 'backup_retention' BACKUP_RETENTION
 export_optional 'enable_reminders' ENABLE_REMINDERS
 export_optional 'reminder_hour' REMINDER_HOUR
 export_optional 'due_reminder_days' DUE_REMINDER_DAYS
+export_optional 'smtp_host' SMTP_HOST
+export_optional 'smtp_port' SMTP_PORT
+export_optional 'smtp_security' SMTP_SECURITY
+export_optional 'smtp_username' SMTP_USERNAME
+export_optional 'smtp_password' SMTP_PASSWORD
+export_optional 'smtp_sender' SMTP_SENDER
 export_optional 'publish_ha_sensors' PUBLISH_HA_SENSORS
 export_optional 'ha_publish_interval_minutes' HA_PUBLISH_INTERVAL_MINUTES
 
@@ -60,6 +52,8 @@ export_optional 'ha_publish_interval_minutes' HA_PUBLISH_INTERVAL_MINUTES
 [[ -z "${ENABLE_REMINDERS}" ]] && export ENABLE_REMINDERS="true"
 [[ -z "${REMINDER_HOUR}" ]] && export REMINDER_HOUR="9"
 [[ -z "${DUE_REMINDER_DAYS}" ]] && export DUE_REMINDER_DAYS="3"
+[[ -z "${SMTP_PORT}" ]] && export SMTP_PORT="587"
+[[ -z "${SMTP_SECURITY}" ]] && export SMTP_SECURITY="starttls"
 [[ -z "${PUBLISH_HA_SENSORS}" ]] && export PUBLISH_HA_SENSORS="true"
 [[ -z "${HA_PUBLISH_INTERVAL_MINUTES}" ]] && export HA_PUBLISH_INTERVAL_MINUTES="15"
 
@@ -70,7 +64,6 @@ export SUPERVISOR_TOKEN="${SUPERVISOR_TOKEN:-}"
 export DATABASE_PATH="${DATA_DIR}/budget.db"
 export FRONTEND_DIST="/app/frontend"
 export DEBUG="false"
-export ALLOW_DEV_AUTH="false"
 
 mkdir -p "${DATA_DIR}/backups"
 
@@ -90,33 +83,28 @@ if ! python -m alembic upgrade head; then
 fi
 
 # --- Uygulama ----------------------------------------------------------------
-# İki farklı sunucu çalışabilir ve aralarındaki fark kasıtlıdır:
+# İki sunucu çalışır ve aralarındaki fark kasıtlıdır:
 #
-#   8099 (Ingress) : yalnızca Supervisor ağından erişilir, X-Remote-User-Id
-#                    başlığına güvenir, Telegram botunu da bu süreç çalıştırır.
-#   8100 (genel)   : web sitesi ve Telegram Mini App. İnternete açılabilir,
-#                    başlığa güvenmez; kimlik yalnızca kullanıcı adı/şifreyle
-#                    verilen oturum çerezinden veya imzalı initData'dan gelir.
+#   8100 (web sitesi) : internete açılır (KeenDNS), başlığa güvenmez; kimlik
+#                       yalnızca kullanıcı adı/şifreyle verilen oturum
+#                       çerezinden gelir.
+#   8099 (Ingress)    : yalnızca Supervisor ağından erişilir, X-Remote-User-Id
+#                       başlığına güvenir. Hatırlatmalar ve sensör yayımı bu
+#                       süreçte çalışır; iki süreçte birden çalışsalardı iş
+#                       iki kez yapılırdı.
 #
-# Bot yalnızca ilk süreçte açıktır: Telegram aynı bot için tek bir getUpdates
-# tüketicisine izin verir, ikinci süreç sürekli çakışma hatası üretirdi.
-#
-# Genel sunucu arka planda, Ingress sunucusu `exec` ile ön planda çalışır.
+# Web sitesi arka planda, Ingress sunucusu `exec` ile ön planda çalışır.
 # Böylece uvicorn'un hatası ve çıkış kodu doğrudan eklenti günlüğüne düşer;
 # her ikisini de arka plana alıp `wait` ile beklemek, gerçek hatayı gizleyip
 # her başarısızlığı anlamsız bir "exit code 1" hâline getiriyordu.
 
-if bashio::var.has_value "${WEB_USERS}" || bashio::var.has_value "${WEBAPP_PUBLIC_URL}"; then
-  bashio::log.info "Web sitesi sunucusu başlatılıyor (port ${PUBLIC_PORT})"
-  TRUST_INGRESS_HEADERS="false" ENABLE_BOT="false" \
-    python -m uvicorn app.main:app \
-    --host 0.0.0.0 --port "${PUBLIC_PORT}" --log-level "${LOG_LEVEL}" &
-else
-  bashio::log.info "web_users ve webapp_public_url boş; web sitesi sunucusu başlatılmadı. Arayüz Home Assistant panelinden kullanılabilir."
-fi
+bashio::log.info "Web sitesi sunucusu başlatılıyor (port ${PUBLIC_PORT})"
+TRUST_INGRESS_HEADERS="false" RUN_BACKGROUND_JOBS="false" \
+  python -m uvicorn app.main:app \
+  --host 0.0.0.0 --port "${PUBLIC_PORT}" --log-level "${LOG_LEVEL}" &
 
-bashio::log.info "Ingress arayüzü başlatılıyor (port ${INGRESS_PORT})"
+bashio::log.info "Home Assistant paneli başlatılıyor (port ${INGRESS_PORT})"
 export TRUST_INGRESS_HEADERS="true"
-export ENABLE_BOT="true"
+export RUN_BACKGROUND_JOBS="true"
 exec python -m uvicorn app.main:app \
   --host 0.0.0.0 --port "${INGRESS_PORT}" --log-level "${LOG_LEVEL}"

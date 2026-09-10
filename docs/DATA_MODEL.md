@@ -11,7 +11,7 @@ Tüm para alanları `INTEGER` ve **kuruş** cinsindedir. Tüm tarihler `DATE`
 | users               |
 +---------------------+
 | id            PK    |
-| telegram_user_id  U |
+| username        U ? |
 | ha_user_id      U ? |
 | display_name        |
 | role                |
@@ -101,19 +101,22 @@ Tüm para alanları `INTEGER` ve **kuruş** cinsindedir. Tüm tarihler `DATE`
 | Sütun | Tip | Kural |
 |---|---|---|
 | `id` | INTEGER PK | |
-| `telegram_user_id` | INTEGER | UNIQUE, NOT NULL |
+| `username` | TEXT NULL | UNIQUE; küçük harfe çevrilmiş giriş adı |
+| `password_hash` | TEXT NULL | scrypt özeti; düz şifre asla yazılmaz |
+| `telegram_user_id` | INTEGER NULL | UNIQUE; 2.0 öncesinden kalır, yalnızca eski `HA_USER_MAP` değerlerini tanımak için okunur |
 | `ha_user_id` | TEXT NULL | UNIQUE; Home Assistant Ingress kullanıcı kimliği |
 | `display_name` | TEXT | NOT NULL (`Aykut`, `Aslıhan`) |
 | `role` | TEXT | `owner` \| `member` |
 | `is_active` | BOOLEAN | NOT NULL, varsayılan 1 |
+| `is_admin` | BOOLEAN | NOT NULL, varsayılan 0 |
 
-Seed: `AUTHORIZED_TELEGRAM_IDS` ve `USER_DISPLAY_NAMES` yapılandırmasından
-üretilir. ID'ler koda gömülmez.
+Kişiler seed ile üretilmez: ilk yönetici sitede kurulum koduyla, diğerleri
+**Kişiler** ekranında oluşturulur.
 
-`ha_user_id`, arayüz Home Assistant Ingress üzerinden açıldığında gelen
-`X-Remote-User-Id` başlığıyla eşleşir ve `HA_USER_MAP` yapılandırmasından
-doldurulur. Böylece aynı kişi hem Telegram hem HA üzerinden giriş yaptığında
-harcamalar tek bir kullanıcıya yazılır. Eşleşme bulunamazsa istek `403` alır;
+Arayüz Home Assistant Ingress üzerinden açıldığında gelen `X-Remote-User-Id`
+başlığı `HA_USER_MAP` içindeki kullanıcı adına, eşleme yoksa kayıtlı
+`ha_user_id` değerine bağlanır. Böylece aynı kişi hem sitede hem HA panelinde
+harcamalarını tek bir kullanıcıya yazar. Eşleşme bulunamazsa istek `403` alır;
 kayıt asla belirsiz bir kullanıcıya yazılmaz.
 
 ### payment_methods
@@ -183,7 +186,7 @@ ileride taksit bazında manuel tarih düzeltmesi eklemeyi de mümkün kılar.
 ### audit_logs
 
 `old_data` ve `new_data`, ilgili kaydın JSON serileştirilmiş halidir. Para
-alanları kuruş olarak yazılır. Bu tabloya bot token'ı, `initData` veya başka
+alanları kuruş olarak yazılır. Bu tabloya şifre, oturum çerezi veya başka
 kimlik doğrulama verisi asla yazılmaz.
 
 ## SQLite yapılandırması

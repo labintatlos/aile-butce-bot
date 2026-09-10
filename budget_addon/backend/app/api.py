@@ -1,8 +1,8 @@
 """HTTP arayüzü.
 
 Route'lar iş kuralı içermez: girdiyi doğrular, `services` katmanını çağırır,
-sonucu biçimlendirir. Telegram bot handler'ları da aynı servisleri çağıracağı
-için iki arayüz arasında hesaplama farkı oluşamaz.
+sonucu biçimlendirir. Web sitesi ve Home Assistant paneli aynı servisleri
+çağırdığı için iki giriş arasında hesaplama farkı oluşamaz.
 """
 
 from __future__ import annotations

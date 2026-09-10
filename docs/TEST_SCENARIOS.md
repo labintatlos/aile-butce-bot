@@ -112,20 +112,20 @@ testleri (`U-*`) geçmeden üst katmanlara geçilmez.
 
 | Kimlik | Senaryo | Beklenen |
 |---|---|---|
-| I-S1 | Yetkisiz Telegram kullanıcısı bota mesaj atar | Yalnızca `⛔ Bu botu kullanma yetkiniz bulunmuyor.` |
-| I-S2 | Yetkisiz kullanıcı buton/callback tetikler | Veri sızmaz, aynı ret mesajı |
-| I-S3 | `initData` yok | `401` |
-| I-S4 | `initData` imzası bozuk | `401` |
-| I-S5 | `auth_date` 24 saatten eski | `401` |
-| I-S6 | Geçerli imza, yetkisiz kullanıcı | `403` |
+2.0.0 ile Telegram botu ve Mini App kaldırıldı; I-S1, I-S2, I-S5, I-S6, I-S9 ve
+I-S13 onlara aitti ve emekliye ayrıldı. Şifreyle girişin senaryoları
+`tests/integration/test_web_login.py` içindedir.
+
+| Kimlik | Senaryo | Beklenen |
+|---|---|---|
+| I-S3 | Hiçbir kimlik bilgisi yok | `401` |
+| I-S4 | Eski `Authorization: tma ...` başlığı gönderilir | `401`, yanıtta başlık içeriği yok |
 | I-S7 | Pasif kullanıcı (`is_active=false`) | `403` |
 | I-S8 | Gövdede `created_by_user_id` gönderilir | Yok sayılır, doğrulanmış kimlik kullanılır |
-| I-S9 | Log çıktısı incelenir | Token ve `initData` bulunmaz |
-| I-S10 | Ingress isteği, geçerli `X-Remote-User-Id` | Doğru kullanıcıya bağlanır |
-| I-S11 | Ingress isteği, `HA_USER_MAP` içinde olmayan kimlik | `403` |
-| I-S12 | Supervisor ağı dışından uydurma `X-Remote-User-Id` | Kabul edilmez |
-| I-S13 | `ALLOW_DEV_AUTH=false` iken `X-Dev-Telegram-User-Id` | Yok sayılır, `401` |
-| I-S14 | Aynı kişi Ingress ve Telegram'dan kayıt yapar | İkisi de aynı `users` satırına yazılır |
+| I-S10 | Ingress isteği, `HA_USER_MAP` içinde eşlenmiş `X-Remote-User-Id` | Doğru kullanıcıya bağlanır |
+| I-S11 | Ingress isteği, eşlenmemiş ve kayıtlı olmayan kimlik | `403` |
+| I-S12 | İnternete açık örnekte uydurma `X-Remote-User-Id` | Kabul edilmez, `401` |
+| I-S14 | Aynı kişi sitede şifreyle ve HA panelinden kayıt yapar | İkisi de aynı `users` satırına yazılır |
 
 ## Yedekleme testleri (`tests/integration/test_backup.py`)
 

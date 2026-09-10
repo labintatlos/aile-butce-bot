@@ -4,7 +4,7 @@ Yol olarak MQTT değil **Supervisor üzerinden Home Assistant REST API'si**
 seçildi. Gerekçesi: MQTT ayrı bir aracı eklentinin kurulu olmasını şart
 koşardı ve yeni bir Python bağımlılığı getirirdi; oysa eklenti Supervisor'ın
 verdiği belirteçle Home Assistant'a zaten konuşabilir. HTTP istemcisi olarak
-aiogram'ın getirdiği `aiohttp` kullanılır, yani yeni bir paket eklenmez.
+`aiohttp` kullanılır.
 
 Bu yolla yazılan sensörler Home Assistant yeniden başlatıldığında kaybolur.
 Sorun değildir: yayımlayıcı belirli aralıklarla çalışır ve değerleri yeniden

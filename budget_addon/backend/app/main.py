@@ -6,7 +6,8 @@ Uygulama iki farklı bağlamda çalışacak şekilde kurulur ve aradaki tek fark
 - **Ingress örneği** (varsayılan port 8099): yalnızca Home Assistant
   Supervisor ağından erişilebilir, `X-Remote-User-Id` başlığına güvenir.
 - **Genel örnek** (port 8100, KeenDNS üzerinden yayımlanır): başlığa
-  **güvenmez**, yalnızca Telegram `initData` imzasını kabul eder.
+  **güvenmez**, yalnızca kullanıcı adı/şifreyle verilen oturum çerezini
+  kabul eder.
 
 Aynı kod, aynı iş kuralları; yalnızca kimliğin nereden geldiği değişir.
 """
@@ -29,7 +30,6 @@ from .notifications_api import router as notifications_router
 from .receipts_api import router as receipts_router
 from .services.scheduler import start_scheduler_task
 from .security.setup import announce_setup_code, ensure_setup_code, setup_required
-from .bot.runner import start_polling_task
 from .ha_publisher import start_publisher_task
 from .config import Settings, get_settings
 from .database import dispose_engine, get_session_factory
@@ -53,14 +53,11 @@ async def lifespan(app: FastAPI):
             # yeniden baslatarak kodu kolayca bulabilmelidir.
             announce_setup_code(ensure_setup_code(settings))
 
-    bot_task = None
     publisher_task = None
     scheduler_task = None
-    if settings.enable_bot:
-        bot_task = start_polling_task(settings, get_session_factory())
-        # Sensorler yalnizca tek surecten yazilir; iki uvicorn ornegi ayni
-        # degerleri yazsaydi ikisi de dogru olurdu ama is bosuna iki katina
-        # cikardi. Bot bayragi zaten "birincil surec" anlamini tasiyor.
+    if settings.run_background_jobs:
+        # Sensorler ve gunluk isler yalnizca tek surecten calisir; iki uvicorn
+        # ornegi ayni isi yapsaydi is bosuna iki katina cikardi.
         publisher_task = start_publisher_task(settings, get_session_factory())
         scheduler_task = start_scheduler_task(settings, get_session_factory())
     try:
@@ -74,12 +71,6 @@ async def lifespan(app: FastAPI):
             publisher_task.cancel()
             with suppress(asyncio.CancelledError):
                 await publisher_task
-        if bot_task is not None:
-            # Polling sonsuz dongudur; kapanista acikca iptal edilip
-            # bitmesi beklenmezse surec asili kalir.
-            bot_task.cancel()
-            with suppress(asyncio.CancelledError):
-                await bot_task
         await dispose_engine()
 
 
@@ -93,7 +84,7 @@ def _mount_frontend(app: FastAPI, settings: Settings) -> None:
     statik bağlama daha önce eklenirse `/api/...` isteklerini gölgeler ve
     arayüz çalışırken sunucu ölmüş gibi görünür.
 
-    Arayüz derlenmemişse bağlama atlanır; bot ve API yine çalışır.
+    Arayüz derlenmemişse bağlama atlanır; API yine çalışır.
     """
     dist = Path(settings.frontend_dist) if settings.frontend_dist else FRONTEND_DIST
     if not (dist / "index.html").exists():
@@ -116,18 +107,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url="/openapi.json" if settings.debug else None,
     )
 
-    if settings.public_url:
-        from fastapi.middleware.cors import CORSMiddleware
-
-        app.add_middleware(
-            CORSMiddleware,
-            # Joker kullanilmaz: yalnizca yapilandirilmis adres kabul edilir.
-            allow_origins=[settings.public_url.rstrip("/")],
-            allow_credentials=True,
-            allow_methods=["GET", "POST", "PATCH", "DELETE"],
-            allow_headers=["Authorization", "Content-Type"],
-        )
-
+    # CORS eklenmez: arayuz API ile ayni adresten sunulur.
     app.include_router(router)
     app.include_router(auth_router)
     app.include_router(admin_router)

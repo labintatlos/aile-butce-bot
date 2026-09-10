@@ -5,7 +5,7 @@ ekstre kesim günü, yaklaşan son ödeme ve dönem özetleri kimse bir düğmey
 basmayı akıl etmeden gelmelidir.
 
 Bu modül yalnızca **ne gönderileceğine** karar verir; gönderme işi
-`app/bot/scheduler.py` içindedir. Karar tamamen deterministiktir ve dışarıdan
+`services/scheduler.py` içindedir. Karar tamamen deterministiktir ve dışarıdan
 verilen `today` değerine dayanır, böylece gerçek saat beklenmeden test
 edilebilir. Hiçbir tutar burada yeniden hesaplanmaz; hepsi mevcut rapor
 fonksiyonlarından gelir.

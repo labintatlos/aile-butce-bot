@@ -177,7 +177,7 @@ async def monthly_spending(
     )
 
     # Iadeler her yerde ayni sekilde dusulur: rapor "net harcama" gosterir.
-    # Tek noktadan yapilmasi, bot, API ve HA sensorlerinin ayni sayiyi
+    # Tek noktadan yapilmasi, site, panel ve HA sensorlerinin ayni sayiyi
     # gormesini garanti eder.
     refunded_total = await refunds.total_in_month(session, year=year, month=month)
     refunded_cash = await refunds.cash_total_in_month(session, year=year, month=month)

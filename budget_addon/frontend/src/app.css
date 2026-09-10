@@ -2,23 +2,22 @@
  * Aile Bütçe — web arayüzü.
  *
  * Telefon öncelikli yazılır, 960px üstünde kenar çubuklu masaüstü düzenine
- * geçer. Renk değişkenlerinin adları Telegram tema anahtarlarını izler:
- * uygulama Telegram içinde açıldığında telegram.ts bu değişkenleri
- * Telegram'ın renkleriyle doldurur, başka yerde buradaki değerler geçerlidir.
+ * geçer. Renkler aşağıdaki değişkenlerden gelir; koyu tema yalnızca
+ * değişkenlerin değerlerini değiştirir.
  *
- *   --tg-bg       kart ve panel yüzeyi
- *   --tg-surface  sayfa zemini
+ *   --c-bg       kart ve panel yüzeyi
+ *   --c-surface  sayfa zemini
  */
 
 :root {
-  --tg-bg: #ffffff;
-  --tg-surface: #f3f4f8;
-  --tg-text: #111827;
-  --tg-hint: #6b7280;
-  --tg-link: #4f46e5;
-  --tg-button: #4f46e5;
-  --tg-button-text: #ffffff;
-  --tg-danger: #dc2626;
+  --c-bg: #ffffff;
+  --c-surface: #f3f4f8;
+  --c-text: #111827;
+  --c-hint: #6b7280;
+  --c-link: #4f46e5;
+  --c-button: #4f46e5;
+  --c-button-text: #ffffff;
+  --c-danger: #dc2626;
   --success: #059669;
   --warning: #d97706;
 
@@ -36,14 +35,14 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --tg-bg: #161b22;
-    --tg-surface: #0d1117;
-    --tg-text: #e6edf3;
-    --tg-hint: #8b949e;
-    --tg-link: #8b9cff;
-    --tg-button: #6d7cff;
-    --tg-button-text: #ffffff;
-    --tg-danger: #f87171;
+    --c-bg: #161b22;
+    --c-surface: #0d1117;
+    --c-text: #e6edf3;
+    --c-hint: #8b949e;
+    --c-link: #8b9cff;
+    --c-button: #6d7cff;
+    --c-button-text: #ffffff;
+    --c-danger: #f87171;
     --success: #34d399;
     --warning: #fbbf24;
     --border: rgba(230, 237, 243, 0.1);
@@ -55,14 +54,14 @@
 }
 
 :root[data-theme="dark"] {
-  --tg-bg: #161b22;
-  --tg-surface: #0d1117;
-  --tg-text: #e6edf3;
-  --tg-hint: #8b949e;
-  --tg-link: #8b9cff;
-  --tg-button: #6d7cff;
-  --tg-button-text: #ffffff;
-  --tg-danger: #f87171;
+  --c-bg: #161b22;
+  --c-surface: #0d1117;
+  --c-text: #e6edf3;
+  --c-hint: #8b949e;
+  --c-link: #8b9cff;
+  --c-button: #6d7cff;
+  --c-button-text: #ffffff;
+  --c-danger: #f87171;
   --success: #34d399;
   --warning: #fbbf24;
   --border: rgba(230, 237, 243, 0.1);
@@ -72,11 +71,11 @@
   color-scheme: dark;
 }
 
-/* Telegram temasi uygulandiginda yardimci renkler de ondan turetilir. */
+/* Yardimci renkler ana renklerden turetilir. */
 @supports (color: color-mix(in srgb, red, blue)) {
   :root {
-    --border: color-mix(in srgb, var(--tg-text) 10%, transparent);
-    --soft: color-mix(in srgb, var(--tg-button) 13%, transparent);
+    --border: color-mix(in srgb, var(--c-text) 10%, transparent);
+    --soft: color-mix(in srgb, var(--c-button) 13%, transparent);
   }
 }
 
@@ -95,8 +94,8 @@ body {
   font-family: var(--font);
   font-size: 15px;
   line-height: 1.5;
-  color: var(--tg-text);
-  background: var(--tg-surface);
+  color: var(--c-text);
+  background: var(--c-surface);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
 }
@@ -127,20 +126,20 @@ textarea {
 }
 
 a {
-  color: var(--tg-link);
+  color: var(--c-link);
 }
 
 :focus-visible {
-  outline: 2px solid var(--tg-button);
+  outline: 2px solid var(--c-button);
   outline-offset: 2px;
 }
 
 .muted {
-  color: var(--tg-hint);
+  color: var(--c-hint);
 }
 
 .danger-text {
-  color: var(--tg-danger);
+  color: var(--c-danger);
 }
 
 .success-text {
@@ -182,7 +181,7 @@ a {
   gap: 12px;
   padding: 10px 16px;
   padding-top: calc(10px + env(safe-area-inset-top));
-  background: var(--tg-surface);
+  background: var(--c-surface);
   border-bottom: 1px solid var(--border);
 }
 
@@ -201,7 +200,7 @@ a {
   z-index: 30;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  background: var(--tg-bg);
+  background: var(--c-bg);
   border-top: 1px solid var(--border);
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -214,14 +213,14 @@ a {
   padding: 8px 0 7px;
   border: 0;
   background: none;
-  color: var(--tg-hint);
+  color: var(--c-hint);
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
 }
 
 .bottom-nav button.active {
-  color: var(--tg-button);
+  color: var(--c-button);
 }
 
 .bottom-nav .fab {
@@ -231,9 +230,9 @@ a {
   border-radius: 15px;
   display: grid;
   place-items: center;
-  background: var(--tg-button);
-  color: var(--tg-button-text);
-  box-shadow: 0 8px 20px -6px var(--tg-button);
+  background: var(--c-button);
+  color: var(--c-button-text);
+  box-shadow: 0 8px 20px -6px var(--c-button);
 }
 
 .brand {
@@ -252,7 +251,7 @@ a {
   display: grid;
   place-items: center;
   flex: none;
-  background: linear-gradient(135deg, var(--tg-button), #8b5cf6);
+  background: linear-gradient(135deg, var(--c-button), #8b5cf6);
   color: #ffffff;
 }
 
@@ -272,7 +271,7 @@ a {
   border: 0;
   border-radius: 10px;
   background: none;
-  color: var(--tg-hint);
+  color: var(--c-hint);
   font-weight: 600;
   font-size: 14px;
   text-align: left;
@@ -280,13 +279,13 @@ a {
 }
 
 .nav-link:hover {
-  background: var(--tg-surface);
-  color: var(--tg-text);
+  background: var(--c-surface);
+  color: var(--c-text);
 }
 
 .nav-link.active {
   background: var(--soft);
-  color: var(--tg-button);
+  color: var(--c-button);
 }
 
 .sidebar-foot {
@@ -314,7 +313,7 @@ a {
 
 .sidebar-user span {
   font-size: 12px;
-  color: var(--tg-hint);
+  color: var(--c-hint);
 }
 
 .avatar {
@@ -325,7 +324,7 @@ a {
   place-items: center;
   flex: none;
   background: var(--soft);
-  color: var(--tg-button);
+  color: var(--c-button);
   font-weight: 700;
 }
 
@@ -342,7 +341,7 @@ a {
     display: flex;
     flex-direction: column;
     padding: 22px 14px 16px;
-    background: var(--tg-bg);
+    background: var(--c-bg);
     border-right: 1px solid var(--border);
   }
 
@@ -475,7 +474,7 @@ a {
 
 .card {
   min-width: 0;
-  background: var(--tg-bg);
+  background: var(--c-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
@@ -506,7 +505,7 @@ a {
 .stat {
   min-width: 0;
   padding: 14px 16px;
-  background: var(--tg-bg);
+  background: var(--c-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
@@ -516,7 +515,7 @@ a {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--tg-hint);
+  color: var(--c-hint);
   font-size: 13px;
   font-weight: 500;
 }
@@ -529,7 +528,7 @@ a {
   place-items: center;
   flex: none;
   background: var(--soft);
-  color: var(--tg-button);
+  color: var(--c-button);
 }
 
 .stat-value {
@@ -544,11 +543,11 @@ a {
 .stat-hint {
   margin-top: 2px;
   font-size: 12px;
-  color: var(--tg-hint);
+  color: var(--c-hint);
 }
 
 .stat.danger .stat-value {
-  color: var(--tg-danger);
+  color: var(--c-danger);
 }
 
 .stat.success .stat-value {
@@ -568,7 +567,7 @@ a {
 .hero {
   padding: 20px;
   border-radius: var(--radius);
-  background: linear-gradient(135deg, var(--tg-button), #8b5cf6);
+  background: linear-gradient(135deg, var(--c-button), #8b5cf6);
   color: #ffffff;
   box-shadow: var(--shadow-lg);
 }
@@ -630,8 +629,8 @@ a {
 }
 
 .btn.primary {
-  background: var(--tg-button);
-  color: var(--tg-button-text);
+  background: var(--c-button);
+  color: var(--c-button-text);
 }
 
 .btn.primary:hover:not(:disabled) {
@@ -639,29 +638,29 @@ a {
 }
 
 .btn.secondary {
-  background: var(--tg-bg);
+  background: var(--c-bg);
   border-color: var(--border);
-  color: var(--tg-text);
+  color: var(--c-text);
 }
 
 .btn.secondary:hover:not(:disabled),
 .btn.ghost:hover:not(:disabled) {
-  background: var(--tg-surface);
+  background: var(--c-surface);
 }
 
 .btn.ghost {
   background: transparent;
-  color: var(--tg-text);
+  color: var(--c-text);
 }
 
 .btn.danger {
-  background: var(--tg-danger);
+  background: var(--c-danger);
   color: #ffffff;
 }
 
 .btn.danger-ghost {
   background: transparent;
-  color: var(--tg-danger);
+  color: var(--c-danger);
 }
 
 .btn.danger-ghost:hover {
@@ -693,13 +692,13 @@ a {
   border: 0;
   border-radius: 10px;
   background: transparent;
-  color: var(--tg-hint);
+  color: var(--c-hint);
   cursor: pointer;
 }
 
 .icon-btn:hover:not(:disabled) {
-  background: var(--tg-surface);
-  color: var(--tg-text);
+  background: var(--c-surface);
+  color: var(--c-text);
 }
 
 .icon-btn:disabled {
@@ -731,7 +730,7 @@ a {
 
 .field-hint {
   font-size: 12px;
-  color: var(--tg-hint);
+  color: var(--c-hint);
 }
 
 .input,
@@ -742,8 +741,8 @@ a {
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: var(--tg-bg);
-  color: var(--tg-text);
+  background: var(--c-bg);
+  color: var(--c-text);
   /* 16px: iOS Safari daha kucuk yazida alana dokununca sayfayi yakinlastirir. */
   font-size: 16px;
   outline: none;
@@ -753,7 +752,7 @@ a {
 .input:focus,
 .select:focus,
 .textarea:focus {
-  border-color: var(--tg-button);
+  border-color: var(--c-button);
   box-shadow: 0 0 0 3px var(--soft);
 }
 
@@ -791,7 +790,7 @@ a {
   top: 50%;
   right: 14px;
   transform: translateY(-50%);
-  color: var(--tg-hint);
+  color: var(--c-hint);
   font-weight: 600;
   pointer-events: none;
 }
@@ -815,7 +814,7 @@ a {
   top: 50%;
   left: 12px;
   transform: translateY(-50%);
-  color: var(--tg-hint);
+  color: var(--c-hint);
   pointer-events: none;
 }
 
@@ -849,7 +848,7 @@ a {
 .check input {
   width: 18px;
   height: 18px;
-  accent-color: var(--tg-button);
+  accent-color: var(--c-button);
 }
 
 .chips {
@@ -866,20 +865,20 @@ a {
   padding: 0 13px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: var(--tg-bg);
-  color: var(--tg-text);
+  background: var(--c-bg);
+  color: var(--c-text);
   font-size: 14px;
   cursor: pointer;
 }
 
 .chip:hover {
-  border-color: var(--tg-hint);
+  border-color: var(--c-hint);
 }
 
 .chip.active {
-  border-color: var(--tg-button);
+  border-color: var(--c-button);
   background: var(--soft);
-  color: var(--tg-button);
+  color: var(--c-button);
   font-weight: 600;
 }
 
@@ -894,8 +893,8 @@ a {
   gap: 4px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: var(--tg-surface);
-  color: var(--tg-hint);
+  background: var(--c-surface);
+  color: var(--c-hint);
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
@@ -903,12 +902,12 @@ a {
 
 .badge.accent {
   background: var(--soft);
-  color: var(--tg-button);
+  color: var(--c-button);
 }
 
 .badge.danger {
   background: rgba(220, 38, 38, 0.1);
-  color: var(--tg-danger);
+  color: var(--c-danger);
 }
 
 .badge.success {
@@ -953,7 +952,7 @@ a {
 }
 
 .toggle input:checked + .toggle-track {
-  background: var(--tg-button);
+  background: var(--c-button);
 }
 
 .toggle input:checked + .toggle-track .toggle-thumb {
@@ -971,7 +970,7 @@ a {
 }
 
 .toggle-text small {
-  color: var(--tg-hint);
+  color: var(--c-hint);
   font-size: 12px;
 }
 
@@ -983,7 +982,7 @@ a {
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: 11px;
-  background: var(--tg-surface);
+  background: var(--c-surface);
 }
 
 .segmented button {
@@ -991,7 +990,7 @@ a {
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: var(--tg-hint);
+  color: var(--c-hint);
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
@@ -999,8 +998,8 @@ a {
 }
 
 .segmented button.active {
-  background: var(--tg-bg);
-  color: var(--tg-text);
+  background: var(--c-bg);
+  color: var(--c-text);
   box-shadow: 0 1px 3px rgba(16, 24, 40, 0.12);
 }
 
@@ -1011,7 +1010,7 @@ a {
   padding: 2px;
   border: 1px solid var(--border);
   border-radius: 11px;
-  background: var(--tg-bg);
+  background: var(--c-bg);
 }
 
 .month-nav span {
@@ -1059,7 +1058,7 @@ button.list-item {
 }
 
 button.list-item:hover {
-  background: var(--tg-surface);
+  background: var(--c-surface);
 }
 
 .list-icon {
@@ -1069,8 +1068,8 @@ button.list-item:hover {
   display: grid;
   place-items: center;
   border-radius: 12px;
-  background: var(--tg-surface);
-  color: var(--tg-hint);
+  background: var(--c-surface);
+  color: var(--c-hint);
   font-size: 19px;
 }
 
@@ -1093,7 +1092,7 @@ button.list-item:hover {
 
 .list-sub {
   font-size: 13px;
-  color: var(--tg-hint);
+  color: var(--c-hint);
 }
 
 .list-end {
@@ -1110,7 +1109,7 @@ button.list-item:hover {
 
 .list-item.inactive .list-title,
 .list-item.inactive .list-amount {
-  color: var(--tg-hint);
+  color: var(--c-hint);
 }
 
 .table-wrap {
@@ -1126,7 +1125,7 @@ button.list-item:hover {
 .table th {
   padding: 10px 18px;
   border-bottom: 1px solid var(--border);
-  color: var(--tg-hint);
+  color: var(--c-hint);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.03em;
@@ -1155,7 +1154,7 @@ button.list-item:hover {
 }
 
 .table tr.clickable:hover td {
-  background: var(--tg-surface);
+  background: var(--c-surface);
 }
 
 .table td.wrap {
@@ -1170,7 +1169,7 @@ button.list-item:hover {
   gap: 12px;
   padding: 12px 18px;
   border-top: 1px solid var(--border);
-  color: var(--tg-hint);
+  color: var(--c-hint);
   font-size: 13px;
 }
 
@@ -1193,7 +1192,7 @@ button.list-item:hover {
 }
 
 .kv dt {
-  color: var(--tg-hint);
+  color: var(--c-hint);
 }
 
 .kv dd {
@@ -1205,13 +1204,13 @@ button.list-item:hover {
 
 .kv .total dt,
 .kv .total dd {
-  color: var(--tg-text);
+  color: var(--c-text);
   font-size: 16px;
   font-weight: 700;
 }
 
 .kv .danger dd {
-  color: var(--tg-danger);
+  color: var(--c-danger);
 }
 
 /* --------------------------------------------------------------------------
@@ -1228,12 +1227,12 @@ button.list-item:hover {
 .meter-fill {
   height: 100%;
   border-radius: inherit;
-  background: var(--tg-button);
+  background: var(--c-button);
   transition: width 0.4s ease;
 }
 
 .meter-fill.danger {
-  background: var(--tg-danger);
+  background: var(--c-danger);
 }
 
 .meter-fill.warning {
@@ -1269,7 +1268,7 @@ button.list-item:hover {
 
 .bar-meta {
   font-size: 12px;
-  color: var(--tg-hint);
+  color: var(--c-hint);
 }
 
 .chart {
@@ -1308,7 +1307,7 @@ button.list-item:hover {
   width: min(14px, 42%);
   min-height: 2px;
   border-radius: 4px 4px 0 0;
-  background: var(--tg-button);
+  background: var(--c-button);
 }
 
 .chart-bar.previous {
@@ -1317,7 +1316,7 @@ button.list-item:hover {
 
 .chart-label {
   font-size: 11px;
-  color: var(--tg-hint);
+  color: var(--c-hint);
 }
 
 .legend {
@@ -1325,7 +1324,7 @@ button.list-item:hover {
   flex-wrap: wrap;
   gap: 16px;
   font-size: 12px;
-  color: var(--tg-hint);
+  color: var(--c-hint);
 }
 
 .legend i {
@@ -1335,7 +1334,7 @@ button.list-item:hover {
   margin-right: 6px;
   border-radius: 3px;
   vertical-align: -1px;
-  background: var(--tg-button);
+  background: var(--c-button);
 }
 
 .legend i.previous {
@@ -1354,14 +1353,14 @@ button.list-item:hover {
   padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--tg-surface);
+  background: var(--c-surface);
   font-size: 14px;
 }
 
 .alert.danger {
   border-color: rgba(220, 38, 38, 0.25);
   background: rgba(220, 38, 38, 0.08);
-  color: var(--tg-danger);
+  color: var(--c-danger);
 }
 
 .alert.info {
@@ -1375,14 +1374,14 @@ button.list-item:hover {
   justify-content: center;
   gap: 10px;
   padding: 48px 0;
-  color: var(--tg-hint);
+  color: var(--c-hint);
 }
 
 .spinner {
   width: 18px;
   height: 18px;
   border: 2px solid var(--track);
-  border-top-color: var(--tg-button);
+  border-top-color: var(--c-button);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -1399,13 +1398,13 @@ button.list-item:hover {
   align-items: center;
   gap: 4px;
   padding: 36px 16px;
-  color: var(--tg-hint);
+  color: var(--c-hint);
   text-align: center;
   font-size: 14px;
 }
 
 .empty strong {
-  color: var(--tg-text);
+  color: var(--c-text);
   font-size: 15px;
 }
 
@@ -1416,7 +1415,7 @@ button.list-item:hover {
   display: grid;
   place-items: center;
   border-radius: 14px;
-  background: var(--tg-surface);
+  background: var(--c-surface);
 }
 
 .empty-action {
@@ -1503,7 +1502,7 @@ button.list-item:hover {
   max-height: 92vh;
   max-height: 92dvh;
   border-radius: 20px 20px 0 0;
-  background: var(--tg-bg);
+  background: var(--c-bg);
   box-shadow: var(--shadow-lg);
   animation: sheet 0.22s ease-out;
 }
@@ -1588,7 +1587,7 @@ button.list-item:hover {
   display: grid;
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--tg-bg);
+  background: var(--c-bg);
 }
 
 .auth-panel {
@@ -1783,7 +1782,7 @@ button.list-item:hover {
 
 .section-title {
   margin: 22px 0 8px;
-  color: var(--tg-hint);
+  color: var(--c-hint);
   font-size: 12px;
   font-weight: 650;
   letter-spacing: 0.04em;
@@ -1809,7 +1808,7 @@ button.list-item:hover {
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--tg-surface);
+  background: var(--c-surface);
 }
 
 .form-actions.start {
@@ -1850,7 +1849,7 @@ button.list-item:hover {
 code {
   padding: 1px 5px;
   border-radius: 5px;
-  background: var(--tg-surface);
+  background: var(--c-surface);
   font-size: 0.92em;
 }
 

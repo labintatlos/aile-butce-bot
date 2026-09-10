@@ -1,9 +1,9 @@
 """Fiş fotoğrafı ve hızlı giriş.
 
-İkisi de önceden yalnızca Telegram botunda vardı. Site aynı servisleri
-kullanır; hızlı girişin kuralları botla aynıdır: kategori tek başına
+İkisi de önceden yalnızca Telegram botunda vardı ve bot kaldırılmadan önce
+siteye taşındı. Hızlı girişin kuralları aynı kaldı: kategori tek başına
 eşleşirse harcama bugünün tarihiyle nakit olarak hemen kaydedilir, eşleşmezse
-kategori kişiye sorulur.
+kategori formda seçilir.
 """
 
 from __future__ import annotations

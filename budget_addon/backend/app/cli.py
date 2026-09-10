@@ -48,7 +48,7 @@ def _seed() -> int:
 
 
 def _config() -> int:
-    """Yapılandırmayı doğrular ve özetler. Bot token gibi sırlar gösterilmez.
+    """Yapılandırmayı doğrular ve özetler. Şifre gibi sırlar gösterilmez.
 
     Açılışta çalıştırılır: hatalı bir ayar burada anlaşılır bir mesajla
     yakalanmazsa uygulama başlarken yığın izinin altında patlıyordu.

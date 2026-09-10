@@ -1,8 +1,8 @@
 /**
  * Giriş ekranı.
  *
- * Yalnızca web sitesinde görünür. Home Assistant panelinde ve Telegram
- * içinde kimlik zaten bağlamdan geldiği için bu ekran atlanır.
+ * Yalnızca web sitesinde görünür. Home Assistant panelinde kimlik zaten
+ * bağlamdan geldiği için bu ekran atlanır.
  */
 
 import { useState, type FormEvent } from "react";

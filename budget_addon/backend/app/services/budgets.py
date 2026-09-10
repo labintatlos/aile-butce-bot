@@ -9,7 +9,7 @@ haber verilir. Bütçe takibi harcamayı kısıtlamak için değil, görünür k
 içindir.
 
 Bu modül yalnızca durumu hesaplar. Uyarının ne zaman gönderileceğine
-`app/bot/scheduler.py`, nasıl yazılacağına `app/bot/messages.py` karar verir.
+`services/scheduler.py`, nasıl yazılacağına `services/notification_texts.py` karar verir.
 """
 
 from __future__ import annotations

@@ -16,7 +16,6 @@ from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ..models.category import Category
 from ..models.expense import Expense
 
 DEFAULT_PAGE_SIZE = 20
@@ -131,18 +130,4 @@ async def search_expenses(
 
     return SearchPage(
         items=list(rows.all()), total=total or 0, page=page, page_size=page_size
-    )
-
-
-async def search_by_category_name(
-    session: AsyncSession, name: str, **kwargs
-) -> SearchPage:
-    """Kategori adıyla arama; kimlik yerine ad kullanan bot akışı için."""
-    category = await session.scalar(
-        select(Category).where(func.lower(Category.name) == name.lower())
-    )
-    if category is None:
-        return SearchPage()
-    return await search_expenses(
-        session, SearchFilters(category_id=category.id), **kwargs
     )

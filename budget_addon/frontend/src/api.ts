@@ -6,12 +6,9 @@
  * her iki tarafta da doğru çözülür. Mutlak `/api/...` kullanılırsa Ingress
  * altında 404 alınır.
  *
- * Kimlik bağlama göre farklı yoldan gider: web sitesinde tarayıcı oturum
- * çerezini kendiliğinden ekler, Telegram içinde imzalı `initData` başlığı
- * gönderilir, Home Assistant panelinde başlığı HA kendisi koyar.
+ * Kimlik için istemci başlık eklemez: web sitesinde tarayıcı oturum çerezini
+ * kendiliğinden gönderir, Home Assistant panelinde başlığı HA kendisi koyar.
  */
-
-import { telegram } from "./telegram";
 
 const API_BASE = "api";
 
@@ -53,7 +50,7 @@ export interface UserSummary {
   role: string;
 }
 
-export type AuthSource = "session" | "ingress" | "telegram" | "dev";
+export type AuthSource = "session" | "ingress";
 
 export interface Me extends UserSummary {
   username: string | null;
@@ -416,25 +413,6 @@ export class ApiError extends Error {
   }
 }
 
-/**
- * Kimlik başlığını bağlama göre seçer.
- *
- * Telegram içinde çalışıyorsak imzalı `initData` gönderilir. Home Assistant
- * Ingress altında ve web sitesinde istemcinin başlık eklemesi gerekmez.
- * Geliştirme başlığı yalnızca yerelde anlamlıdır.
- */
-function authHeaders(): Record<string, string> {
-  const initData = telegram()?.initData;
-  if (initData) {
-    return { Authorization: `tma ${initData}` };
-  }
-  const devUser = import.meta.env.VITE_DEV_TELEGRAM_USER_ID;
-  if (devUser) {
-    return { "X-Dev-Telegram-User-Id": String(devUser) };
-  }
-  return {};
-}
-
 type Query = Record<string, string | number | boolean | null | undefined>;
 
 function withQuery(path: string, query?: Query): string {
@@ -456,7 +434,6 @@ async function send(path: string, init: RequestInit = {}): Promise<Response> {
       ...init,
       headers: {
         "Content-Type": "application/json",
-        ...authHeaders(),
         ...(init.headers ?? {}),
       },
     });

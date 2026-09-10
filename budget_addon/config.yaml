@@ -1,6 +1,6 @@
 name: Aile Bütçe Takip
-description: Aile bütçesi ve kredi kartı taksit takibi — web sitesi, Telegram botu ve HA paneli
-version: "1.5.0"
+description: Aile bütçesi ve kredi kartı taksit takibi — kullanıcı adı ve şifreyle açılan web sitesi
+version: "2.0.0"
 slug: family_budget
 url: https://github.com/labintatlos/aile-butce-bot
 arch:
@@ -10,22 +10,21 @@ init: false
 startup: services
 boot: auto
 
-# Arayuz HA'nin kendi oturumu ve HTTPS'i uzerinden sunulur; tunel, alan adi
-# veya sertifika gerekmez.
+# Ayni arayuz Home Assistant panelinde de acilir; orada kimlik HA oturumundan
+# gelir, tunel veya sertifika gerekmez.
 ingress: true
 ingress_port: 8099
 panel_icon: mdi:wallet
 panel_title: Bütçe
 
 # Ingress portu disariya acilmaz: X-Remote-User-Id basligina yalnizca
-# Supervisor agindan gelen istekte guvenilir. Web sitesi ve Telegram Mini App
-# icin kullanilan 8100 ise basliga guvenmeyen ayri bir surectir; orada kimlik
-# yalnizca kullanici adi/sifre ile verilen oturum cerezinden veya imzali
-# Telegram initData'sindan gelir.
+# Supervisor agindan gelen istekte guvenilir. Web sitesi icin kullanilan 8100
+# ise basliga guvenmeyen ayri bir surectir; orada kimlik yalnizca kullanici
+# adi/sifre ile verilen oturum cerezinden gelir.
 ports:
-  8100/tcp: null
+  8100/tcp: 8100
 ports_description:
-  8100/tcp: Web sitesi ve Telegram Mini App (kullanıcı adı/şifre veya imzalı initData)
+  8100/tcp: Web sitesi (kullanıcı adı ve şifre). İnternete KeenDNS gibi HTTPS veren bir yolla açın.
 
 # HA'nin config, ssl, share veya media klasorlerine erisim istenmez.
 map: []
@@ -35,33 +34,37 @@ map: []
 homeassistant_api: true
 
 options:
-  telegram_bot_token: ""
-  authorized_telegram_ids: ""
-  user_display_names: ""
+  site_url: ""
   ha_user_map: ""
-  web_users: ""
-  webapp_public_url: ""
   timezone: Europe/Istanbul
   log_level: info
   backup_retention: 14
   enable_reminders: true
   reminder_hour: 9
   due_reminder_days: 3
+  smtp_host: ""
+  smtp_port: 587
+  smtp_security: starttls
+  smtp_username: ""
+  smtp_password: ""
+  smtp_sender: ""
   publish_ha_sensors: true
   ha_publish_interval_minutes: 15
 
 schema:
-  telegram_bot_token: password
-  authorized_telegram_ids: str
-  user_display_names: str
+  site_url: url?
   ha_user_map: str?
-  web_users: password?
-  webapp_public_url: str?
   timezone: str
   log_level: list(debug|info|warning|error)
   backup_retention: int(1,365)
   enable_reminders: bool
   reminder_hour: int(0,23)
   due_reminder_days: int(0,28)
+  smtp_host: str?
+  smtp_port: port
+  smtp_security: list(starttls|ssl|none)
+  smtp_username: str?
+  smtp_password: password?
+  smtp_sender: str?
   publish_ha_sensors: bool
   ha_publish_interval_minutes: int(1,1440)

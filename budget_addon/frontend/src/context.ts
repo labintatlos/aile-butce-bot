@@ -33,8 +33,6 @@ export function useSession(): Session {
 const SOURCE_LABELS: Record<AuthSource, string> = {
   session: "Web sitesi",
   ingress: "Home Assistant",
-  telegram: "Telegram",
-  dev: "Geliştirme",
 };
 
 export function authSourceLabel(source: AuthSource): string {
