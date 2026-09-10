@@ -360,3 +360,15 @@ class RefundCreateIn(BaseModel):
     refund_date: date | None = None
     """Boş bırakılırsa bugün kabul edilir."""
     notes: str | None = Field(default=None, max_length=500)
+
+
+class TagTotalOut(BaseModel):
+    """Bir etiketin toplamı.
+
+    Etiket bir kategori değildir: aynı olayın farklı kategorilerdeki
+    harcamalarını tek bir toplamda birleştirir.
+    """
+
+    tag: str
+    total: Money
+    transaction_count: int

@@ -39,6 +39,7 @@ from ..services import (
     recurring,
     refunds,
     settings_service,
+    tags,
 )
 from ..services.expenses import get_expense
 from ..services.finance.money import parse_amount_to_minor
@@ -847,3 +848,23 @@ async def add_refund(
         ),
         parse_mode="HTML",
     )
+
+
+# ---------------------------------------------------------------------------
+# Etiketler
+# ---------------------------------------------------------------------------
+
+
+@router.message(Command("etiket"))
+async def show_tags(message: Message, session: AsyncSession) -> None:
+    """Etiket verilmezse liste, verilirse o etiketin dökümü gösterilir."""
+    wanted = _arguments(message)
+    if not wanted:
+        await message.answer(
+            messages.tag_list(await tags.totals(session)), parse_mode="HTML"
+        )
+        return
+
+    total = await tags.total_for(session, wanted)
+    expenses = await tags.expenses_for(session, wanted)
+    await message.answer(messages.tag_detail(total, expenses), parse_mode="HTML")

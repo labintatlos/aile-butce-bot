@@ -49,6 +49,7 @@ from .schemas import (
     RefundOut,
     SchedulePreviewIn,
     SearchResultOut,
+    TagTotalOut,
     SchedulePreviewOut,
     StatementOut,
     UserOut,
@@ -62,6 +63,7 @@ from .services import (
     recurring,
     refunds,
     reports,
+    tags,
     search as search_service,
     settings_service,
 )
@@ -880,3 +882,21 @@ async def remove_refund(
     if refund is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "İade kaydı bulunamadı")
     await refunds.soft_delete_refund(session, user=user, refund=refund)
+
+
+@router.get("/reports/tags", response_model=list[TagTotalOut])
+async def tag_report(
+    year: int | None = None,
+    month: int | None = None,
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[TagTotalOut]:
+    """Etiket toplamları. Yıl ve ay verilmezse bütün zamanlar toplanır."""
+    return [
+        TagTotalOut(
+            tag=item.tag,
+            total=Money.of(item.total_minor),
+            transaction_count=item.transaction_count,
+        )
+        for item in await tags.totals(session, year=year, month=month)
+    ]

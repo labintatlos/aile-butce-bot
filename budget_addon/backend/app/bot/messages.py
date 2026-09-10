@@ -14,6 +14,7 @@ EMPTY_STATEMENTS = "Yaklaşan ekstre bulunmuyor."
 EMPTY_PLANS = "Aktif taksitli alışveriş yok."
 
 TOP_CATEGORY_LIMIT = 6
+TAG_DETAIL_LIMIT = 15
 
 
 def monthly_report(
@@ -712,3 +713,50 @@ RECEIPT_MISSING = "Bu harcamada fiş fotoğrafı yok."
 def receipt_attached(*, public_id: str, description: str | None) -> str:
     detail = f" — {description}" if description else ""
     return f"📎 Fiş #{public_id}{detail} harcamasına iliştirildi."
+
+
+TAGS_EMPTY = (
+    "Henüz etiket kullanılmamış.\n\n"
+    "Açıklamaya <code>#tatil</code> gibi bir etiket yazınca, farklı"
+    " kategorilerdeki harcamalar tek bir toplamda birleşir:\n"
+    "<code>500 market #bodrum</code>\n"
+    "<code>1200 yakıt #bodrum</code>"
+)
+
+
+def tag_list(totals) -> str:
+    """`/etiket` çıktısı: etiketler ve toplamları."""
+    if not totals:
+        return TAGS_EMPTY
+
+    lines = ["🏷 <b>Etiketler</b>", ""]
+    for item in totals:
+        lines.append(
+            f"#{item.tag} — {money(item.total_minor)}"
+            f" ({item.transaction_count} işlem)"
+        )
+    lines += ["", "Bir etiketin dökümü için: <code>/etiket bodrum</code>"]
+    return "\n".join(lines)
+
+
+def tag_detail(total, expenses) -> str:
+    """`/etiket bodrum` çıktısı: tek etiketin toplamı ve dökümü."""
+    if total.transaction_count == 0:
+        return f"#{total.tag} etiketiyle kayıtlı harcama yok."
+
+    lines = [
+        f"🏷 <b>#{total.tag}</b>",
+        "",
+        f"Toplam: {money(total.total_minor)}",
+        f"İşlem sayısı: {total.transaction_count}",
+        "",
+    ]
+    for expense in expenses[:TAG_DETAIL_LIMIT]:
+        description = f" — {expense.description}" if expense.description else ""
+        lines.append(
+            f"{short_date(expense.transaction_date)} ·"
+            f" {money(expense.total_amount_minor)}{description}"
+        )
+    if len(expenses) > TAG_DETAIL_LIMIT:
+        lines.append(f"… ve {len(expenses) - TAG_DETAIL_LIMIT} kayıt daha")
+    return "\n".join(lines)

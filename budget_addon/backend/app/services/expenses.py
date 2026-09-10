@@ -28,6 +28,7 @@ from ..models.expense import Expense, format_public_id
 from ..models.installment import STATUS_PAID, ExpenseInstallment
 from ..models.payment_method import TYPE_CASH, PaymentMethod
 from ..models.user import User
+from . import tags
 from .audit import record_audit
 from .finance.installments import build_schedule
 from .finance.money import parse_amount_to_minor
@@ -178,6 +179,9 @@ async def create_expense(
         session.add(expense)
         await session.flush()
         expense.public_id = format_public_id(expense.id)
+        # Etiketler harcamayla ayni transaction icinde yazilir: yarim veri
+        # (etiketsiz harcama) olusamaz.
+        await tags.sync_tags(session, expense)
         record_audit(
             session,
             user_id=user.id,
@@ -264,6 +268,10 @@ async def update_expense(
                     snapshot=snapshot,
                 )
             )
+
+        if "description" in changes:
+            # Aciklama duzenlendiyse eski etiketler kalmamalidir.
+            await tags.sync_tags(session, expense)
 
         record_audit(
             session,
