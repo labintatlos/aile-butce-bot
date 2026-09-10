@@ -51,7 +51,9 @@ from .schemas import (
     RefundCreateIn,
     RefundOut,
     SchedulePreviewIn,
+    PersonBalanceOut,
     SearchResultOut,
+    SettlementOut,
     TagTotalOut,
     YearComparisonOut,
     SchedulePreviewOut,
@@ -69,6 +71,7 @@ from .services import (
     recurring,
     refunds,
     reports,
+    settlement,
     tags,
     search as search_service,
     settings_service,
@@ -106,6 +109,8 @@ def _expense_out(expense) -> ExpenseOut:
         total=Money.of(expense.total_amount_minor),
         installment_count=expense.installment_count,
         description=expense.description,
+        is_shared=expense.is_shared,
+        has_receipt=bool(expense.receipt_file_id),
         installments=[
             InstallmentOut(
                 number=line.installment_number,
@@ -224,6 +229,7 @@ async def create(
                 amount=payload.amount,
                 installment_count=payload.installment_count,
                 description=payload.description,
+                is_shared=payload.is_shared,
             ),
         )
     except (ExpenseError, ValueError) as exc:
@@ -998,4 +1004,40 @@ async def export_incomes(
         content,
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/reports/settlement", response_model=SettlementOut)
+async def settlement_report(
+    year: int | None = None,
+    month: int | None = None,
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> SettlementOut:
+    """Ortak giderlerde kim kime ne kadar borçlu."""
+    today = local_today(settings.timezone)
+    report = await settlement.monthly_settlement(
+        session, year=year or today.year, month=month or today.month
+    )
+    creditor = report.creditor
+    debtor = report.debtor
+    return SettlementOut(
+        year=report.year,
+        month=report.month,
+        shared_total=Money.of(report.shared_total_minor),
+        balances=[
+            PersonBalanceOut(
+                user_id=person.user_id,
+                name=person.name,
+                paid=Money.of(person.paid_minor),
+                share=Money.of(person.share_minor),
+                balance=Money.of(person.balance_minor),
+            )
+            for person in report.balances
+        ],
+        is_even=report.is_even,
+        transfer=Money.of(report.transfer_minor),
+        creditor_name=creditor.name if creditor else None,
+        debtor_name=debtor.name if debtor else None,
     )

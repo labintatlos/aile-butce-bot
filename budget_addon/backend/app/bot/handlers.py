@@ -24,6 +24,8 @@ from ..models.user import User
 from ..services import (
     budgets,
     cashflow,
+    settlement,
+    tags,
     reports,
     search as search_service,
     settings_service,
@@ -237,6 +239,9 @@ async def quick_entry(
                 transaction_date=local_today(settings.timezone),
                 amount=entry.amount_minor,
                 description=entry.description,
+                # `#kisisel` yazan biri o harcamanin ortak gidere
+                # sayilmamasini istemistir.
+                is_shared=not tags.marks_personal(entry.description),
             ),
         )
     except (ExpenseError, ValueError) as exc:
@@ -429,6 +434,7 @@ async def _expense_from_caption(
                 transaction_date=local_today(settings.timezone),
                 amount=entry.amount_minor,
                 description=entry.description,
+                is_shared=not tags.marks_personal(entry.description),
             ),
         )
     except (ExpenseError, ValueError) as exc:

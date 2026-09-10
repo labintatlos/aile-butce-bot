@@ -60,6 +60,13 @@ class Expense(TimestampMixin, Base):
     currency: Mapped[str] = mapped_column(String(3), default=DEFAULT_CURRENCY)
     installment_count: Mapped[int] = mapped_column(Integer, default=1)
     description: Mapped[str | None] = mapped_column(Text, default=None)
+    is_shared: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
+    """Harcama ortak mı, yoksa kişisel mi.
+
+    İki kişilik bir kurulumda harcamaların çoğu ortaktır; bu yüzden varsayılan
+    ortaktır. Kişisel işaretlenen harcama raporlarda görünmeye devam eder ama
+    denkleştirmeye girmez: kimsenin kimseden yarısını istemesi beklenmez."""
+
     receipt_file_id: Mapped[str | None] = mapped_column(
         String(256), default=None
     )

@@ -77,6 +77,9 @@ class ExpenseCreateIn(BaseModel):
         default=MIN_INSTALLMENTS, ge=MIN_INSTALLMENTS, le=MAX_INSTALLMENTS
     )
     description: str | None = Field(default=None, max_length=500)
+    is_shared: bool = True
+    """Harcama ortak mı. Varsayılan ortaktır; kişisel olan denkleştirmeye
+    girmez."""
 
 
 class ExpenseUpdateIn(BaseModel):
@@ -90,6 +93,7 @@ class ExpenseUpdateIn(BaseModel):
     category_id: int | None = None
     transaction_date: date | None = None
     amount: str | None = Field(default=None, max_length=32)
+    is_shared: bool | None = None
     installment_count: int | None = Field(
         default=None, ge=MIN_INSTALLMENTS, le=MAX_INSTALLMENTS
     )
@@ -115,6 +119,9 @@ class ExpenseOut(BaseModel):
     total: Money
     installment_count: int
     description: str | None
+    is_shared: bool = True
+    tags: list[str] = Field(default_factory=list)
+    has_receipt: bool = False
     installments: list[InstallmentOut]
 
 
@@ -407,3 +414,25 @@ class YearComparisonOut(BaseModel):
     months: list[MonthComparisonOut]
     this_year_total: Money
     last_year_total: Money
+
+
+class PersonBalanceOut(BaseModel):
+    user_id: int
+    name: str
+    paid: Money
+    share: Money
+    balance: Money
+    """Artı ise alacaklı, eksi ise borçlu."""
+
+
+class SettlementOut(BaseModel):
+    """Ortak giderlerin kişilere bölünmesi ve kalan denge."""
+
+    year: int
+    month: int
+    shared_total: Money
+    balances: list[PersonBalanceOut]
+    is_even: bool
+    transfer: Money
+    creditor_name: str | None = None
+    debtor_name: str | None = None

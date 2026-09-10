@@ -42,9 +42,10 @@ from ..services import (
     refunds,
     reports,
     settings_service,
+    settlement,
     tags,
 )
-from ..services.expenses import get_expense
+from ..services.expenses import get_expense, update_expense
 from ..services.finance.money import parse_amount_to_minor
 from ..services.quick_entry import fold
 from ..utils.time import local_today
@@ -933,4 +934,53 @@ async def export_csv(
             filename=exporting.filename_for(year=year, month=month),
         ),
         caption=f"📄 {start.isoformat()} – {end.isoformat()} harcamaları",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Ortak / kişisel
+# ---------------------------------------------------------------------------
+
+
+@router.message(Command("denklestir"))
+async def show_settlement(
+    message: Message, session: AsyncSession, settings: Settings
+) -> None:
+    today = local_today(settings.timezone)
+    report = await settlement.monthly_settlement(
+        session, year=today.year, month=today.month
+    )
+    await message.answer(messages.settlement(report), parse_mode="HTML")
+
+
+@router.message(Command("kisisel"))
+async def mark_personal(message: Message, user: User, session: AsyncSession) -> None:
+    await _set_shared(message, user, session, shared=False)
+
+
+@router.message(Command("ortak"))
+async def mark_shared(message: Message, user: User, session: AsyncSession) -> None:
+    await _set_shared(message, user, session, shared=True)
+
+
+async def _set_shared(
+    message: Message, user: User, session: AsyncSession, *, shared: bool
+) -> None:
+    expense_id = _expense_id_from(_arguments(message))
+    expense = await get_expense(session, expense_id) if expense_id else None
+    if expense is None:
+        await message.answer(
+            "Hangi harcama? İşlem numarasıyla yaz:\n"
+            "<code>/kisisel 184</code>",
+            parse_mode="HTML",
+        )
+        return
+
+    await update_expense(
+        session, user=user, expense=expense, changes={"is_shared": shared}
+    )
+    state = "ortak" if shared else "kişisel"
+    await message.answer(
+        f"✅ #{expense.public_id} artık <b>{state}</b> sayılıyor.",
+        parse_mode="HTML",
     )

@@ -850,3 +850,47 @@ EXPORT_USAGE = (
     "<code>/disaaktar 2026</code> — bütün yıl\n\n"
     "Dosya CSV olarak gelir ve Excel'de doğrudan açılır."
 )
+
+
+SETTLEMENT_EMPTY = (
+    "Bu ay ortak gider kaydı yok.\n\n"
+    "Harcamalar varsayılan olarak ortaktır. Kişisel bir harcamayı ayırmak için"
+    " açıklamasına <code>#kisisel</code> yaz."
+)
+
+
+def settlement(report) -> str:
+    """`🤝 Denkleştirme`: kim kime ne kadar borçlu."""
+    if report.shared_total_minor <= 0:
+        return SETTLEMENT_EMPTY
+
+    lines = [
+        f"🤝 <b>{month_name(report.year, report.month)} denkleştirmesi</b>",
+        "",
+        f"Ortak gider: {money(report.shared_total_minor)}",
+        "",
+    ]
+    for person in report.balances:
+        lines.append(
+            f"👤 {person.name}\n"
+            f"    Ödediği: {money(person.paid_minor)}\n"
+            f"    Payı: {money(person.share_minor)}"
+        )
+    lines.append("")
+
+    if report.is_even:
+        lines.append("✅ Hesap denk.")
+        return "\n".join(lines)
+
+    creditor = report.creditor
+    debtor = report.debtor
+    lines.append(
+        f"➡️ <b>{debtor.name}</b>, <b>{creditor.name}</b> kişisine"
+        f" {money(report.transfer_minor)} vermeli."
+    )
+    lines += [
+        "",
+        "ℹ️ Yalnızca ortak işaretli harcamalar hesaba katılır; kişisel"
+        " harcamalar raporlarda görünür ama denkleştirmeye girmez.",
+    ]
+    return "\n".join(lines)

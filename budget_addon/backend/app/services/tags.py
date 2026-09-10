@@ -49,6 +49,20 @@ def extract_tags(text: str | None) -> list[str]:
     return seen
 
 
+PERSONAL_TAGS = frozenset({"kisisel", "ozel"})
+"""Harcamayı kişisel yapan etiketler.
+
+Ayrı bir söz dizimi öğretmemek için etiket düzeneği kullanılır:
+`500 kitap #kisisel` yazan biri, o harcamanın ortak gidere sayılmasını
+istemediğini söylemiş olur.
+"""
+
+
+def marks_personal(text: str | None) -> bool:
+    """Metin harcamayı kişisel işaretliyor mu."""
+    return bool(PERSONAL_TAGS & set(extract_tags(text)))
+
+
 async def sync_tags(session: AsyncSession, expense: Expense) -> list[str]:
     """Harcamanın etiketlerini açıklamasıyla eşitler.
 

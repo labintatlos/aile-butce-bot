@@ -40,7 +40,7 @@ FINANCIAL_FIELDS = frozenset(
 )
 """Değişmeleri hâlinde taksit planının yeniden üretilmesi gereken alanlar."""
 
-EDITABLE_FIELDS = FINANCIAL_FIELDS | {"category_id", "description"}
+EDITABLE_FIELDS = FINANCIAL_FIELDS | {"category_id", "description", "is_shared"}
 
 
 class ExpenseError(Exception):
@@ -56,6 +56,7 @@ class ExpenseInput:
     installment_count: int = SINGLE_INSTALLMENT
     description: str | None = None
     recurring_expense_id: int | None = None
+    is_shared: bool = True
 
 
 async def _load_payment_method(
@@ -138,6 +139,7 @@ def _audit_payload(expense: Expense) -> dict[str, object]:
         "category_id": expense.category_id,
         "installment_count": expense.installment_count,
         "description": expense.description,
+        "is_shared": expense.is_shared,
     }
 
 
@@ -164,6 +166,7 @@ async def create_expense(
         installment_count=installment_count,
         description=data.description,
         recurring_expense_id=data.recurring_expense_id,
+        is_shared=data.is_shared,
         # Taksitler kayit henuz gecici haldeyken baglanir; bu sayede
         # koleksiyona atama bir veritabani okumasi tetiklemez.
         installments=_build_installments(
