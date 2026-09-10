@@ -591,3 +591,73 @@ def income_add_usage() -> str:
         "Kaynak yazılmazsa yalnızca <i>Gelir</i> olarak kaydedilir.\n"
         "Listelemek için /gelirler, silmek için <code>/gelirsil 4</code>"
     )
+
+
+CARDS_EMPTY = "Tanımlı kredi kartı yok. Eklemek için: <code>/kartekle Kart Adı | 26</code>"
+
+NO_CARD_LIMIT_NOTE = (
+    "Limit girilmemiş kartlarda kullanılabilir bakiye hesaplanamaz:\n"
+    "<code>/kartlimit 3 50000</code>"
+)
+
+
+def card_usage_list(usages) -> str:
+    """`💳 Kart Limitleri`: hangi kartın ne kadarı bağlanmış."""
+    if not usages:
+        return CARDS_EMPTY
+
+    lines = ["💳 <b>Kart limitleri</b>", ""]
+    missing_limit = False
+    for usage in usages:
+        lines.append(f"<code>{usage.payment_method_id}</code> · <b>{usage.name}</b>")
+        if not usage.has_limit:
+            missing_limit = True
+            lines += [
+                f"    Borç: {money(usage.outstanding_minor)}",
+                "    Limit girilmemiş",
+                "",
+            ]
+            continue
+        lines += [
+            f"    {usage.bar} %{usage.ratio}",
+            f"    Borç: {money(usage.outstanding_minor)}"
+            f" / {money(usage.credit_limit_minor)}",
+        ]
+        if usage.is_over_limit:
+            lines.append("    🚨 Limit aşıldı")
+        else:
+            lines.append(f"    Kullanılabilir: {money(usage.available_minor)}")
+        lines.append("")
+
+    if missing_limit:
+        lines.append(NO_CARD_LIMIT_NOTE)
+    lines.append(
+        "\nℹ️ Borç, henüz ödenmemiş taksitlerin toplamıdır; taksitli bir"
+        " alışverişin tamamı limitten düşer."
+    )
+    return "\n".join(lines).strip()
+
+
+def card_limit_alert(alert) -> str:
+    """Limiti dolmaya yaklaşan kartın bildirimi."""
+    usage = alert.usage
+    if usage.is_over_limit:
+        heading = "🚨 Kart limiti aşıldı"
+        closing = (
+            f"{money(usage.outstanding_minor - usage.credit_limit_minor)}"
+            " limitin üzerinde."
+        )
+    else:
+        heading = "⚠️ Kart limiti dolmak üzere"
+        closing = f"Kullanılabilir: {money(usage.available_minor)}"
+    return "\n".join(
+        [
+            heading,
+            "",
+            usage.name,
+            f"{usage.bar} %{usage.ratio}",
+            f"{money(usage.outstanding_minor)} / {money(usage.credit_limit_minor)}",
+            "",
+            closing,
+        ]
+    )

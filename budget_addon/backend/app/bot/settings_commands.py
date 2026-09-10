@@ -32,7 +32,7 @@ from ..config import Settings
 from ..models.category import Category
 from ..models.payment_method import TYPE_CREDIT_CARD, PaymentMethod
 from ..models.user import User
-from ..services import budgets, income, recurring, settings_service
+from ..services import budgets, cards, income, recurring, settings_service
 from ..services.finance.money import parse_amount_to_minor
 from ..services.quick_entry import fold
 from ..utils.time import local_today
@@ -749,3 +749,46 @@ async def delete_income(message: Message, user: User, session: AsyncSession) -> 
 
     await income.soft_delete_income(session, user=user, record=record)
     await message.answer(f"🗑 <b>{record.source}</b> silindi.", parse_mode="HTML")
+
+
+# ---------------------------------------------------------------------------
+# Kart limitleri
+# ---------------------------------------------------------------------------
+
+
+@router.message(Command("kartlimit"))
+async def set_card_limit(message: Message, user: User, session: AsyncSession) -> None:
+    raw_id, _, raw_amount = _arguments(message).partition(" ")
+    method = await _find_card(session, raw_id)
+    if method is None or method.type != TYPE_CREDIT_CARD:
+        await message.answer(
+            "<b>Kart limiti</b>\n\n"
+            "<code>/kartlimit 3 50000</code>\n\n"
+            "Kart numaralarını görmek için ⚙️ Ayarlar",
+            parse_mode="HTML",
+        )
+        return
+
+    try:
+        limit_minor = parse_amount_to_minor(raw_amount.strip())
+    except ValueError as error:
+        await message.answer(f"⚠️ {error}")
+        return
+
+    await settings_service.update_payment_method(
+        session,
+        user=user,
+        method=method,
+        changes={"credit_limit_minor": limit_minor},
+    )
+    await message.answer(
+        f"💳 <b>{method.name}</b> limiti {messages.money(limit_minor)} olarak"
+        " ayarlandı.\n\nDurumu görmek için /kartlar",
+        parse_mode="HTML",
+    )
+
+
+@router.message(Command("kartlar"))
+async def show_card_usage(message: Message, session: AsyncSession) -> None:
+    usages = await cards.card_usage(session)
+    await message.answer(messages.card_usage_list(usages), parse_mode="HTML")

@@ -52,6 +52,7 @@ async def test_every_sensor_is_produced_even_on_an_empty_database(async_session)
         "sensor.butce_kalan",
         "sensor.butce_yaklasan_ekstre",
         "sensor.butce_asilan_kategori",
+        "sensor.butce_kart_borcu",
     }
     # Bos kurulumda bile durumlar sayisaldir; metne donen bir durum HA'daki
     # gecmis grafigini koparirdi.
@@ -161,7 +162,7 @@ async def test_every_sensor_is_posted_to_the_supervisor_api(async_session):
         _settings(), _factory(async_session), client=client
     )
 
-    assert written == 5
+    assert written == 6
     urls = [url for url, _ in client.calls]
     assert urls[0] == (
         "http://supervisor/core/api/states/sensor.butce_bu_ay_harcama"
@@ -189,4 +190,19 @@ async def test_a_rejected_sensor_does_not_stop_the_others(async_session):
     )
 
     assert written == 0
-    assert len(client.calls) == 5
+    assert len(client.calls) == 6
+
+
+async def test_card_sensor_reports_debt_and_available_limit(
+    async_session, people, fixtures
+):
+    fixtures["card"].credit_limit_minor = 1_000_000
+    await async_session.commit()
+    await _spend(async_session, people["aykut"], fixtures, "1.200", method="card", count=12)
+
+    sensors = _by_id(await ha_state.collect(async_session, timezone=TIMEZONE))
+    card = sensors["sensor.butce_kart_borcu"]
+
+    assert card.state == 1200.0
+    assert card.attributes["kullanilabilir"] == 8800.0
+    assert card.attributes["doluluk_oranlari"][fixtures["card"].name] == 12

@@ -38,6 +38,7 @@ from .schemas import (
     PaymentMethodOut,
     PaymentMethodUpdateIn,
     BudgetStatusOut,
+    CardUsageOut,
     IncomeCreateIn,
     IncomeOut,
     MonthlyPositionOut,
@@ -53,6 +54,7 @@ from .schemas import (
 from .security.identity import current_user
 from .services import (
     budgets,
+    cards,
     cashflow,
     income as income_service,
     recurring,
@@ -784,3 +786,25 @@ async def position_report(
         outflow=Money.of(report.outflow_minor),
         remaining=Money.of(report.remaining_minor),
     )
+
+
+@router.get("/reports/cards", response_model=list[CardUsageOut])
+async def card_usage_report(
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[CardUsageOut]:
+    """Kartların borç ve kullanılabilir limit durumu."""
+    return [
+        CardUsageOut(
+            payment_method_id=usage.payment_method_id,
+            name=usage.name,
+            credit_limit=(
+                Money.of(usage.credit_limit_minor) if usage.has_limit else None
+            ),
+            outstanding=Money.of(usage.outstanding_minor),
+            available=Money.of(usage.available_minor),
+            ratio=usage.ratio,
+            is_over_limit=usage.is_over_limit,
+        )
+        for usage in await cards.card_usage(session)
+    ]

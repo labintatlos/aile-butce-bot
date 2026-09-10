@@ -22,7 +22,7 @@ from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..utils.time import local_today
-from . import budgets, cashflow, reports
+from . import budgets, cards, cashflow, reports
 from .finance.money import MINOR_UNITS_PER_MAJOR
 
 DEVICE_CLASS_MONETARY = "monetary"
@@ -67,6 +67,7 @@ async def collect(session: AsyncSession, *, timezone: str) -> list[SensorState]:
     budget_statuses = await budgets.monthly_status(
         session, year=today.year, month=today.month
     )
+    card_usages = await cards.card_usage(session)
 
     return [
         _spending_sensor(spending),
@@ -74,6 +75,7 @@ async def collect(session: AsyncSession, *, timezone: str) -> list[SensorState]:
         _remaining_sensor(position),
         _next_statement_sensor(statements, today=today),
         _budget_sensor(budget_statuses),
+        _card_sensor(card_usages),
     ]
 
 
@@ -165,6 +167,34 @@ def _budget_sensor(statuses: list[budgets.BudgetStatus]) -> SensorState:
             "asilanlar": [status.name for status in exceeded],
             "durumlar": {
                 status.name: status.ratio for status in statuses
+            },
+        },
+    )
+
+
+def _card_sensor(usages: list[cards.CardUsage]) -> SensorState:
+    """Kartlara bağlanmış toplam borç.
+
+    Durum toplam borçtur; kart kart kullanılabilir limit ise niteliklerde
+    durur. Tek bir sayı, panoya konabilecek en anlamlı özettir.
+    """
+    with_limit = [usage for usage in usages if usage.has_limit]
+    return SensorState(
+        entity_id="sensor.butce_kart_borcu",
+        state=to_major(sum(usage.outstanding_minor for usage in usages)),
+        attributes={
+            **_money_attributes("Kart borcu", "mdi:credit-card-outline"),
+            "toplam_limit": to_major(
+                sum(usage.credit_limit_minor for usage in with_limit)
+            ),
+            "kullanilabilir": to_major(
+                sum(usage.available_minor for usage in with_limit)
+            ),
+            "kartlar": {
+                usage.name: to_major(usage.outstanding_minor) for usage in usages
+            },
+            "doluluk_oranlari": {
+                usage.name: usage.ratio for usage in with_limit
             },
         },
     )

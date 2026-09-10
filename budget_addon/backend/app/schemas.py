@@ -318,6 +318,18 @@ class IncomeCreateIn(BaseModel):
     notes: str | None = Field(default=None, max_length=500)
 
 
+class CardUsageOut(BaseModel):
+    """Kartın limit durumu. Limit girilmemişse oran ve kullanılabilir sıfırdır."""
+
+    payment_method_id: int
+    name: str
+    credit_limit: Money | None = None
+    outstanding: Money
+    available: Money
+    ratio: int
+    is_over_limit: bool
+
+
 class MonthlyPositionOut(BaseModel):
     """Ayın nakit durumu: ne girdi, ne çıkacak, ne kalır."""
 
