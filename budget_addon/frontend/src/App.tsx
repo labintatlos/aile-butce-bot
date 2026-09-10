@@ -220,12 +220,13 @@ function Shell({ route, visit }: { route: Route; visit: number }) {
 
   return (
     <div className="shell">
+      <a className="skip-link" href="#main-content">İçeriğe geç</a>
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark">
             <Icon name="wallet" size={20} />
           </span>
-          Aile Bütçe
+          <span>Aile Bütçe<small className="brand-caption">Birlikte, daha dengeli.</small></span>
         </div>
 
         <button type="button" className="btn primary block" onClick={() => navigate("yeni")}>
@@ -233,6 +234,7 @@ function Shell({ route, visit }: { route: Route; visit: number }) {
           Harcama ekle
         </button>
 
+        <div className="nav-caption">ÇALIŞMA ALANINIZ</div>
         <nav className="nav" aria-label="Ana menü">
           {NAV.filter((item) => !item.admin || me.is_admin).map((item) => (
             <button
@@ -302,7 +304,7 @@ function Shell({ route, visit }: { route: Route; visit: number }) {
           </div>
         </header>
 
-        <main className="main">
+        <main className="main" id="main-content" tabIndex={-1}>
           <Page key={visit} route={route} />
         </main>
       </div>

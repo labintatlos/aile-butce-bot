@@ -127,7 +127,9 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
       </div>
 
       <aside className="auth-aside" aria-hidden="true">
-        <h2>Ailenizin bütçesi, tek ve güvenli bir yerde.</h2>
+        <span className="auth-eyebrow">DAHA DENGELİ BİR YARIN İÇİN</span>
+        <h2>Bugünü takip edin.<br />Yarını birlikte planlayın.</h2>
+        <p className="auth-description">Gelirler, harcamalar ve ortak hedefler. Ailenizin bütçesine tek bir yerden, net bir bakış.</p>
         <ul>
           {HIGHLIGHTS.map((item) => (
             <li key={item.title}>

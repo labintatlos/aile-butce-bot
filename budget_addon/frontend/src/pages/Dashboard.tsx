@@ -43,7 +43,7 @@ export function Dashboard() {
   const header = (
     <PageHeader
       title={`Merhaba, ${me.display_name}`}
-      subtitle={longDate(bootstrap.today)}
+      subtitle={`Bütçenize birlikte göz atalım. · ${longDate(bootstrap.today)}`}
       actions={
         <button type="button" className="btn primary desktop-only" onClick={() => navigate("yeni")}>
           <Icon name="plus" size={18} />
@@ -74,21 +74,23 @@ export function Dashboard() {
       {header}
 
       <div className="grid main-side">
-        <div className="hero">
-          <div className="hero-label">
-            {monthName(position.year, position.month)} · {short ? "açık" : "kalan"}
+        <div className={short ? "hero is-negative" : "hero"}>
+          <div className="hero-heading">
+            <span className="hero-period"><Icon name="wallet" size={16} /> Aylık bütçeniz</span>
+            <span className="hero-period">{monthName(position.year, position.month)}</span>
           </div>
+          <div className="hero-label">{short ? "Bütçe açığı" : "Kalan bütçe"}</div>
           <div className="hero-value">{position.remaining.formatted}</div>
-          <div className="hero-meta">
-            <span>Gelir {position.income.formatted}</span>
-            <span>Toplam çıkış {position.outflow.formatted}</span>
+          <div className="hero-breakdown">
+            <div><span>Toplam gelir</span><strong>{position.income.formatted}</strong></div>
+            <div><span>Toplam çıkış</span><strong>{position.outflow.formatted}</strong></div>
           </div>
           <Meter ratio={monthProgress} />
           <div className="hero-meta mt-sm">
             <span>
               {forecast.days_elapsed}/{forecast.days_in_month} gün geçti
             </span>
-            <span>Ay sonu tahmini {forecast.total.formatted}</span>
+            <span>Tahmini ay sonu harcaması {forecast.total.formatted}</span>
           </div>
         </div>
 
@@ -108,6 +110,12 @@ export function Dashboard() {
             icon="repeat"
           />
         </div>
+      </div>
+
+      <div className="quick-actions" aria-label="Hızlı işlemler">
+        <button type="button" onClick={() => navigate("gelirler")}><span className="quick-icon"><Icon name="income" /></span><span><strong>Gelirleri yönet</strong><small>Bütçenizi güncel tutun</small></span><Icon name="chevronRight" size={18} /></button>
+        <button type="button" onClick={() => navigate("sabit")}><span className="quick-icon"><Icon name="repeat" /></span><span><strong>Sabit giderler</strong><small>Düzenli ödemelerinizi takip edin</small></span><Icon name="chevronRight" size={18} /></button>
+        <button type="button" onClick={() => navigate("raporlar")}><span className="quick-icon"><Icon name="chart" /></span><span><strong>Raporları incele</strong><small>Harcama dağılımınızı keşfedin</small></span><Icon name="chevronRight" size={18} /></button>
       </div>
 
       <div className="grid two">
