@@ -25,12 +25,16 @@ import { InstallmentPicker } from "./components/InstallmentPicker";
 import { PaymentMethodPicker } from "./components/PaymentMethodPicker";
 import { SchedulePreviewCard } from "./components/SchedulePreview";
 import { SavedReceipt } from "./components/SavedReceipt";
+import { Reports } from "./components/Reports";
 import { longDate, looksLikeAmount } from "./format";
 import { applyTelegramTheme, haptic } from "./telegram";
 
 const PREVIEW_DEBOUNCE_MS = 350;
 
+type View = "add" | "report";
+
 export default function App() {
+  const [view, setView] = useState<View>("add");
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -147,6 +151,27 @@ export default function App() {
     );
   }
 
+  // Sekmeler her iki gorunumde de aynidir; tek yerde tanimlanip ikisine de
+  // verilir ki biri degisince digeri geride kalmasin.
+  const tabs = (
+    <nav className="tabs">
+      <button
+        type="button"
+        className={view === "add" ? "tab active" : "tab"}
+        onClick={() => setView("add")}
+      >
+        Harcama Ekle
+      </button>
+      <button
+        type="button"
+        className={view === "report" ? "tab active" : "tab"}
+        onClick={() => setView("report")}
+      >
+        Rapor
+      </button>
+    </nav>
+  );
+
   if (!bootstrap) {
     return (
       <main className="screen">
@@ -155,11 +180,22 @@ export default function App() {
     );
   }
 
+  if (view === "report") {
+    return (
+      <>
+        {tabs}
+        <Reports />
+      </>
+    );
+  }
+
   if (saved) {
     return <SavedReceipt expense={saved} onNew={reset} />;
   }
 
   return (
+    <>
+    {tabs}
     <main className="screen">
       <header className="header">
         <h1>Harcama Ekle</h1>
@@ -225,5 +261,6 @@ export default function App() {
         {saving ? "KAYDEDİLİYOR…" : "KAYDET"}
       </button>
     </main>
+    </>
   );
 }

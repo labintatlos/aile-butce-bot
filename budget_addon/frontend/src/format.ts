@@ -36,3 +36,23 @@ export function looksLikeAmount(raw: string): boolean {
 export function installmentLabel(count: number): string {
   return count <= 1 ? "Peşin" : `${count} Taksit`;
 }
+
+/** `2026`, `9` -> `Eylül 2026` */
+export function monthName(year: number, month: number): string {
+  return `${MONTHS[month - 1]} ${year}`;
+}
+
+/** Ay adının kısa hâli; yıllık grafikte eksen etiketi olarak kullanılır. */
+export function shortMonthName(month: number): string {
+  return MONTHS[month - 1].slice(0, 3);
+}
+
+/**
+ * Oranı yüzde olarak sınırlar.
+ *
+ * Grafik çubuğu taşan bir değerle çizilirse kutunun dışına akar; oran
+ * metinde yine gerçek hâliyle gösterilir.
+ */
+export function barWidth(ratio: number): string {
+  return `${Math.min(Math.max(ratio, 0), 100)}%`;
+}

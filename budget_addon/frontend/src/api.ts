@@ -140,3 +140,136 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 };
+
+// ---------------------------------------------------------------------------
+// Raporlar
+// ---------------------------------------------------------------------------
+
+export interface NamedTotal {
+  id: number;
+  name: string;
+  emoji: string;
+  total: Money;
+  transaction_count: number;
+}
+
+export interface MonthlySpending {
+  year: number;
+  month: number;
+  total: Money;
+  transaction_count: number;
+  cash_total: Money;
+  card_total: Money;
+  by_user: NamedTotal[];
+  by_category: NamedTotal[];
+}
+
+export interface MonthlyPosition {
+  year: number;
+  month: number;
+  income: Money;
+  card_due: Money;
+  cash_spent: Money;
+  expected_recurring: Money;
+  outflow: Money;
+  remaining: Money;
+}
+
+export interface BudgetStatus {
+  category_id: number;
+  name: string;
+  emoji: string;
+  budget: Money;
+  spent: Money;
+  remaining: Money;
+  ratio: number;
+  is_exceeded: boolean;
+}
+
+export interface CardUsage {
+  payment_method_id: number;
+  name: string;
+  credit_limit: Money | null;
+  outstanding: Money;
+  available: Money;
+  ratio: number;
+  is_over_limit: boolean;
+}
+
+export interface MonthForecast {
+  year: number;
+  month: number;
+  days_elapsed: number;
+  days_in_month: number;
+  spent_so_far: Money;
+  fixed: Money;
+  variable_forecast: Money;
+  total: Money;
+  remaining: Money;
+}
+
+export interface PersonBalance {
+  user_id: number;
+  name: string;
+  paid: Money;
+  share: Money;
+  balance: Money;
+}
+
+export interface Settlement {
+  year: number;
+  month: number;
+  shared_total: Money;
+  balances: PersonBalance[];
+  is_even: boolean;
+  transfer: Money;
+  creditor_name: string | null;
+  debtor_name: string | null;
+}
+
+export interface MonthComparison {
+  month: number;
+  this_year: Money;
+  last_year: Money;
+  change_percent: number | null;
+}
+
+export interface YearComparison {
+  year: number;
+  months: MonthComparison[];
+  this_year_total: Money;
+  last_year_total: Money;
+}
+
+/** Rapor ekranının ihtiyaç duyduğu her şey. */
+export interface ReportBundle {
+  spending: MonthlySpending;
+  position: MonthlyPosition;
+  budgets: BudgetStatus[];
+  cards: CardUsage[];
+  forecast: MonthForecast;
+  settlement: Settlement;
+  year: YearComparison;
+}
+
+export const reports = {
+  /**
+   * Rapor ekranının bütün verisini tek seferde çeker.
+   *
+   * İstekler paralel gönderilir: her biri küçüktür ve sırayla beklemek
+   * ekranın açılışını gereksiz yere yavaşlatırdı.
+   */
+  load: async (): Promise<ReportBundle> => {
+    const [spending, position, budgets, cards, forecast, settlement, year] =
+      await Promise.all([
+        request<MonthlySpending>("reports/spending/monthly"),
+        request<MonthlyPosition>("reports/position"),
+        request<BudgetStatus[]>("reports/budgets"),
+        request<CardUsage[]>("reports/cards"),
+        request<MonthForecast>("reports/forecast"),
+        request<Settlement>("reports/settlement"),
+        request<YearComparison>("reports/yearly"),
+      ]);
+    return { spending, position, budgets, cards, forecast, settlement, year };
+  },
+};
