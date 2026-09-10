@@ -1,5 +1,12 @@
 # Değişiklik Günlüğü
 
+## 2.0.1
+
+Arayüz daha ferah kartlar, zümrüt yeşili görsel tema ve yenilenmiş giriş
+ekranıyla geliştirildi. Özet ekranında gelir, toplam çıkış ve kalan bütçe daha
+kolay karşılaştırılıyor; gelirler, sabit giderler ve raporlar için hızlı işlem
+bağlantıları eklendi. Mobil gezinme, koyu tema ve klavye erişimi de iyileştirildi.
+
 ## 2.0.0
 
 Telegram botu ve Telegram Mini App kaldırıldı. Sistem artık yalnızca
