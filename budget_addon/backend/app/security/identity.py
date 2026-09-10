@@ -33,6 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import Settings, get_settings
 from ..database import get_session
 from ..models.user import User
+from .accounts import has_login
 from .sessions import COOKIE_NAME, SessionClaims, password_fingerprint, read_token, resolve_secret
 from .telegram_auth import TelegramAuthError, validate_init_data
 
@@ -129,13 +130,8 @@ def resolve_identity(request: Request, settings: Settings) -> ResolvedIdentity:
     )
 
 
-def can_use_web_login(user: User, settings: Settings) -> bool:
-    return (
-        user.is_active
-        and user.username is not None
-        and user.password_hash is not None
-        and user.telegram_user_id in settings.authorized_ids
-    )
+def can_use_web_login(user: User) -> bool:
+    return user.is_active and has_login(user)
 
 
 async def _lookup_user(
@@ -143,7 +139,7 @@ async def _lookup_user(
 ) -> User | None:
     if identity.session is not None:
         user = await session.get(User, identity.session.user_id)
-        if user is None or not can_use_web_login(user, settings):
+        if user is None or not can_use_web_login(user):
             return None
         # Sifre degistiyse parmak izi tutmaz ve eski cerez gecersiz olur.
         if not hmac.compare_digest(

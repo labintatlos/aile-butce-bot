@@ -1,8 +1,8 @@
-"""Web sitesi girişi ve oturum sahibinin kendi ayarları.
+"""Web sitesi girişi ve oturum sahibinin kendi hesabı.
 
-Kullanıcı adı ve şifre eklenti ayarlarındaki `web_users` alanından gelir;
-burada hesap oluşturma veya şifre sıfırlama yoktur. İki kişilik bir aile
-uygulamasında kayıt formu yalnızca saldırı yüzeyi eklerdi.
+Kişiler ve şifreler sitedeki yönetici ekranından yönetilir (bkz.
+`admin_api.py`); herkese açık bir kayıt formu yoktur. Aile uygulamasında kayıt
+formu yalnızca saldırı yüzeyi eklerdi.
 """
 
 from __future__ import annotations
@@ -20,8 +20,9 @@ from .config import Settings, get_settings
 from .database import get_session
 from .models.user import User
 from .schemas import UserOut
+from .security.accounts import AccountError, check_password, has_login
 from .security.identity import SOURCE_SESSION, can_use_web_login, current_user
-from .security.passwords import burn_verification_time, verify_password
+from .security.passwords import burn_verification_time, hash_password, verify_password
 from .security.sessions import (
     COOKIE_NAME,
     REMEMBER_SECONDS,
@@ -41,6 +42,7 @@ INVALID_CREDENTIALS_MESSAGE = "Kullanıcı adı veya şifre hatalı"
 TOO_MANY_ATTEMPTS_MESSAGE = (
     "Çok fazla hatalı deneme yapıldı. Lütfen 15 dakika sonra tekrar deneyin."
 )
+WRONG_CURRENT_PASSWORD_MESSAGE = "Mevcut şifre hatalı"
 
 
 class LoginIn(BaseModel):
@@ -54,12 +56,18 @@ class MeOut(BaseModel):
     display_name: str
     role: str
     username: str | None
+    is_admin: bool
     reminders_enabled: bool
     auth_source: str
 
 
 class MeUpdateIn(BaseModel):
     reminders_enabled: bool | None = None
+
+
+class PasswordChangeIn(BaseModel):
+    current_password: str = Field(min_length=1, max_length=256)
+    new_password: str = Field(min_length=1, max_length=256)
 
 
 class LoginThrottle:
@@ -89,11 +97,15 @@ class LoginThrottle:
         self._failures.pop(key, None)
 
 
-def _throttle(app: FastAPI) -> LoginThrottle:
+def login_throttle(app: FastAPI) -> LoginThrottle:
     throttle = getattr(app.state, "login_throttle", None)
     if throttle is None:
         throttle = app.state.login_throttle = LoginThrottle()
     return throttle
+
+
+def client_key(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
 
 
 def _is_https(request: Request) -> bool:
@@ -101,12 +113,41 @@ def _is_https(request: Request) -> bool:
     return request.url.scheme == "https" or forwarded == "https"
 
 
-def _me(user: User, source: str) -> MeOut:
+def set_session_cookie(
+    response: Response,
+    request: Request,
+    settings: Settings,
+    user: User,
+    *,
+    remember: bool = True,
+) -> None:
+    lifetime = REMEMBER_SECONDS if remember else SHORT_SECONDS
+    token = issue_token(
+        resolve_secret(settings),
+        user_id=user.id,
+        password_hash=user.password_hash or "",
+        lifetime_seconds=lifetime,
+    )
+    response.set_cookie(
+        COOKIE_NAME,
+        token,
+        # "Beni hatirla" kapaliysa cerez tarayici kapaninca silinir; belirtecin
+        # kendi suresi yine de kisa tutulur.
+        max_age=lifetime if remember else None,
+        httponly=True,
+        samesite="lax",
+        secure=_is_https(request),
+        path="/",
+    )
+
+
+def me_out(user: User, source: str) -> MeOut:
     return MeOut(
         id=user.id,
         display_name=user.display_name,
         role=user.role,
         username=user.username,
+        is_admin=user.is_admin,
         reminders_enabled=user.reminders_enabled,
         auth_source=source,
     )
@@ -120,10 +161,10 @@ async def login(
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
 ) -> MeOut:
-    throttle = _throttle(request.app)
-    client_key = request.client.host if request.client else "unknown"
+    throttle = login_throttle(request.app)
+    key = client_key(request)
     now = time.monotonic()
-    if throttle.is_blocked(client_key, now):
+    if throttle.is_blocked(key, now):
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, TOO_MANY_ATTEMPTS_MESSAGE)
 
     username = payload.username.strip().lower()
@@ -132,37 +173,18 @@ async def login(
         burn_verification_time(payload.password)
         valid = False
     else:
-        valid = verify_password(payload.password, user.password_hash) and can_use_web_login(
-            user, settings
-        )
+        valid = verify_password(payload.password, user.password_hash) and can_use_web_login(user)
 
-    if not valid or user is None or user.password_hash is None:
-        throttle.record_failure(client_key, now)
+    if not valid or user is None:
+        throttle.record_failure(key, now)
         # Kullanici adi loglanmaz: sifre yanlislikla o alana yazilmis olabilir.
-        logger.warning("Başarısız web girişi denemesi: %s", client_key)
+        logger.warning("Başarısız web girişi denemesi: %s", key)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, INVALID_CREDENTIALS_MESSAGE)
 
-    throttle.clear(client_key)
-    lifetime = REMEMBER_SECONDS if payload.remember else SHORT_SECONDS
-    token = issue_token(
-        resolve_secret(settings),
-        user_id=user.id,
-        password_hash=user.password_hash,
-        lifetime_seconds=lifetime,
-    )
-    response.set_cookie(
-        COOKIE_NAME,
-        token,
-        # "Beni hatirla" kapaliysa cerez tarayici kapaninca silinir; belirtecin
-        # kendi suresi yine de kisa tutulur.
-        max_age=lifetime if payload.remember else None,
-        httponly=True,
-        samesite="lax",
-        secure=_is_https(request),
-        path="/",
-    )
+    throttle.clear(key)
+    set_session_cookie(response, request, settings, user, remember=payload.remember)
     logger.info("Web girişi: %s", user.display_name)
-    return _me(user, SOURCE_SESSION)
+    return me_out(user, SOURCE_SESSION)
 
 
 @router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -174,7 +196,7 @@ async def logout() -> Response:
 
 @router.get("/me", response_model=MeOut)
 async def read_me(request: Request, user: User = Depends(current_user)) -> MeOut:
-    return _me(user, request.state.auth_source)
+    return me_out(user, request.state.auth_source)
 
 
 @router.patch("/me", response_model=MeOut)
@@ -187,7 +209,47 @@ async def update_me(
     if payload.reminders_enabled is not None:
         user.reminders_enabled = payload.reminders_enabled
         await session.commit()
-    return _me(user, request.state.auth_source)
+    return me_out(user, request.state.auth_source)
+
+
+@router.post("/me/password", response_model=MeOut)
+async def change_own_password(
+    payload: PasswordChangeIn,
+    request: Request,
+    response: Response,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> MeOut:
+    """Kişi kendi şifresini değiştirir.
+
+    Diğer cihazlardaki oturumlar kendiliğinden kapanır; bu cihazdaki oturum
+    yeni şifreyle verilen çerezle sürer.
+    """
+    if not has_login(user):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Bu hesabın web girişi yok")
+
+    throttle = login_throttle(request.app)
+    key = client_key(request)
+    now = time.monotonic()
+    if throttle.is_blocked(key, now):
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, TOO_MANY_ATTEMPTS_MESSAGE)
+    if not verify_password(payload.current_password, user.password_hash):
+        throttle.record_failure(key, now)
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, WRONG_CURRENT_PASSWORD_MESSAGE)
+
+    try:
+        new_password = check_password(payload.new_password)
+    except AccountError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+    throttle.clear(key)
+    user.password_hash = hash_password(new_password)
+    await session.commit()
+    if request.state.auth_source == SOURCE_SESSION:
+        set_session_cookie(response, request, settings, user)
+    logger.info("Şifre değiştirildi: %s", user.display_name)
+    return me_out(user, request.state.auth_source)
 
 
 @router.get("/users", response_model=list[UserOut])

@@ -18,6 +18,7 @@ export type Route =
   | "raporlar"
   | "sabit"
   | "ayarlar"
+  | "kisiler"
   | "diger";
 
 const ROUTES: readonly Route[] = [
@@ -28,6 +29,7 @@ const ROUTES: readonly Route[] = [
   "raporlar",
   "sabit",
   "ayarlar",
+  "kisiler",
   "diger",
 ];
 

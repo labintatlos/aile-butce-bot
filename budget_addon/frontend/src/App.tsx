@@ -29,24 +29,28 @@ import { Incomes } from "./pages/Incomes";
 import { Login } from "./pages/Login";
 import { More } from "./pages/More";
 import { NewExpense } from "./pages/NewExpense";
+import { People } from "./pages/People";
 import { Recurring } from "./pages/Recurring";
 import { Reports } from "./pages/Reports";
 import { Settings } from "./pages/Settings";
+import { Setup } from "./pages/Setup";
 import { applyTelegramTheme, isInsideTelegram } from "./telegram";
 
 type Phase =
   | { kind: "loading" }
   | { kind: "login" }
+  | { kind: "setup" }
   | { kind: "failed"; message: string }
   | { kind: "ready"; me: Me; bootstrap: Bootstrap; users: UserSummary[] };
 
-const NAV: readonly { route: Route; label: string; icon: IconName }[] = [
+const NAV: readonly { route: Route; label: string; icon: IconName; admin?: boolean }[] = [
   { route: "ozet", label: "Özet", icon: "home" },
   { route: "harcamalar", label: "Harcamalar", icon: "list" },
   { route: "gelirler", label: "Gelirler", icon: "income" },
   { route: "raporlar", label: "Raporlar", icon: "chart" },
   { route: "sabit", label: "Sabit Giderler", icon: "repeat" },
   { route: "ayarlar", label: "Ayarlar", icon: "settings" },
+  { route: "kisiler", label: "Kişiler", icon: "users", admin: true },
 ];
 
 const MOBILE_NAV: readonly { route: Route; label: string; icon: IconName }[] = [
@@ -57,7 +61,7 @@ const MOBILE_NAV: readonly { route: Route; label: string; icon: IconName }[] = [
   { route: "diger", label: "Menü", icon: "more" },
 ];
 
-const MENU_ROUTES: readonly Route[] = ["diger", "gelirler", "sabit", "ayarlar"];
+const MENU_ROUTES: readonly Route[] = ["diger", "gelirler", "sabit", "ayarlar", "kisiler"];
 
 const TITLES: Record<Route, string> = {
   ozet: "Özet",
@@ -67,6 +71,7 @@ const TITLES: Record<Route, string> = {
   raporlar: "Raporlar",
   sabit: "Sabit Giderler",
   ayarlar: "Ayarlar",
+  kisiler: "Kişiler",
   diger: "Menü",
 };
 
@@ -84,7 +89,9 @@ export default function App() {
       setPhase({ kind: "ready", me, bootstrap, users });
     } catch (cause: unknown) {
       if (cause instanceof ApiError && cause.status === 401) {
-        setPhase({ kind: "login" });
+        // Henuz yonetici yoksa giris ekrani yerine kurulum gosterilir.
+        const setup = await api.setupStatus().catch(() => ({ required: false }));
+        setPhase({ kind: setup.required ? "setup" : "login" });
       } else {
         setPhase({ kind: "failed", message: errorMessage(cause, "Bağlantı kurulamadı.") });
       }
@@ -144,6 +151,10 @@ export default function App() {
     return <Login onSuccess={retry} />;
   }
 
+  if (phase.kind === "setup") {
+    return <Setup onSuccess={retry} />;
+  }
+
   if (phase.kind === "failed" || !session) {
     return (
       <div className="center-screen">
@@ -192,7 +203,7 @@ function Shell({ route, visit }: { route: Route; visit: number }) {
         </button>
 
         <nav className="nav" aria-label="Ana menü">
-          {NAV.map((item) => (
+          {NAV.filter((item) => !item.admin || me.is_admin).map((item) => (
             <button
               key={item.route}
               type="button"
@@ -293,6 +304,8 @@ function Page({ route }: { route: Route }) {
       return <Recurring />;
     case "ayarlar":
       return <Settings />;
+    case "kisiler":
+      return <People />;
     case "diger":
       return <More />;
   }

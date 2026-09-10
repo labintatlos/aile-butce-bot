@@ -6,16 +6,13 @@ kimlik yalnızca giriş çereziyle gelir.
 
 from __future__ import annotations
 
-import pytest
 import pytest_asyncio
-from sqlalchemy import select
 
 from app.auth_api import MAX_FAILED_LOGINS
 from app.config import Settings
 from app.models import User
 from app.security import sessions
 from app.security.passwords import hash_password, verify_password
-from app.services.seed import seed_web_logins
 from tests.conftest import _build_client, _test_settings
 
 PASSWORD = "dogru-sifre-1"
@@ -23,21 +20,21 @@ OTHER_PASSWORD = "baska-sifre-2"
 
 
 def _web_settings(**overrides) -> Settings:
-    values = dict(
-        trust_ingress_headers=False,
-        web_users=f"111:aykut:{PASSWORD},222:aslihan:{OTHER_PASSWORD}",
-        session_secret="test-oturum-anahtari",
-    )
+    values = dict(trust_ingress_headers=False, session_secret="test-oturum-anahtari")
     values.update(overrides)
     return _test_settings(**values)
 
 
 @pytest_asyncio.fixture()
 async def web_client(async_engine, async_session, seeded_users):
-    settings = _web_settings()
-    await seed_web_logins(async_session, settings)
+    for key, username, password in (
+        ("aykut", "aykut", PASSWORD),
+        ("aslihan", "aslihan", OTHER_PASSWORD),
+    ):
+        seeded_users[key].username = username
+        seeded_users[key].password_hash = hash_password(password)
     await async_session.commit()
-    async with _build_client(async_engine, settings) as client:
+    async with _build_client(async_engine, _web_settings()) as client:
         yield client
 
 
@@ -118,18 +115,18 @@ async def test_short_session_cookie_is_not_persistent(web_client):
 
 
 # ---------------------------------------------------------------------------
-# Yapilandirma degisiklikleri acik oturumlara yansir
+# Veritabanindaki degisiklikler acik oturumlara yansir
 # ---------------------------------------------------------------------------
 
 
-async def test_changing_the_password_closes_open_sessions(web_client, async_session):
+async def test_changing_the_password_closes_open_sessions(
+    web_client, async_session, seeded_users
+):
     token = (await _login(web_client)).cookies[sessions.COOKIE_NAME]
     web_client.cookies.clear()
 
-    await seed_web_logins(
-        async_session,
-        _web_settings(web_users=f"111:aykut:yeni-sifre-3,222:aslihan:{OTHER_PASSWORD}"),
-    )
+    aykut = await async_session.get(User, seeded_users["aykut"].id)
+    aykut.password_hash = hash_password("yeni-sifre-3")
     await async_session.commit()
 
     assert (await web_client.get("/api/bootstrap", headers=_with_cookie(token))).status_code == 401
@@ -137,42 +134,17 @@ async def test_changing_the_password_closes_open_sessions(web_client, async_sess
     assert (await _login(web_client, password="yeni-sifre-3")).status_code == 200
 
 
-async def test_removing_a_person_from_web_users_closes_their_access(
-    web_client, async_session
-):
+async def test_a_disabled_person_loses_access(web_client, async_session, seeded_users):
     token = (await _login(web_client)).cookies[sessions.COOKIE_NAME]
     web_client.cookies.clear()
 
-    await seed_web_logins(
-        async_session, _web_settings(web_users=f"222:aslihan:{OTHER_PASSWORD}")
-    )
+    aykut = await async_session.get(User, seeded_users["aykut"].id)
+    aykut.is_active = False
     await async_session.commit()
 
     assert (await web_client.get("/api/bootstrap", headers=_with_cookie(token))).status_code == 401
     assert (await _login(web_client)).status_code == 401
     assert (await _login(web_client, username="aslihan", password=OTHER_PASSWORD)).status_code == 200
-
-
-async def test_unchanged_configuration_does_not_rehash(async_session, seeded_users):
-    settings = _web_settings()
-    assert await seed_web_logins(async_session, settings) == 2
-    first = await async_session.scalar(select(User.password_hash).where(User.telegram_user_id == 111))
-
-    assert await seed_web_logins(async_session, settings) == 0
-    second = await async_session.scalar(select(User.password_hash).where(User.telegram_user_id == 111))
-    assert first == second
-
-
-async def test_two_people_can_swap_usernames(async_session, seeded_users):
-    await seed_web_logins(async_session, _web_settings())
-    await async_session.commit()
-
-    swapped = _web_settings(web_users=f"111:aslihan:{PASSWORD},222:aykut:{OTHER_PASSWORD}")
-    assert await seed_web_logins(async_session, swapped) == 2
-    await async_session.commit()
-
-    aykut = await async_session.scalar(select(User).where(User.telegram_user_id == 111))
-    assert aykut.username == "aslihan"
 
 
 # ---------------------------------------------------------------------------
@@ -257,35 +229,3 @@ def test_generated_secret_is_shared_across_processes(tmp_path):
     assert len(first) == 64
     assert sessions.resolve_secret(settings) == first
     sessions._secret_cache.clear()
-
-
-@pytest.mark.parametrize(
-    "raw, fragment",
-    [
-        ("111:aykut", "Beklenen biçim"),
-        ("111:ay:gizli-sifre-1", "kullanıcı adı geçersiz"),
-        ("111:aykut:kisa", "en az 8"),
-        ("111:aykut:gizli-sifre-1,222:aykut:gizli-sifre-2", "birden fazla"),
-    ],
-)
-def test_bad_web_users_entries_are_explained_without_leaking_the_password(raw, fragment):
-    settings = Settings(authorized_telegram_ids="111,222", web_users=raw, _env_file=None)
-    with pytest.raises(ValueError) as error:
-        settings.validate_configuration()
-    assert fragment in str(error.value)
-    assert "gizli-sifre" not in str(error.value)
-    assert "kisa" not in str(error.value)
-
-
-def test_web_users_must_belong_to_authorized_people():
-    settings = Settings(
-        authorized_telegram_ids="111", web_users="999:misafir:gizli-sifre-1", _env_file=None
-    )
-    with pytest.raises(ValueError, match="authorized_telegram_ids"):
-        settings.validate_configuration()
-
-
-def test_summary_counts_web_logins_without_passwords():
-    summary = _web_settings().safe_summary()
-    assert summary["web_login_count"] == 2
-    assert PASSWORD not in str(summary)

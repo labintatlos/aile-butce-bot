@@ -46,7 +46,6 @@ async def test_seed_is_idempotent(async_session, settings, count_rows):
         "categories": 0,
         "payment_methods": 0,
         "users": 0,
-        "web_logins": 0,
     }
     assert (await count_rows(Category), await count_rows(PaymentMethod)) == first
 

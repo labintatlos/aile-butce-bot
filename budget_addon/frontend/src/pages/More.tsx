@@ -7,10 +7,17 @@ import { Card, PageHeader } from "../components/ui";
 import { authSourceLabel, initialOf, useSession } from "../context";
 import type { Route } from "../hooks";
 
-const ITEMS: readonly { route: Route; label: string; hint: string; icon: IconName }[] = [
+const ITEMS: readonly {
+  route: Route;
+  label: string;
+  hint: string;
+  icon: IconName;
+  admin?: boolean;
+}[] = [
   { route: "gelirler", label: "Gelirler", hint: "Maaş ve diğer gelirler", icon: "income" },
   { route: "sabit", label: "Sabit giderler", hint: "Kira, aidat, abonelikler", icon: "repeat" },
   { route: "ayarlar", label: "Ayarlar", hint: "Kartlar, kategoriler ve hesap", icon: "settings" },
+  { route: "kisiler", label: "Kişiler", hint: "Giriş, şifre ve yönetici yetkisi", icon: "users", admin: true },
 ];
 
 export function More() {
@@ -37,7 +44,7 @@ export function More() {
 
         <Card flush>
           <div className="list">
-            {ITEMS.map((item) => (
+            {ITEMS.filter((item) => !item.admin || me.is_admin).map((item) => (
               <button
                 key={item.route}
                 type="button"

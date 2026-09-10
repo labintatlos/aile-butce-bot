@@ -96,20 +96,31 @@ def resolve_secret(settings: Settings) -> str:
         return _secret_cache[cache_key]
 
     if not path.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_name(f".{SECRET_FILE_NAME}.{os.getpid()}.{secrets.token_hex(4)}")
-        temporary.write_text(secrets.token_hex(32), encoding="ascii")
-        try:
-            os.link(temporary, path)
-        except FileExistsError:
-            pass
-        finally:
-            temporary.unlink(missing_ok=True)
-        try:
-            path.chmod(0o600)
-        except OSError:
-            pass
+        create_file_once(path, secrets.token_hex(32))
 
     value = path.read_text(encoding="ascii").strip()
     _secret_cache[cache_key] = value
     return value
+
+
+def create_file_once(path: Path, content: str) -> bool:
+    """Dosyayı yoksa atomik olarak oluşturur; bu çağrı oluşturduysa `True`.
+
+    Aynı anda açılan iki süreçten yalnızca biri kazanır, diğeri kazananın
+    yazdığını okur.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.{secrets.token_hex(4)}")
+    temporary.write_text(content, encoding="ascii")
+    try:
+        os.link(temporary, path)
+        created = True
+    except FileExistsError:
+        created = False
+    finally:
+        temporary.unlink(missing_ok=True)
+    try:
+        path.chmod(0o600)
+    except OSError:
+        pass
+    return created

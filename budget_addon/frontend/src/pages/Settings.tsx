@@ -10,6 +10,7 @@ import { useState, type FormEvent } from "react";
 import {
   api,
   type Category,
+  type Me,
   type PaymentMethod,
   type PaymentMethodInput,
   type PaymentMethodType,
@@ -45,6 +46,7 @@ export function Settings() {
   const [methodEditing, setMethodEditing] = useState<PaymentMethod | "new" | null>(null);
   const [categoryEditing, setCategoryEditing] = useState<Category | "new" | null>(null);
   const [savingReminders, setSavingReminders] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const state = useAsync(async () => {
     const [methods, categories, cards] = await Promise.all([
@@ -85,6 +87,17 @@ export function Settings() {
     <>
       <PageHeader title="Ayarlar" subtitle="Hesabınız, kartlarınız ve kategorileriniz" />
 
+      {changingPassword && (
+        <PasswordForm
+          onClose={() => setChangingPassword(false)}
+          onSaved={(updated) => {
+            setChangingPassword(false);
+            setMe(updated);
+            toast("Şifreniz değiştirildi. Diğer cihazlardaki oturumlar kapatıldı.");
+          }}
+        />
+      )}
+
       <div className="grid two">
         <div className="stack">
           <Card title="Hesap">
@@ -110,9 +123,10 @@ export function Settings() {
               <>
                 <div className="divider" />
                 <div className="row between wrap">
-                  <span className="muted small">
-                    Şifre, eklenti ayarlarındaki <code>web_users</code> alanından değiştirilir.
-                  </span>
+                  <button type="button" className="btn secondary sm" onClick={() => setChangingPassword(true)}>
+                    <Icon name="lock" size={16} />
+                    Şifre değiştir
+                  </button>
                   <button type="button" className="btn secondary sm" onClick={() => void logout()}>
                     <Icon name="logout" size={16} />
                     Çıkış yap
@@ -238,6 +252,80 @@ export function Settings() {
         />
       )}
     </>
+  );
+}
+
+function PasswordForm({ onClose, onSaved }: { onClose: () => void; onSaved: (me: Me) => void }) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [repeat, setRepeat] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (next.length < 8) return setError("Yeni şifre en az 8 karakter olmalıdır.");
+    if (next !== repeat) return setError("Yeni şifreler aynı değil.");
+    setBusy(true);
+    setError(null);
+    try {
+      onSaved(await api.changePassword(current, next));
+    } catch (cause: unknown) {
+      setError(errorMessage(cause));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      title="Şifre değiştir"
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="btn ghost" onClick={onClose}>
+            Vazgeç
+          </button>
+          <button type="submit" form="password-form" className="btn primary" disabled={busy}>
+            {busy ? "Kaydediliyor…" : "Kaydet"}
+          </button>
+        </>
+      }
+    >
+      <form id="password-form" className="stack" onSubmit={submit} noValidate>
+        <Field label="Mevcut şifre">
+          <input
+            className="input"
+            type="password"
+            autoComplete="current-password"
+            value={current}
+            onChange={(event) => setCurrent(event.target.value)}
+          />
+        </Field>
+        <Field label="Yeni şifre" hint="En az 8 karakter.">
+          <input
+            className="input"
+            type="password"
+            autoComplete="new-password"
+            value={next}
+            onChange={(event) => setNext(event.target.value)}
+          />
+        </Field>
+        <Field label="Yeni şifre (tekrar)">
+          <input
+            className="input"
+            type="password"
+            autoComplete="new-password"
+            value={repeat}
+            onChange={(event) => setRepeat(event.target.value)}
+          />
+        </Field>
+        {error && (
+          <div className="alert danger" role="alert">
+            {error}
+          </div>
+        )}
+      </form>
+    </Modal>
   );
 }
 

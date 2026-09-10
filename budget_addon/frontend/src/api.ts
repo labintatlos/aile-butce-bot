@@ -54,8 +54,39 @@ export type AuthSource = "session" | "ingress" | "telegram" | "dev";
 
 export interface Me extends UserSummary {
   username: string | null;
+  is_admin: boolean;
   reminders_enabled: boolean;
   auth_source: AuthSource;
+}
+
+export interface SetupPerson {
+  id: number;
+  display_name: string;
+}
+
+export interface SetupInput {
+  code: string;
+  user_id: number | null;
+  display_name: string | null;
+  username: string;
+  password: string;
+}
+
+export interface AdminUser {
+  id: number;
+  display_name: string;
+  username: string | null;
+  is_admin: boolean;
+  is_active: boolean;
+  has_login: boolean;
+}
+
+export interface AdminUserInput {
+  display_name: string;
+  username: string;
+  password: string;
+  is_admin: boolean;
+  is_active: boolean;
 }
 
 export interface Bootstrap {
@@ -443,7 +474,20 @@ export const api = {
     post<Me>("auth/login", { username, password, remember }),
   logout: () => post<void>("auth/logout"),
   updateMe: (changes: { reminders_enabled?: boolean }) => patch<Me>("me", changes),
+  changePassword: (current_password: string, new_password: string) =>
+    post<Me>("me/password", { current_password, new_password }),
   users: () => get<UserSummary[]>("users"),
+
+  // Ilk kurulum
+  setupStatus: () => get<{ required: boolean }>("setup"),
+  verifySetup: (code: string) => post<SetupPerson[]>("setup/verify", { code }),
+  completeSetup: (payload: SetupInput) => post<Me>("setup", payload),
+
+  // Kisiler (yonetici)
+  adminUsers: () => get<AdminUser[]>("admin/users"),
+  addUser: (payload: Omit<AdminUserInput, "is_active">) => post<AdminUser>("admin/users", payload),
+  updateUser: (id: number, changes: Partial<AdminUserInput>) =>
+    patch<AdminUser>(`admin/users/${id}`, changes),
   bootstrap: () => get<Bootstrap>("bootstrap"),
 
   // Harcamalar
