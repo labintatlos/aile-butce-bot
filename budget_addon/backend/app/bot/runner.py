@@ -22,7 +22,6 @@ from aiogram.utils.token import TokenValidationError
 from ..config import Settings
 from .authorization import AuthorizationMiddleware
 from .handlers import router
-from .scheduler import run_scheduler
 from .settings_commands import router as settings_router
 
 logger = logging.getLogger(__name__)
@@ -69,12 +68,6 @@ async def run_polling(settings: Settings, session_factory) -> None:
     try:
         bot = build_bot(settings)
         dispatcher = build_dispatcher(settings, session_factory)
-        # Zamanlayici botun omrune baglidir: bot yoksa gonderecek kanal da
-        # yoktur. `enable_reminders` kapaliyken de calisir, cunku sabit gider
-        # uretimi bildirim ayarindan bagimsizdir.
-        reminder_task = asyncio.create_task(
-            run_scheduler(bot, settings, session_factory)
-        )
         # Birikmis guncellemeler atlanir: yeniden baslatmada eski mesajlara
         # toplu yanit vermek kafa karistirici olurdu.
         await bot.delete_webhook(drop_pending_updates=True)

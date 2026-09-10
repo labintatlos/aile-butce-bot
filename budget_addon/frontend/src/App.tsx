@@ -15,6 +15,7 @@ import {
   api,
   ApiError,
   AUTH_REQUIRED_EVENT,
+  NOTIFICATIONS_CHANGED_EVENT,
   type Bootstrap,
   type Me,
   type UserSummary,
@@ -29,6 +30,7 @@ import { Incomes } from "./pages/Incomes";
 import { Login } from "./pages/Login";
 import { More } from "./pages/More";
 import { NewExpense } from "./pages/NewExpense";
+import { Notifications } from "./pages/Notifications";
 import { People } from "./pages/People";
 import { Recurring } from "./pages/Recurring";
 import { Reports } from "./pages/Reports";
@@ -49,6 +51,7 @@ const NAV: readonly { route: Route; label: string; icon: IconName; admin?: boole
   { route: "gelirler", label: "Gelirler", icon: "income" },
   { route: "raporlar", label: "Raporlar", icon: "chart" },
   { route: "sabit", label: "Sabit Giderler", icon: "repeat" },
+  { route: "bildirimler", label: "Bildirimler", icon: "bell" },
   { route: "ayarlar", label: "Ayarlar", icon: "settings" },
   { route: "kisiler", label: "Kişiler", icon: "users", admin: true },
 ];
@@ -72,6 +75,7 @@ const TITLES: Record<Route, string> = {
   sabit: "Sabit Giderler",
   ayarlar: "Ayarlar",
   kisiler: "Kişiler",
+  bildirimler: "Bildirimler",
   diger: "Menü",
 };
 
@@ -183,9 +187,40 @@ export default function App() {
   );
 }
 
+const UNREAD_POLL_MS = 60_000;
+
+/** Okunmamış bildirim sayısı: dakikada bir, sekmeye dönünce ve değişince tazelenir. */
+function useUnreadCount(route: Route): number {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () =>
+      api.notifications(0).then(
+        (result) => {
+          if (!cancelled) setCount(result.unread);
+        },
+        () => undefined,
+      );
+    void load();
+    const timer = window.setInterval(load, UNREAD_POLL_MS);
+    window.addEventListener("focus", load);
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, load);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", load);
+      window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, load);
+    };
+  }, [route]);
+
+  return count;
+}
+
 function Shell({ route, visit }: { route: Route; visit: number }) {
   const { me, navigate, logout } = useSession();
   const initial = initialOf(me.display_name);
+  const unread = useUnreadCount(route);
 
   return (
     <div className="shell">
@@ -213,6 +248,11 @@ function Shell({ route, visit }: { route: Route; visit: number }) {
             >
               <Icon name={item.icon} />
               {item.label}
+              {item.route === "bildirimler" && unread > 0 && (
+                <span className="badge danger" style={{ marginLeft: "auto" }}>
+                  {unread}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -245,14 +285,25 @@ function Shell({ route, visit }: { route: Route; visit: number }) {
             </span>
             {TITLES[route]}
           </div>
-          <button
-            type="button"
-            className="avatar avatar-btn"
-            onClick={() => navigate("diger")}
-            aria-label="Menü"
-          >
-            {initial}
-          </button>
+          <div className="row">
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => navigate("bildirimler")}
+              aria-label={unread ? `Bildirimler, ${unread} okunmamış` : "Bildirimler"}
+            >
+              <Icon name="bell" size={20} />
+              {unread > 0 && <span className="badge danger">{unread}</span>}
+            </button>
+            <button
+              type="button"
+              className="avatar avatar-btn"
+              onClick={() => navigate("diger")}
+              aria-label="Menü"
+            >
+              {initial}
+            </button>
+          </div>
         </header>
 
         <main className="main">
@@ -306,6 +357,8 @@ function Page({ route }: { route: Route }) {
       return <Settings />;
     case "kisiler":
       return <People />;
+    case "bildirimler":
+      return <Notifications />;
     case "diger":
       return <More />;
   }

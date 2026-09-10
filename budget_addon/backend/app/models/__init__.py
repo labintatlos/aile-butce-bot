@@ -11,6 +11,7 @@ from .expense import Expense, format_public_id
 from .expense_tag import ExpenseTag
 from .income import Income
 from .installment import ExpenseInstallment
+from .notification import Notification, PushSubscription
 from .notification_log import NotificationLog
 from .payment_method import PaymentMethod
 from .recurring_expense import RecurringExpense
@@ -25,8 +26,10 @@ __all__ = [
     "ExpenseTag",
     "Income",
     "ExpenseInstallment",
+    "Notification",
     "NotificationLog",
     "PaymentMethod",
+    "PushSubscription",
     "RecurringExpense",
     "Refund",
     "User",

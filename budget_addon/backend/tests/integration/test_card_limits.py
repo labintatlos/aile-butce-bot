@@ -11,7 +11,7 @@ from datetime import date, datetime
 
 import pytest
 
-from app.bot import scheduler
+from app.services import scheduler
 from app.models.installment import STATUS_PAID
 from app.services import cards
 from app.services.expenses import ExpenseInput, create_expense
@@ -155,18 +155,18 @@ async def test_alert_when_nine_tenths_of_the_limit_is_committed(
 async def test_a_card_limit_alert_is_announced_once_a_month(
     async_session, people, fixtures
 ):
-    from tests.integration.test_reminders import FakeBot, _factory, _settings
+    from tests.integration.test_reminders import _factory, _settings, sent_notifications
 
     await _set_limit(async_session, fixtures["card"], 100_000)
     await _spend(async_session, people["aykut"], fixtures, "1.500")
-    bot = FakeBot()
 
     await scheduler.run_daily_jobs(
-        bot, _settings(), _factory(async_session), now=datetime(2026, 9, 8, 9, 0)
+        _settings(), _factory(async_session), now=datetime(2026, 9, 8, 9, 0)
     )
     await scheduler.run_daily_jobs(
-        bot, _settings(), _factory(async_session), now=datetime(2026, 9, 9, 9, 0)
+        _settings(), _factory(async_session), now=datetime(2026, 9, 9, 9, 0)
     )
 
-    alerts = [text for _, text in bot.sent if "Kart limiti aşıldı" in text]
+    sent = await sent_notifications(async_session)
+    alerts = [text for _, text in sent if "Kart limiti aşıldı" in text]
     assert len(alerts) == 2  # iki kullanici, tek uyari

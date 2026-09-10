@@ -18,6 +18,9 @@ const API_BASE = "api";
 /** Oturum düştüğünde yayınlanır; uygulama giriş ekranına döner. */
 export const AUTH_REQUIRED_EVENT = "butce:auth-required";
 
+/** Bildirim okununca veya yenisi oluşunca yayınlanır; menüdeki sayı tazelenir. */
+export const NOTIFICATIONS_CHANGED_EVENT = "butce:notifications-changed";
+
 export interface Money {
   minor: number;
   formatted: string;
@@ -79,6 +82,37 @@ export interface AdminUser {
   is_admin: boolean;
   is_active: boolean;
   has_login: boolean;
+}
+
+export interface AppNotification {
+  id: number;
+  kind: string;
+  title: string;
+  body: string;
+  link: string | null;
+  created_at: string;
+  is_read: boolean;
+}
+
+export interface NotificationList {
+  unread: number;
+  items: AppNotification[];
+}
+
+export interface NotificationSettings {
+  reminders_enabled: boolean;
+  reminder_hour: number;
+  email: string | null;
+  email_notifications: boolean;
+  email_available: boolean;
+  push_public_key: string;
+  push_devices: number;
+}
+
+export interface NotificationTestResult {
+  email: "sent" | "skipped" | "failed";
+  push_sent: number;
+  push_devices: number;
 }
 
 export interface AdminUserInput {
@@ -488,6 +522,21 @@ export const api = {
   addUser: (payload: Omit<AdminUserInput, "is_active">) => post<AdminUser>("admin/users", payload),
   updateUser: (id: number, changes: Partial<AdminUserInput>) =>
     patch<AdminUser>(`admin/users/${id}`, changes),
+
+  // Bildirimler
+  notifications: (limit: number) => get<NotificationList>("notifications", { limit }),
+  markNotificationsRead: (ids?: number[]) =>
+    post<{ unread: number }>("notifications/read", { ids: ids ?? null }),
+  notificationSettings: () => get<NotificationSettings>("notifications/settings"),
+  updateNotificationSettings: (changes: {
+    reminders_enabled?: boolean;
+    email?: string;
+    email_notifications?: boolean;
+  }) => patch<NotificationSettings>("notifications/settings", changes),
+  testNotification: () => post<NotificationTestResult>("notifications/test"),
+  subscribePush: (subscription: PushSubscriptionJSON) =>
+    post<void>("push/subscriptions", subscription),
+  unsubscribePush: (endpoint: string) => post<void>("push/unsubscribe", { endpoint }),
   bootstrap: () => get<Bootstrap>("bootstrap"),
 
   // Harcamalar

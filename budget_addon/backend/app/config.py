@@ -45,6 +45,16 @@ class Settings(BaseSettings):
     due_reminder_days: int = DEFAULT_DUE_REMINDER_DAYS
     """Son ödeme uyarısının kaç gün önceden gönderileceği."""
 
+    smtp_host: str = ""
+    """E-posta bildirimleri için SMTP sunucusu. Boşsa e-posta seçeneği gizlenir."""
+    smtp_port: int = 587
+    smtp_security: str = "starttls"
+    """`starttls` (587), `ssl` (465) veya `none`."""
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_sender: str = ""
+    """Gönderen adresi, ör. `Aile Bütçe <butce@gmail.com>`."""
+
     supervisor_token: str = ""
     """Home Assistant Supervisor belirteci.
 
@@ -85,6 +95,14 @@ class Settings(BaseSettings):
             raise ValueError(
                 "'reminder_hour' 0 ile 23 arasında bir saat olmalıdır."
             )
+        return value
+
+    @field_validator("smtp_security")
+    @classmethod
+    def _check_smtp_security(cls, value: str) -> str:
+        value = value.strip().lower() or "starttls"
+        if value not in {"starttls", "ssl", "none"}:
+            raise ValueError("'smtp_security' starttls, ssl veya none olmalıdır.")
         return value
 
     @field_validator("log_level")
@@ -155,6 +173,7 @@ class Settings(BaseSettings):
             "webapp_public_url_configured": bool(self.public_url),
             "telegram_bot_token_configured": bool(self.telegram_bot_token),
             "enable_reminders": self.enable_reminders,
+            "email_configured": bool(self.smtp_host.strip() and self.smtp_sender.strip()),
             "reminder_hour": self.reminder_hour,
             "publish_ha_sensors": self.publish_ha_sensors,
             "supervisor_token_present": bool(self.supervisor_token),

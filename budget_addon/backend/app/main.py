@@ -25,6 +25,8 @@ from fastapi.staticfiles import StaticFiles
 from .admin_api import router as admin_router
 from .api import router
 from .auth_api import router as auth_router
+from .notifications_api import router as notifications_router
+from .services.scheduler import start_scheduler_task
 from .security.setup import announce_setup_code, ensure_setup_code, setup_required
 from .bot.runner import start_polling_task
 from .ha_publisher import start_publisher_task
@@ -52,15 +54,21 @@ async def lifespan(app: FastAPI):
 
     bot_task = None
     publisher_task = None
+    scheduler_task = None
     if settings.enable_bot:
         bot_task = start_polling_task(settings, get_session_factory())
         # Sensorler yalnizca tek surecten yazilir; iki uvicorn ornegi ayni
         # degerleri yazsaydi ikisi de dogru olurdu ama is bosuna iki katina
         # cikardi. Bot bayragi zaten "birincil surec" anlamini tasiyor.
         publisher_task = start_publisher_task(settings, get_session_factory())
+        scheduler_task = start_scheduler_task(settings, get_session_factory())
     try:
         yield
     finally:
+        if scheduler_task is not None:
+            scheduler_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await scheduler_task
         if publisher_task is not None:
             publisher_task.cancel()
             with suppress(asyncio.CancelledError):
@@ -122,6 +130,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(router)
     app.include_router(auth_router)
     app.include_router(admin_router)
+    app.include_router(notifications_router)
 
     @app.get("/health")
     async def health() -> dict[str, str]:

@@ -9,6 +9,9 @@ aiosqlite==0.21.0
 alembic==1.16.5
 pydantic==2.11.9
 pydantic-settings==2.11.0
+# Anlik bildirim (Web Push) sifrelemesi ve imzasi. musllinux tekerlegi
+# aarch64 ve amd64 icin hazir gelir; derleme gerekmez.
+cryptography==50.0.1
 # IANA saat dilimi verisi. Windows'ta ve minimal konteyner imajlarinda
 # sistem tzdata'si bulunmaz; ZoneInfo('Europe/Istanbul') o durumda hata
 # verir ve tum tarih varsayilanlari coker.

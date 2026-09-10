@@ -10,7 +10,7 @@ from datetime import date, datetime
 
 import pytest
 
-from app.bot import scheduler
+from app.services import scheduler
 from app.services import budgets
 from app.services.expenses import ExpenseInput, create_expense
 
@@ -142,21 +142,21 @@ async def test_warning_and_exceeded_are_separate_announcements(
 async def test_a_budget_alert_is_announced_once_a_month(
     async_session, people, fixtures
 ):
-    from tests.integration.test_reminders import FakeBot, _factory, _settings
+    from tests.integration.test_reminders import _factory, _settings, sent_notifications
 
     await _set_budget(async_session, fixtures["category"], 400_000)
     await _spend(async_session, people["aykut"], fixtures, "5.000")
-    bot = FakeBot()
 
     # Salı ve çarşamba seçilir: pazartesi haftalık, ayın 1'i aylık özet günüdür
     # ve sayım bütçe uyarısıyla karışırdı.
     await scheduler.run_daily_jobs(
-        bot, _settings(), _factory(async_session), now=datetime(2026, 9, 8, 9, 0)
+        _settings(), _factory(async_session), now=datetime(2026, 9, 8, 9, 0)
     )
     await scheduler.run_daily_jobs(
-        bot, _settings(), _factory(async_session), now=datetime(2026, 9, 9, 9, 0)
+        _settings(), _factory(async_session), now=datetime(2026, 9, 9, 9, 0)
     )
 
-    alerts = [text for _, text in bot.sent if "Bütçe aşıldı" in text]
+    sent = await sent_notifications(async_session)
+    alerts = [text for _, text in sent if "Bütçe aşıldı" in text]
     assert len(alerts) == 2  # iki kullanici, tek uyari
     assert "Market" in alerts[0]

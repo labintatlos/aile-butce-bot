@@ -16,6 +16,7 @@ import {
   type PaymentMethodType,
 } from "../api";
 import { Icon } from "../components/icons";
+import { NotificationSettingsCard } from "../components/NotificationSettingsCard";
 import {
   Card,
   ConfirmButton,
@@ -45,7 +46,6 @@ export function Settings() {
   const toast = useToast();
   const [methodEditing, setMethodEditing] = useState<PaymentMethod | "new" | null>(null);
   const [categoryEditing, setCategoryEditing] = useState<Category | "new" | null>(null);
-  const [savingReminders, setSavingReminders] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
   const state = useAsync(async () => {
@@ -62,18 +62,6 @@ export function Settings() {
     state.reload();
     // Form ve filtrelerdeki listeler de guncellensin.
     refresh().catch(() => undefined);
-  };
-
-  const toggleReminders = async (enabled: boolean) => {
-    setSavingReminders(true);
-    try {
-      setMe(await api.updateMe({ reminders_enabled: enabled }));
-      toast(enabled ? "Hatırlatmalar açıldı." : "Hatırlatmalar kapatıldı.");
-    } catch (cause: unknown) {
-      toast(errorMessage(cause), "danger");
-    } finally {
-      setSavingReminders(false);
-    }
   };
 
   const ownerName = (id: number | null) =>
@@ -111,14 +99,6 @@ export function Settings() {
                 </div>
               </div>
             </div>
-            <div className="divider" />
-            <Toggle
-              checked={me.reminders_enabled}
-              disabled={savingReminders}
-              onChange={(value) => void toggleReminders(value)}
-              label="Telegram hatırlatmaları"
-              hint="Ekstre kesimi, yaklaşan son ödeme ve dönem özetleri bottan gönderilir."
-            />
             {me.auth_source === "session" && (
               <>
                 <div className="divider" />
@@ -135,6 +115,8 @@ export function Settings() {
               </>
             )}
           </Card>
+
+          <NotificationSettingsCard />
 
           <Card
             title="Ödeme yöntemleri"

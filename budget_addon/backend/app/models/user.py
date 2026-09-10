@@ -32,6 +32,11 @@ class User(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     """Kişileri ve şifreleri yönetebilir."""
+    email: Mapped[str | None] = mapped_column(String(254), default=None)
+    email_notifications: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0"
+    )
+    """Bildirimler e-postayla da gönderilsin mi."""
     reminders_enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="1"
     )

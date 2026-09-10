@@ -11,9 +11,8 @@ from datetime import date, datetime, timedelta
 import pytest
 from sqlalchemy import func, select
 
-from app.bot import scheduler
-from app.models import NotificationLog
-from app.services import reminders
+from app.models import Notification, NotificationLog
+from app.services import reminders, scheduler
 from app.services.expenses import ExpenseInput, create_expense
 
 pytestmark = pytest.mark.asyncio
@@ -146,21 +145,16 @@ async def test_empty_period_produces_no_summary(async_session, people, fixtures)
 # ---------------------------------------------------------------------------
 
 
-class FakeBot:
-    """Telegram yerine geçen kayıt tutucu."""
-
-    def __init__(self):
-        self.sent: list[tuple[int, str]] = []
-
-    async def send_message(self, chat_id: int, text: str) -> None:
-        self.sent.append((chat_id, text))
+async def sent_notifications(session) -> list[tuple[int, str]]:
+    """Oluşturulan bildirimler: `(kişi, başlık + gövde)`, oluşturulma sırasıyla."""
+    rows = (await session.scalars(select(Notification).order_by(Notification.id))).all()
+    return [(row.user_id, f"{row.title}\n{row.body}") for row in rows]
 
 
 def _settings(**overrides):
     from app.config import Settings
 
     defaults = dict(
-        authorized_telegram_ids="111,222",
         reminder_hour=9,
         due_reminder_days=3,
         _env_file=None,
@@ -182,43 +176,36 @@ def _factory(async_session):
     return lambda: _Once()
 
 
-async def test_reminder_is_sent_once_and_not_repeated(
+async def test_reminder_is_created_once_and_not_repeated(
     async_session, people, fixtures
 ):
     await _add(async_session, people["aykut"], fixtures)
-    bot = FakeBot()
     at_nine = datetime(2026, 9, 10, 9, 0)
 
-    first = await scheduler.run_daily_jobs(
-        bot, _settings(), _factory(async_session), now=at_nine
-    )
+    first = await scheduler.run_daily_jobs(_settings(), _factory(async_session), now=at_nine)
     second = await scheduler.run_daily_jobs(
-        bot, _settings(), _factory(async_session), now=at_nine.replace(minute=30)
+        _settings(), _factory(async_session), now=at_nine.replace(minute=30)
     )
 
-    # Iki kullanici, tek ekstre kesim hatirlatmasi.
+    # Iki kisi, tek ekstre kesim hatirlatmasi.
+    sent = await sent_notifications(async_session)
     assert first == 2
     assert second == 0
-    assert len(bot.sent) == 2
-    assert {chat_id for chat_id, _ in bot.sent} == {111, 222}
-    assert "ekstre kesiliyor" in bot.sent[0][1]
+    assert {user_id for user_id, _ in sent} == {people["aykut"].id, people["aslihan"].id}
+    assert "ekstre kesiliyor" in sent[0][1]
 
 
-async def test_nothing_is_sent_outside_the_reminder_hour(
+async def test_nothing_is_created_outside_the_reminder_hour(
     async_session, people, fixtures
 ):
     await _add(async_session, people["aykut"], fixtures)
-    bot = FakeBot()
 
-    sent = await scheduler.run_daily_jobs(
-        bot,
-        _settings(),
-        _factory(async_session),
-        now=datetime(2026, 9, 10, 14, 0),
+    created = await scheduler.run_daily_jobs(
+        _settings(), _factory(async_session), now=datetime(2026, 9, 10, 14, 0)
     )
 
-    assert sent == 0
-    assert bot.sent == []
+    assert created == 0
+    assert await sent_notifications(async_session) == []
     logged = await async_session.scalar(
         select(func.count()).select_from(NotificationLog)
     )
@@ -231,48 +218,43 @@ async def test_user_who_turned_reminders_off_is_skipped(
     await _add(async_session, people["aykut"], fixtures)
     people["aslihan"].reminders_enabled = False
     await async_session.commit()
-    bot = FakeBot()
 
-    sent = await scheduler.run_daily_jobs(
-        bot, _settings(), _factory(async_session), now=datetime(2026, 9, 10, 9, 0)
+    created = await scheduler.run_daily_jobs(
+        _settings(), _factory(async_session), now=datetime(2026, 9, 10, 9, 0)
     )
 
-    assert sent == 1
-    assert [chat_id for chat_id, _ in bot.sent] == [111]
+    assert created == 1
+    assert [user_id for user_id, _ in await sent_notifications(async_session)] == [
+        people["aykut"].id
+    ]
 
 
-async def test_failed_delivery_is_retried_on_the_next_tick(
-    async_session, people, fixtures
+async def test_a_failing_mail_server_does_not_lose_the_notification(
+    async_session, people, fixtures, monkeypatch
 ):
+    from app.services import email_delivery
+
     await _add(async_session, people["aykut"], fixtures)
+    people["aykut"].email = "aykut@example.com"
+    people["aykut"].email_notifications = True
+    await async_session.commit()
+    attempts = []
 
-    class BrokenBot(FakeBot):
-        def __init__(self):
-            super().__init__()
-            self.fail = True
+    def broken(settings, *, to, subject, body):
+        attempts.append(to)
+        raise OSError("sunucu yanıt vermiyor")
 
-        async def send_message(self, chat_id: int, text: str) -> None:
-            if self.fail:
-                raise RuntimeError("ağ hatası")
-            await super().send_message(chat_id, text)
+    monkeypatch.setattr(email_delivery, "send_email", broken)
 
-    bot = BrokenBot()
-    at_nine = datetime(2026, 9, 10, 9, 0)
-
-    assert (
-        await scheduler.run_daily_jobs(
-            bot, _settings(), _factory(async_session), now=at_nine
-        )
-        == 0
+    created = await scheduler.run_daily_jobs(
+        _settings(smtp_host="smtp.example.com", smtp_sender="butce@example.com"),
+        _factory(async_session),
+        now=datetime(2026, 9, 10, 9, 0),
     )
 
-    bot.fail = False
-    assert (
-        await scheduler.run_daily_jobs(
-            bot, _settings(), _factory(async_session), now=at_nine
-        )
-        == 2
-    )
+    assert created == 2
+    assert attempts == ["aykut@example.com"]
+    assert len(await sent_notifications(async_session)) == 2
 
 
 async def test_daily_run_records_the_fixed_expense_and_announces_it(
@@ -291,19 +273,17 @@ async def test_daily_run_records_the_fixed_expense_and_announces_it(
         day_of_month=10,
         start_date=date(2026, 9, 1),
     )
-    bot = FakeBot()
-
     await scheduler.run_daily_jobs(
-        bot, _settings(), _factory(async_session), now=datetime(2026, 9, 10, 9, 0)
+        _settings(), _factory(async_session), now=datetime(2026, 9, 10, 9, 0)
     )
 
-    announcements = [text for _, text in bot.sent if "Sabit gider" in text]
+    sent = await sent_notifications(async_session)
+    announcements = [text for _, text in sent if "Sabit gider" in text]
     assert len(announcements) == 2
     assert "Kira" in announcements[0]
 
     # Ikinci uyanista ne kayit ne de bildirim tekrarlanir.
-    before = len(bot.sent)
     await scheduler.run_daily_jobs(
-        bot, _settings(), _factory(async_session), now=datetime(2026, 9, 10, 9, 30)
+        _settings(), _factory(async_session), now=datetime(2026, 9, 10, 9, 30)
     )
-    assert len(bot.sent) == before
+    assert len(await sent_notifications(async_session)) == len(sent)

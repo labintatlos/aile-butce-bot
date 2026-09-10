@@ -19,7 +19,12 @@ export type Route =
   | "sabit"
   | "ayarlar"
   | "kisiler"
+  | "bildirimler"
   | "diger";
+
+export function isRoute(name: string): name is Route {
+  return (ROUTES as readonly string[]).includes(name);
+}
 
 const ROUTES: readonly Route[] = [
   "ozet",
@@ -30,6 +35,7 @@ const ROUTES: readonly Route[] = [
   "sabit",
   "ayarlar",
   "kisiler",
+  "bildirimler",
   "diger",
 ];
 
