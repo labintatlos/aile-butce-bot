@@ -1,5 +1,14 @@
 # Değişiklik Günlüğü
 
+## 2.0.5
+
+Son ödeme tarihi geçen taksit artık kendiliğinden ödenmiş sayılıyor. Kart
+limiti her ay ödenen taksit kadar geri açılıyor; önceden limit hiç
+boşalmadığı için kartlar zamanla dolu görünür ve gereksiz limit uyarısı
+gelirdi. Taksit listesinde "kalan" tutarı ve harcama detayındaki "Ödendi"
+etiketi de buna göre gösteriliyor. Raporlar ve ayın nakit çıkışı
+değişmedi.
+
 ## 2.0.4
 
 Kredi kartı son ödeme tarihi artık resmî tatilleri de atlıyor: hafta sonuna

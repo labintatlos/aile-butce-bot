@@ -99,6 +99,7 @@ BASIS_LABELS = {
 
 
 def _expense_out(expense) -> ExpenseOut:
+    today = local_today()
     return ExpenseOut(
         id=expense.id,
         public_id=expense.public_id,
@@ -119,11 +120,18 @@ def _expense_out(expense) -> ExpenseOut:
                 amount=Money.of(line.amount_minor),
                 statement_date=line.statement_date,
                 due_date=line.due_date,
-                status=line.status,
+                status=_installment_status(line, today),
             )
             for line in expense.installments
         ],
     )
+
+
+def _installment_status(line, today) -> str:
+    """Son ödeme tarihi geçmiş taksit ödenmiş sayılır."""
+    if line.status == "scheduled" and line.due_date < today:
+        return "paid"
+    return line.status
 
 
 def _named_total(item: reports.NamedTotal) -> NamedTotalOut:

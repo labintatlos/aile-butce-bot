@@ -201,7 +201,7 @@ async def test_a_refund_frees_the_committed_card_limit(
 
     usage = next(
         item
-        for item in await cards.card_usage(async_session)
+        for item in await cards.card_usage(async_session, today=SEPTEMBER)
         if item.name == fixtures["card"].name
     )
     assert usage.outstanding_minor == 60_000

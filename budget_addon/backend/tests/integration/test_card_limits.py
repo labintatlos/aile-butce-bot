@@ -49,7 +49,7 @@ async def test_a_card_without_a_limit_reports_debt_but_no_ratio(
 ):
     await _spend(async_session, people["aykut"], fixtures, "1.000")
 
-    usage = _find(await cards.card_usage(async_session), fixtures["card"].name)
+    usage = _find(await cards.card_usage(async_session, today=SEPTEMBER), fixtures["card"].name)
 
     assert usage.outstanding_minor == 100_000
     assert usage.has_limit is False
@@ -64,7 +64,7 @@ async def test_the_whole_instalment_plan_is_committed_to_the_limit(
     await _set_limit(async_session, fixtures["card"], 5_000_000)
     await _spend(async_session, people["aykut"], fixtures, "12.000", count=12)
 
-    usage = _find(await cards.card_usage(async_session), fixtures["card"].name)
+    usage = _find(await cards.card_usage(async_session, today=SEPTEMBER), fixtures["card"].name)
 
     assert usage.outstanding_minor == 1_200_000
     assert usage.available_minor == 3_800_000
@@ -78,8 +78,27 @@ async def test_a_paid_instalment_frees_the_limit(async_session, people, fixtures
     expense.installments[0].status = STATUS_PAID
     await async_session.commit()
 
-    usage = _find(await cards.card_usage(async_session), fixtures["card"].name)
+    usage = _find(await cards.card_usage(async_session, today=SEPTEMBER), fixtures["card"].name)
     assert usage.outstanding_minor == 110_000
+
+
+async def test_an_instalment_past_its_due_date_frees_the_limit(
+    async_session, people, fixtures
+):
+    """Son ödeme günü geçen taksit ödenmiş sayılır; kimse işaretlemek zorunda değil."""
+    await _set_limit(async_session, fixtures["card"], 1_000_000)
+    expense = await _spend(async_session, people["aykut"], fixtures, "1.200", count=12)
+    first, second = expense.installments[0], expense.installments[1]
+
+    on_due_day = _find(
+        await cards.card_usage(async_session, today=first.due_date), fixtures["card"].name
+    )
+    assert on_due_day.outstanding_minor == 120_000
+
+    day_after = _find(
+        await cards.card_usage(async_session, today=second.due_date), fixtures["card"].name
+    )
+    assert day_after.outstanding_minor == 110_000
 
 
 async def test_cash_spending_never_touches_a_card_limit(
@@ -98,7 +117,7 @@ async def test_cash_spending_never_touches_a_card_limit(
         ),
     )
 
-    usage = _find(await cards.card_usage(async_session), fixtures["card"].name)
+    usage = _find(await cards.card_usage(async_session, today=SEPTEMBER), fixtures["card"].name)
     assert usage.outstanding_minor == 0
 
 
@@ -108,7 +127,7 @@ async def test_going_over_the_limit_is_reported_without_a_negative_balance(
     await _set_limit(async_session, fixtures["card"], 100_000)
     await _spend(async_session, people["aykut"], fixtures, "1.500")
 
-    usage = _find(await cards.card_usage(async_session), fixtures["card"].name)
+    usage = _find(await cards.card_usage(async_session, today=SEPTEMBER), fixtures["card"].name)
 
     assert usage.is_over_limit is True
     assert usage.available_minor == 0
@@ -121,7 +140,7 @@ async def test_the_fullest_card_comes_first(async_session, people, fixtures):
     await _spend(async_session, people["aykut"], fixtures, "100")
     await _spend(async_session, people["aykut"], fixtures, "9.000", card="other_card")
 
-    usages = await cards.card_usage(async_session)
+    usages = await cards.card_usage(async_session, today=SEPTEMBER)
 
     assert [usage.name for usage in usages] == [
         fixtures["other_card"].name,
@@ -137,7 +156,7 @@ async def test_the_fullest_card_comes_first(async_session, people, fixtures):
 async def test_no_alert_for_a_card_without_a_limit(async_session, people, fixtures):
     await _spend(async_session, people["aykut"], fixtures, "50.000")
 
-    usages = await cards.card_usage(async_session)
+    usages = await cards.card_usage(async_session, today=SEPTEMBER)
     assert cards.alerts_for(usages, year=2026, month=9) == []
 
 
@@ -147,7 +166,7 @@ async def test_alert_when_nine_tenths_of_the_limit_is_committed(
     await _set_limit(async_session, fixtures["card"], 1_000_000)
     await _spend(async_session, people["aykut"], fixtures, "9.200")
 
-    alerts = cards.alerts_for(await cards.card_usage(async_session), year=2026, month=9)
+    alerts = cards.alerts_for(await cards.card_usage(async_session, today=SEPTEMBER), year=2026, month=9)
 
     assert [alert.threshold for alert in alerts] == [cards.NEAR_LIMIT_RATIO]
 

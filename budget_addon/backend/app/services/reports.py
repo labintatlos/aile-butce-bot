@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, and_, func, not_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.category import Category
@@ -28,7 +28,7 @@ from ..models.expense import Expense
 from ..models.installment import STATUS_CANCELLED, STATUS_PAID, ExpenseInstallment
 from ..models.payment_method import TYPE_CASH, TYPE_CREDIT_CARD, PaymentMethod
 from ..models.user import User
-from ..utils.time import month_bounds
+from ..utils.time import local_today, month_bounds
 from . import refunds
 from .finance.dates import MONTHS_PER_YEAR
 
@@ -328,18 +328,19 @@ class ActiveInstallmentPlan:
 
 
 async def active_installment_plans(
-    session: AsyncSession,
+    session: AsyncSession, today: date | None = None
 ) -> list[ActiveInstallmentPlan]:
     """§22'deki aktif taksitli alışverişleri listeler.
 
-    Tüm taksitleri ödenmiş veya iptal edilmiş bir harcama listede yer almaz.
+    Son ödeme tarihi geçmiş taksit ödenmiş sayılır. Tüm taksitleri ödenmiş
+    veya iptal edilmiş bir harcama listede yer almaz.
     """
-    remaining = func.sum(
-        ExpenseInstallment.amount_minor
-    ).filter(ExpenseInstallment.status.not_in(INACTIVE_INSTALLMENT_STATUSES))
-    settled = func.count(ExpenseInstallment.id).filter(
-        ExpenseInstallment.status.in_(INACTIVE_INSTALLMENT_STATUSES)
+    open_line = and_(
+        ExpenseInstallment.status.not_in(INACTIVE_INSTALLMENT_STATUSES),
+        ExpenseInstallment.due_date >= (today or local_today()),
     )
+    remaining = func.sum(ExpenseInstallment.amount_minor).filter(open_line)
+    settled = func.count(ExpenseInstallment.id).filter(not_(open_line))
 
     rows = (
         await session.execute(

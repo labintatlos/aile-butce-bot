@@ -148,7 +148,7 @@ async def test_i_r3_soft_deleted_expense_disappears_from_every_report(
 
     spending = await monthly_spending(async_session, year=2026, month=9)
     statements = await upcoming_statements(async_session, since=date(2026, 9, 1))
-    plans = await active_installment_plans(async_session)
+    plans = await active_installment_plans(async_session, today=SEPTEMBER)
     obligations = await future_obligations(
         async_session, start=date(2026, 9, 1), months=12
     )
@@ -202,7 +202,7 @@ async def test_cash_expenses_never_appear_in_the_statement_report(
 async def test_i_r5_active_plan_reports_progress_and_remaining_debt(
     async_session, september_data
 ):
-    plans = await active_installment_plans(async_session)
+    plans = await active_installment_plans(async_session, today=SEPTEMBER)
 
     assert len(plans) == 1
     television = plans[0]
@@ -223,7 +223,7 @@ async def test_i_r6_a_fully_settled_plan_leaves_the_active_list(
         line.status = STATUS_PAID
     await async_session.commit()
 
-    assert await active_installment_plans(async_session) == []
+    assert await active_installment_plans(async_session, today=SEPTEMBER) == []
 
 
 async def test_partially_paid_plan_reports_the_right_remainder(
@@ -236,7 +236,7 @@ async def test_partially_paid_plan_reports_the_right_remainder(
         line.status = STATUS_PAID
     await async_session.commit()
 
-    plan = (await active_installment_plans(async_session))[0]
+    plan = (await active_installment_plans(async_session, today=SEPTEMBER))[0]
     assert plan.paid_position == "4/12"
     assert plan.remaining_minor == 800_000
 
@@ -244,7 +244,7 @@ async def test_partially_paid_plan_reports_the_right_remainder(
 async def test_single_payment_expenses_are_not_installment_plans(
     async_session, september_data
 ):
-    plans = await active_installment_plans(async_session)
+    plans = await active_installment_plans(async_session, today=SEPTEMBER)
     assert all(plan.installment_count > 1 for plan in plans)
 
 

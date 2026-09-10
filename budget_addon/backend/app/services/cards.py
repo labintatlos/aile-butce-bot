@@ -5,10 +5,10 @@ kullanılmıyordu. Oysa taksitli alışverişte asıl sıkıştıran şey ekstre
 değil, limitin ne kadarının bağlandığıdır: 12 taksitli bir alışverişin tamamı
 limitten düşer, ekstreye ise ayda bir taksiti gelir.
 
-**Borç** burada henüz ödenmemiş taksitlerin toplamıdır. Ödenmiş olarak
-işaretlenen taksit limiti serbest bırakır; iptal edilen de öyle. Tarih
-sınırlaması yoktur: gelecek yıla sarkan bir taksit de bugünden limiti
-bağlamıştır.
+**Borç** burada henüz ödenmemiş taksitlerin toplamıdır. Son ödeme tarihi
+geçmiş taksit ödenmiş sayılır ve limiti serbest bırakır; ödenmiş olarak
+işaretlenen veya iptal edilen de öyle. Gelecek yıla sarkan bir taksit ise
+bugünden limiti bağlamıştır.
 
 Limit girilmemiş kartlar hiçbir uyarı üretmez ve oran hesaplanmaz; sistem
 bilmediği bir sayı hakkında yorum yapmaz.
@@ -17,6 +17,7 @@ bilmediği bir sayı hakkında yorum yapmaz.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.expense import Expense
 from ..models.installment import STATUS_SCHEDULED, ExpenseInstallment
 from ..models.payment_method import TYPE_CREDIT_CARD, PaymentMethod
+from ..utils.time import local_today
 from . import refunds
 
 NEAR_LIMIT_RATIO = 90
@@ -77,7 +79,9 @@ class CardUsage:
         return "▓" * filled + "░" * (BAR_SEGMENTS - filled)
 
 
-async def card_usage(session: AsyncSession) -> list[CardUsage]:
+async def card_usage(
+    session: AsyncSession, today: date | None = None
+) -> list[CardUsage]:
     """Aktif kredi kartlarının borç ve limit durumunu verir.
 
     Sıralama en çok dolu karttan başlar; kullanıcının önce görmesi gereken
@@ -95,6 +99,7 @@ async def card_usage(session: AsyncSession) -> list[CardUsage]:
                     Expense.deleted_at.is_(None),
                     Expense.payment_method_type_snapshot == TYPE_CREDIT_CARD,
                     ExpenseInstallment.status == STATUS_SCHEDULED,
+                    ExpenseInstallment.due_date >= (today or local_today()),
                 )
                 .group_by(Expense.payment_method_id)
             )

@@ -1,6 +1,6 @@
 name: Aile Bütçe Takip
 description: Aile bütçesi ve kredi kartı taksit takibi — kullanıcı adı ve şifreyle açılan web sitesi
-version: "2.0.4"
+version: "2.0.5"
 slug: family_budget
 url: https://github.com/labintatlos/aile-butce-bot
 arch:
