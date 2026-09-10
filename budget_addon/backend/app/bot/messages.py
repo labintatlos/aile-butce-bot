@@ -149,12 +149,56 @@ def quick_entry_needs_category(amount_minor: int) -> str:
 
 
 def quick_entry_help() -> str:
-    return (
-        "Hızlı kayıt için tutarla başlayan bir mesaj yazabilirsin:\n\n"
-        "  <code>500 market</code>\n"
-        "  <code>1.250,50 market Migros alışverişi</code>\n\n"
-        "Ödeme yöntemi varsayılan olarak Nakit'tir; kaydettikten sonra"
-        " kart seçebilirsin. Taksitli alışverişler için formu kullan."
+    """`/yardim`: tek ekranda ne yapilabilecegin tamami.
+
+    Komutlar konularina gore gruplanir. Uzun ama aranabilir bir liste,
+    kullanicinin hatirlamadigi bir komutu bulabildigi tek yerdir.
+    """
+    return "\n".join(
+        [
+            "<b>Hızlı kayıt</b>",
+            "Tutarla başlayan bir mesaj yeter:",
+            "  <code>500 market</code>",
+            "  <code>1.250,50 market Migros alışverişi</code>",
+            "  <code>500 market #bodrum</code> — etiketli",
+            "  <code>800 kitap #kisisel</code> — ortak gidere sayılmaz",
+            "Ödeme yöntemi varsayılan olarak Nakit'tir; taksitli alışverişler"
+            " için formu kullan.",
+            "",
+            "📎 Fiş fotoğrafını gönder: açıklamasına tutar yazarsan yeni kayıt"
+            " açar, yazmazsan son harcamana iliştirilir.",
+            "",
+            "<b>Para giriş çıkışı</b>",
+            "<code>/gelir 45000 Maaş</code> · <code>/gelirler</code>"
+            " · <code>/gelirsil &lt;no&gt;</code>",
+            "<code>/iade &lt;işlem no&gt; &lt;tutar&gt;</code> — tam veya kısmi",
+            "<code>/ortak &lt;no&gt;</code> · <code>/kisisel &lt;no&gt;</code>",
+            "",
+            "<b>Raporlar</b>",
+            "<code>/denklestir</code> — kim kime ne kadar borçlu",
+            "<code>/tahmin</code> — bu gidişle ay sonu",
+            "<code>/yil</code> — geçen yılla karşılaştırma",
+            "<code>/etiket</code> · <code>/etiket bodrum</code>",
+            "<code>/kartlar</code> — borç ve kullanılabilir limit",
+            "<code>/butce</code> — kategori hedefleri",
+            "<code>/disaaktar 2026-08</code> — CSV olarak indir",
+            "",
+            "<b>Sabit giderler</b>",
+            "<code>/sabit</code> ile listele.",
+            "<code>/sabitekle Kira | 15000 | 1 | Kira | Nakit</code>",
+            "<code>/sabittutar &lt;no&gt; &lt;tutar&gt;</code>"
+            " · <code>/sabitgun &lt;no&gt; &lt;gün&gt;</code>",
+            "<code>/sabitpasif &lt;no&gt;</code>"
+            " · <code>/sabitaktif &lt;no&gt;</code>"
+            " · <code>/sabitsil &lt;no&gt;</code>",
+            "",
+            "<b>Ayarlar</b>",
+            "<code>/butceayarla Market | 4000</code>"
+            " · <code>/butcesil Market</code>",
+            "<code>/kartlimit &lt;no&gt; &lt;tutar&gt;</code>",
+            "<code>/hatirlatici</code> — bildirimleri aç/kapat",
+            "Kart ve kategori düzenleme için ⚙️ Ayarlar.",
+        ]
     )
 
 

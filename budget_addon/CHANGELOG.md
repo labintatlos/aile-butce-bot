@@ -1,5 +1,59 @@
 # Değişiklik Günlüğü
 
+## 1.4.0
+
+Bu sürüm sistemi bir harcama defterinden bütçe yöneticisine çeviriyor. Taksit
+ve ekstre hesabına dokunulmadı; hepsi mevcut motorun üzerine eklendi.
+
+**Sistem artık sorulmadan da konuşuyor.** Her gün belirlenen saatte ekstre
+kesim günü, yaklaşan son ödeme, haftalık ve aylık kapanış özetleri geliyor.
+Gönderilen her bildirim veritabanında işaretleniyor; eklenti gün içinde on kez
+yeniden başlasa da aynı bildirim iki kez gelmiyor. `/hatirlatici` ile kapatılıp
+açılabiliyor.
+
+**Sabit giderler.** Kira, aidat, abonelik bir kez tanımlanıyor ve her ay günü
+geldiğinde kendiliğinden kaydediliyor. Kayıt tarihi şablonun günü oluyor:
+eklenti üç gün kapalı kalsa bile kira ayın 1'ine yazılıyor. Komutlar: `/sabit`,
+`/sabitekle`, `/sabittutar`, `/sabitgun`, `/sabitpasif`, `/sabitsil`.
+
+**Kategori bütçe hedefleri.** Bir kategoriye aylık hedef konabiliyor; hedefin
+%80'ine gelindiğinde ve hedef aşıldığında haber veriliyor. Hedef bir sınır
+değil: hiçbir kayıt bu yüzden engellenmiyor. `/butce`, `/butceayarla`.
+
+**Gelir kaydı ve "ay sonunda ne kalıyor".** Gelir girildiğinde 💰 Durum ekranı
+ayın nakit tablosunu çıkarıyor: 12 taksitli bir alışverişin yalnızca bu aya
+düşen taksiti, nakit harcamalar ve günü henüz gelmemiş sabit giderler.
+`/gelir`, `/gelirler`.
+
+**Home Assistant sensörleri.** Eklenti artık HA'ya altı sensör yazıyor: bu ay
+harcama, gelir, ay sonunda kalan, yaklaşan ekstre, bütçesi aşılan kategori
+sayısı ve kart borcu. Panoya kart konabiliyor, otomasyon yazılabiliyor.
+
+**Kart limiti.** Kartın bağlı limiti, kullanılabilir bakiyesi ve %90'da uyarı.
+`/kartlar`, `/kartlimit`.
+
+**İadeler.** Ürün iade edildiğinde harcama silinmiyor; iade ayrı bir alacak
+olarak kaydediliyor ve aylık rapor, kategori bütçesi, kart limiti, ekstre
+toplamı ile nakit çıkışından düşülüyor. Kısmi iade destekleniyor. `/iade`.
+
+**Fiş fotoğrafı.** Bota gönderilen fotoğraf harcamaya iliştiriliyor.
+Açıklamasında tutar varsa yeni kayıt açıyor, yoksa son harcamaya ekleniyor.
+Tutar fotoğraftan okunmuyor.
+
+**Etiketler.** Açıklamaya `#bodrum` yazınca farklı kategorilerdeki harcamalar
+tek toplamda birleşiyor. `/etiket`.
+
+**Ay sonu tahmini, yıllık karşılaştırma ve CSV dışa aktarma.** `/tahmin`,
+`/yil`, `/disaaktar`.
+
+**Ortak / kişisel ayrımı ve denkleştirme.** Harcamalar varsayılan olarak ortak;
+`#kisisel` yazılan ayrı tutuluyor. `/denklestir` kimin kime ne kadar borçlu
+olduğunu kuruş kaybı olmadan söylüyor.
+
+**Mini App'te rapor ekranı.** Panelde ikinci bir sekme: ayın durumu, kategori
+dağılımı, bütçe hedefleri, kart limitleri, denkleştirme ve 12 aylık sütun
+grafiği.
+
 ## 1.3.4
 
 - Göçün "FOREIGN KEY constraint failed" ile düşmesi giderildi. Ödeme yöntemleri

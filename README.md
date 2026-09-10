@@ -5,18 +5,39 @@ kartı taksitlerini ve ekstre yükünü otomatik hesaplayan aile bütçe takip
 sistemi. Raspberry Pi 5 üzerinde Home Assistant OS altında bir add-on olarak
 çalışır.
 
-> **Durum:** Backend, bot, arayüz ve eklenti paketlemesi tamamlandı; gerçek
-> Telegram token'ı ve Raspberry Pi üzerinde uçtan uca doğrulama bekliyor.
-> Ayrıntılar için [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
+> **Durum:** Backend, bot, arayüz ve eklenti paketlemesi tamamlandı; test
+> paketi (518 test) yeşil. Gerçek Telegram token'ı ve Raspberry Pi üzerinde
+> uçtan uca doğrulama bekliyor. Ayrıntılar için
+> [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md), sürüm notları için
+> [CHANGELOG.md](budget_addon/CHANGELOG.md).
 
 ## Ne yapar
 
+**Kayıt**
+
 - Harcamaları kişi, kategori, ödeme yöntemi ve tarihe göre kaydeder.
-- Kredi kartı taksitlerini otomatik oluşturur.
-- Kartın hesap kesim ve son ödeme günlerine göre her taksitin hangi ekstreye
-  düşeceğini hesaplar.
-- Aylık harcama, ekstre, aktif taksit ve gelecek 12 aylık ödeme yükü raporları
-  üretir.
+- Kredi kartı taksitlerini otomatik oluşturur ve kartın hesap kesim ile son
+  ödeme günlerine göre her taksitin hangi ekstreye düşeceğini hesaplar.
+- Gelirleri kaydeder, iadeleri harcamayı silmeden düşer (kısmi iade dâhil).
+- Kira, aidat, abonelik gibi sabit giderleri her ay kendiliğinden kaydeder.
+- Fiş fotoğrafını harcamaya iliştirir.
+
+**Kendiliğinden haber verir**
+
+- Ekstre kesim günü, yaklaşan son ödeme, haftalık ve aylık kapanış özeti.
+- Kategori bütçe hedefi aşılmak üzereyken ve aşıldığında.
+- Kart limitinin %90'ı bağlandığında.
+
+**Raporlar**
+
+- Aylık harcama, ekstre, aktif taksit ve gelecek 12 aylık ödeme yükü.
+- Ay sonunda ne kalacağı, ay sonu harcama tahmini, geçen yılla karşılaştırma.
+- Kategori hedefleri, kart limitleri, etiket toplamları.
+- Ortak giderlerde kimin kime ne kadar borçlu olduğu.
+- CSV dışa aktarma; Home Assistant'a altı sensör.
+
+**Erişim**
+
 - Yalnızca yetkilendirilmiş iki Telegram kullanıcısı tarafından kullanılabilir.
 
 ## Temel ilkeler
