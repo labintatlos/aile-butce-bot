@@ -12,6 +12,8 @@ from __future__ import annotations
 import calendar
 from datetime import date, timedelta
 
+import holidays
+
 MIN_DAY_OF_MONTH = 1
 MAX_DAY_OF_MONTH = 31
 MONTHS_PER_YEAR = 12
@@ -63,13 +65,24 @@ def is_weekend(value: date) -> bool:
     return value.weekday() in WEEKEND
 
 
-def next_business_day(value: date) -> date:
-    """Hafta sonuna denk gelen tarihi pazartesiye taşır.
+TURKISH_HOLIDAYS = holidays.country_holidays("TR")
+"""Türkiye resmî tatilleri; istenen yıl ilk sorulduğunda hesaplanır.
 
-    Bankalar son ödeme günü hafta sonuna denk geldiğinde tahsilatı bir sonraki
-    iş gününe alır. Resmî tatiller **hesaba katılmaz**: tatil takvimi yıldan
-    yıla değişir ve elde güvenilir bir kaynak olmadan tahmin yürütmek, yanlış
-    bir tarihi doğruymuş gibi göstermek olurdu.
+Dinî bayramlar da dahildir. Arifeler yarım gün olduğu ve bankalar o gün
+tahsilat yaptığı için iş günü sayılır.
+"""
+
+
+def is_public_holiday(value: date) -> bool:
+    return value in TURKISH_HOLIDAYS
+
+
+def next_business_day(value: date) -> date:
+    """Hafta sonuna veya resmî tatile denk gelen tarihi ilk iş gününe taşır.
+
+    Bankalar son ödeme günü tatile denk geldiğinde tahsilatı bir sonraki iş
+    gününe alır. Bayram hafta sonuna bitişikse kaydırma birkaç gün sürebilir.
     """
-    shift = {SATURDAY: 2, SUNDAY: 1}.get(value.weekday(), 0)
-    return value + timedelta(days=shift) if shift else value
+    while is_weekend(value) or is_public_holiday(value):
+        value += timedelta(days=1)
+    return value

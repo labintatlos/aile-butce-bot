@@ -2,7 +2,7 @@
 
 Kullanıcı yalnızca **hesap kesim gününü** girer. Son ödeme tarihi bundan
 türetilir: ekstre kesildikten `due_offset_days` gün sonra, o gün hafta sonuna
-denk gelirse pazartesiye taşınarak.
+veya resmî tatile denk gelirse ilk iş gününe taşınarak.
 
 Kurallar için bkz. docs/FINANCE_RULES.md, bölüm 4, 5 ve 6.
 """
@@ -64,9 +64,9 @@ def due_date_for(
 ) -> date:
     """Bir ekstrenin son ödeme tarihini bulur.
 
-    Ekstre tarihine `offset_days` gün eklenir; sonuç cumartesi veya pazara
-    denk gelirse pazartesiye taşınır, çünkü bankalar hafta sonu tahsilat
-    yapmaz.
+    Ekstre tarihine `offset_days` gün eklenir; sonuç hafta sonuna veya resmî
+    tatile denk gelirse ilk iş gününe taşınır, çünkü bankalar o günlerde
+    tahsilat yapmaz.
 
     Ay sonu normalizasyonuna gerek yoktur: gün ekleme zaten takvimi doğru
     takip eder ve 31 Ocak + 10 gün gibi bir durumda ayın var olmayan gününe

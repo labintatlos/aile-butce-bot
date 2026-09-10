@@ -120,6 +120,31 @@ def test_no_due_date_ever_falls_on_a_weekend(statement):
     assert due_date_for(statement, 10).weekday() < 5
 
 
+# ---------------------------------------------------------------------------
+# Resmi tatil kaydirmasi
+# ---------------------------------------------------------------------------
+
+
+def test_a_national_holiday_moves_to_the_next_business_day():
+    # 19 Ekim + 10 = 29 Ekim 2026 persembe, Cumhuriyet Bayrami -> 30 Ekim cuma
+    assert due_date_for(date(2026, 10, 19), 10) == date(2026, 10, 30)
+
+
+def test_a_religious_holiday_moves_to_the_next_business_day():
+    # 10 Mart + 10 = 20 Mart 2026 cuma, Ramazan Bayrami -> 23 Mart pazartesi
+    assert due_date_for(date(2026, 3, 10), 10) == date(2026, 3, 23)
+
+
+def test_a_holiday_running_into_the_weekend_skips_both():
+    # 27-30 Mayis 2026 Kurban Bayrami, 31 Mayis pazar -> 1 Haziran pazartesi
+    assert due_date_for(date(2026, 5, 17), 10) == date(2026, 6, 1)
+
+
+def test_the_half_day_eve_counts_as_a_business_day():
+    # 26 Mayis 2026 Kurban Bayrami arifesi; bankalar ogleye kadar acik
+    assert due_date_for(date(2026, 5, 16), 10) == date(2026, 5, 26)
+
+
 def test_shifting_never_moves_the_due_date_earlier():
     for day in range(1, 29):
         statement = date(2026, 9, day)

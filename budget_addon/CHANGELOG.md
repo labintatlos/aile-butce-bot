@@ -1,5 +1,12 @@
 # Değişiklik Günlüğü
 
+## 2.0.4
+
+Kredi kartı son ödeme tarihi artık resmî tatilleri de atlıyor: hafta sonuna
+veya bayrama (dinî bayramlar dahil) denk gelirse ilk iş gününe taşınır.
+Arifeler iş günü sayılır. Daha önce kaydedilmiş, günü gelmemiş taksitlerin
+tarihleri de güncelleme sırasında düzeltilir.
+
 ## 2.0.3
 
 Chrome sayfayı İngilizce sanıp otomatik çevirdiğinde menü ve metinler

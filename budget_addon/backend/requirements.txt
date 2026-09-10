@@ -16,3 +16,6 @@ cryptography==50.0.1
 # sistem tzdata'si bulunmaz; ZoneInfo('Europe/Istanbul') o durumda hata
 # verir ve tum tarih varsayilanlari coker.
 tzdata==2025.2
+# Turkiye resmi tatil takvimi (dini bayramlar dahil); son odeme tarihi
+# tatile denk gelirse ilk is gunune kaydirilir. Saf Python, derleme gerekmez.
+holidays==0.104

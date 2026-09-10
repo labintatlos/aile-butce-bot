@@ -70,8 +70,9 @@ anlamlı olmaz.
 | Sahibi | Kartın kime ait olduğu |
 
 **Son ödeme tarihini gün olarak girmezsin, sistem hesaplar.** Ekstre
-kesildikten sonraki gün sayısı eklenir; o gün hafta sonuna denk gelirse
-pazartesiye taşınır.
+kesildikten sonraki gün sayısı eklenir; o gün hafta sonuna veya resmî tatile
+(dinî bayramlar dahil) denk gelirse ilk iş gününe taşınır. Arifeler iş günü
+sayılır.
 
 Örnek: hesap kesim günü 26 olan bir kartla 8 Eylül'de 3.000 TL / 3 taksit
 harcama yaparsan taksitler 26 Eylül, 26 Ekim ve 26 Kasım ekstrelerine düşer;

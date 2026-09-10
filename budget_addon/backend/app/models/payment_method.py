@@ -5,8 +5,8 @@ anlık görüntüsü `expenses` tablosuna kopyalanır. Buradaki bir değişiklik
 geçmiş taksit planlarını **etkilemez** (docs/FINANCE_RULES.md, kural E5).
 
 Kullanıcı yalnızca hesap kesim gününü girer. Son ödeme tarihi ekstre
-tarihinden `due_offset_days` gün sonrasıdır ve hafta sonuna denk gelirse
-pazartesiye taşınır.
+tarihinden `due_offset_days` gün sonrasıdır ve hafta sonuna veya resmî
+tatile denk gelirse ilk iş gününe taşınır.
 """
 
 from __future__ import annotations
