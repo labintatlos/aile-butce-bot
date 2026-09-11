@@ -1,5 +1,26 @@
 # Değişiklik Günlüğü
 
+## 2.2.0
+
+**Görünüm teması seçimi.** Ayarlar sayfasına "Görünüm" kartı eklendi:
+Açık, Koyu veya Cihaz (telefonun/bilgisayarın ayarını izler) seçilebilir.
+Üst çubukta, giriş ve ilk kurulum ekranlarında da küçük bir tema seçici
+var. Tercih bu tarayıcıda saklanır; sayfa yenilense de korunur, açık diğer
+sekmelere de hemen yansır. Tema sayfa çizilmeden önce uygulandığı için koyu
+modda açılışta beyaz parlama olmaz. Tarayıcı depolaması kapalıysa cihaz
+teması kullanılır. Arayüzde renk ve boşluk iyileştirmeleri de yapıldı.
+
+**Silinen örnek kartlar geri gelmiyor.** Eklenti her açılışta başlangıç
+verisini kontrol ediyordu ve adı listede olmayan örnek kartı yeniden
+oluşturuyordu; bu yüzden silinen ya da yeniden adlandırılan başlangıç kartı
+bir sonraki açılışta geri geliyordu. Nakit ve örnek kartlar artık yalnızca
+ilk kurulumda, hiç ödeme yöntemi ve ödeme yöntemi geçmişi yokken oluşturulur.
+
+`budget_addon/backend` pytest (505 passed), `npm run build` (tsc + vite,
+hatasız) ve `frontend/tests/theme_smoke.py` ile doğrulandı (cihaz teması
+değişimi, elle seçim, yenileme, sekmeler arası eşitleme, ayarlar, klavye,
+telefon/masaüstü düzeni, kapalı depolama: PASS).
+
 ## 2.1.2
 
 **"Ortak" yanlış anlaşılmıştı; denkleştirme kaldırıldı.** "Ortak" burada
