@@ -11,6 +11,7 @@ import { useState, type FormEvent } from "react";
 import { api, type SetupPerson } from "../api";
 import { Icon } from "../components/icons";
 import { Field } from "../components/ui";
+import { ThemePicker } from "../components/ThemePicker";
 import { errorMessage } from "../hooks";
 
 const NEW_PERSON = "new";
@@ -69,6 +70,7 @@ export function Setup({ onSuccess }: { onSuccess: () => void }) {
   return (
     <div className="auth">
       <div className="auth-panel">
+        <div className="auth-theme"><ThemePicker compact /></div>
         <div className="brand">
           <span className="brand-mark">
             <Icon name="wallet" size={20} />

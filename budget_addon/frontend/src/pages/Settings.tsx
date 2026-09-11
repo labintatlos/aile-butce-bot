@@ -17,6 +17,7 @@ import {
 } from "../api";
 import { Icon } from "../components/icons";
 import { NotificationSettingsCard } from "../components/NotificationSettingsCard";
+import { ThemePicker } from "../components/ThemePicker";
 import {
   Card,
   ConfirmButton,
@@ -88,6 +89,9 @@ export function Settings() {
 
       <div className="grid two">
         <div className="stack">
+          <Card title="Görünüm">
+            <ThemePicker />
+          </Card>
           <Card title="Hesap">
             <div className="row">
               <span className="avatar">{initialOf(me.display_name)}</span>

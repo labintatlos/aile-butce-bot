@@ -22,6 +22,7 @@ import {
 } from "./api";
 import { Icon, type IconName } from "./components/icons";
 import { Loading, ToastProvider } from "./components/ui";
+import { ThemePicker } from "./components/ThemePicker";
 import { authSourceLabel, initialOf, SessionContext, useSession, type Session } from "./context";
 import { errorMessage, useHashRoute, type Route } from "./hooks";
 import { Dashboard } from "./pages/Dashboard";
@@ -283,7 +284,8 @@ function Shell({ route, visit }: { route: Route; visit: number }) {
             </span>
             {TITLES[route]}
           </div>
-          <div className="row">
+          <div className="row topbar-actions">
+            <ThemePicker compact />
             <button
               type="button"
               className="icon-btn"

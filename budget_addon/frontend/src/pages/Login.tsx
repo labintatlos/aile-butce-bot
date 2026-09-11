@@ -10,6 +10,7 @@ import { useState, type FormEvent } from "react";
 import { api } from "../api";
 import { Icon, type IconName } from "../components/icons";
 import { Field } from "../components/ui";
+import { ThemePicker } from "../components/ThemePicker";
 import { errorMessage } from "../hooks";
 
 const HIGHLIGHTS: readonly { icon: IconName; title: string; text: string }[] = [
@@ -59,6 +60,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
   return (
     <div className="auth">
       <div className="auth-panel">
+        <div className="auth-theme"><ThemePicker compact /></div>
         <div className="brand">
           <span className="brand-mark">
             <Icon name="wallet" size={20} />
