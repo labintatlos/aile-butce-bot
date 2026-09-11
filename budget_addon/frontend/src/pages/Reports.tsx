@@ -13,7 +13,6 @@ import {
   BarRow,
   BudgetBars,
   CardLimits,
-  SettlementView,
   share,
   StatementList,
 } from "../components/reportParts";
@@ -78,13 +77,12 @@ function MonthlyReport() {
     })),
   ];
   const state = useAsync(async () => {
-    const [spending, budgets, tags, settlement] = await Promise.all([
+    const [spending, budgets, tags] = await Promise.all([
       api.spending({ ...period, owner: owner === "all" ? undefined : owner }),
       api.budgets(period),
       api.tags(period),
-      api.settlement(period),
     ]);
-    return { spending, budgets, tags, settlement };
+    return { spending, budgets, tags };
   }, [period.year, period.month, owner]);
 
   return (
@@ -122,26 +120,21 @@ function MonthlyReport() {
               )}
             </Card>
 
-            <div className="stack">
-              <Card title="Kişiler">
-                {state.data.spending.by_user.length === 0 ? (
-                  <p className="muted">Kayıt yok.</p>
-                ) : (
-                  state.data.spending.by_user.map((item) => (
-                    <BarRow
-                      key={item.id}
-                      label={item.name}
-                      value={item.total.formatted}
-                      ratio={share(item.total.minor, state.data!.spending.total.minor)}
-                      meta={`${item.transaction_count} işlem`}
-                    />
-                  ))
-                )}
-              </Card>
-              <Card title="Ortak gider denkleştirmesi">
-                <SettlementView settlement={state.data.settlement} />
-              </Card>
-            </div>
+            <Card title="Kişiler">
+              {state.data.spending.by_user.length === 0 ? (
+                <p className="muted">Kayıt yok.</p>
+              ) : (
+                state.data.spending.by_user.map((item) => (
+                  <BarRow
+                    key={item.id}
+                    label={item.name}
+                    value={item.total.formatted}
+                    ratio={share(item.total.minor, state.data!.spending.total.minor)}
+                    meta={`${item.transaction_count} işlem`}
+                  />
+                ))
+              )}
+            </Card>
           </div>
 
           <div className="grid two">

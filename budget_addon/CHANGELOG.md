@@ -1,5 +1,21 @@
 # Değişiklik Günlüğü
 
+## 2.1.2
+
+**"Ortak" yanlış anlaşılmıştı; denkleştirme kaldırıldı.** "Ortak" burada
+evin ortak (hane) gideri anlamına geliyor, iki kişi arasında bölüşülüp
+kimin kime borçlu olduğu hesaplanacak bir masraf paylaşımı değil. Bu yanlış
+varsayımla eklenmiş "Ortak gider denkleştirmesi" özelliği — kim ne kadar
+ödedi, kimin kime ne kadar borcu var hesaplaması, hem özet hem raporlar
+sayfasındaki kartı, API uç noktası, backend servisi ve ilgili testler dahil
+— tamamen kaldırıldı. Harcama eklerken "Ortak" / "kişisel" ayrımı olduğu
+gibi kalıyor: kişisel işaretlenen harcama sahibinin yıllık kişisel
+bütçesinden düşmeye devam ediyor, sadece artık "denkleştirme" diye bir
+kavramdan söz edilmiyor.
+
+Verified with `budget_addon/backend` pytest (503 passed) and `npm run build`
+(tsc --noEmit + vite build, hatasız).
+
 ## 2.1.1
 
 Görsel/arayüz cilası: sayfa değişiminde içerik yumuşak yükselerek belirir

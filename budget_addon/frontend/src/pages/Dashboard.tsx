@@ -13,7 +13,6 @@ import {
   BudgetBars,
   CardLimits,
   ExpenseRow,
-  SettlementView,
   share,
   StatementList,
 } from "../components/reportParts";
@@ -27,7 +26,7 @@ export function Dashboard() {
   const [openId, setOpenId] = useState<number | null>(null);
 
   const state = useAsync(async () => {
-    const [position, forecast, spending, budgets, cards, statements, settlement, recent] =
+    const [position, forecast, spending, budgets, cards, statements, recent] =
       await Promise.all([
         api.position(),
         api.forecast(),
@@ -35,10 +34,9 @@ export function Dashboard() {
         api.budgets({}),
         api.cards(),
         api.statements(),
-        api.settlement({}),
         api.searchExpenses({ page_size: 6 }),
       ]);
-    return { position, forecast, spending, budgets, cards, statements, settlement, recent };
+    return { position, forecast, spending, budgets, cards, statements, recent };
   }, []);
 
   const header = (
@@ -63,8 +61,7 @@ export function Dashboard() {
     );
   }
 
-  const { position, forecast, spending, budgets, cards, statements, settlement, recent } =
-    state.data;
+  const { position, forecast, spending, budgets, cards, statements, recent } = state.data;
   const short = position.remaining.minor < 0;
   const monthProgress = share(forecast.days_elapsed, forecast.days_in_month);
   const topCategories = spending.by_category.slice(0, 6);
@@ -192,10 +189,6 @@ export function Dashboard() {
             <CardLimits items={limitedCards} />
           </Card>
         )}
-
-        <Card title="Ortak gider denkleştirmesi">
-          <SettlementView settlement={settlement} />
-        </Card>
       </div>
 
       {openId !== null && (

@@ -349,25 +349,6 @@ export interface MonthForecast {
   remaining: Money;
 }
 
-export interface PersonBalance {
-  user_id: number;
-  name: string;
-  paid: Money;
-  share: Money;
-  balance: Money;
-}
-
-export interface Settlement {
-  year: number;
-  month: number;
-  shared_total: Money;
-  balances: PersonBalance[];
-  is_even: boolean;
-  transfer: Money;
-  creditor_name: string | null;
-  debtor_name: string | null;
-}
-
 export interface MonthComparison {
   month: number;
   this_year: Money;
@@ -619,7 +600,6 @@ export const api = {
   budgets: (query: YearMonthQuery) => get<BudgetStatus[]>("reports/budgets", query),
   cards: () => get<CardUsage[]>("reports/cards"),
   forecast: () => get<MonthForecast>("reports/forecast"),
-  settlement: (query: YearMonthQuery) => get<Settlement>("reports/settlement", query),
   yearly: (year?: number) => get<YearComparison>("reports/yearly", { year }),
   tags: (query: YearMonthQuery) => get<TagTotal[]>("reports/tags", query),
   statements: () => get<Statement[]>("reports/cashflow/statements"),

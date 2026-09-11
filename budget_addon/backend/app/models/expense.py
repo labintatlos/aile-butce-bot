@@ -61,11 +61,13 @@ class Expense(TimestampMixin, Base):
     installment_count: Mapped[int] = mapped_column(Integer, default=1)
     description: Mapped[str | None] = mapped_column(Text, default=None)
     is_shared: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
-    """Harcama ortak mı, yoksa kişisel mi.
+    """Harcama ortak (ev) mı, yoksa kişisel mi.
 
-    İki kişilik bir kurulumda harcamaların çoğu ortaktır; bu yüzden varsayılan
+    "Ortak" burada evin ortak harcamasını, yani hanenin genel giderini ifade
+    eder; iki kişi arasında bölüşülüp denkleştirilecek bir borç değildir. İki
+    kişilik bir kurulumda harcamaların çoğu ortaktır; bu yüzden varsayılan
     ortaktır. Kişisel işaretlenen harcama raporlarda görünmeye devam eder ama
-    denkleştirmeye girmez: kimsenin kimseden yarısını istemesi beklenmez."""
+    ortak toplamların dışında, sahibinin kişisel bütçesinden düşer."""
 
     owner_user_id: Mapped[int | None] = mapped_column(Integer, index=True, default=None)
     """Kişisel harcamanın kime ait olduğu; ortak harcamada boştur.

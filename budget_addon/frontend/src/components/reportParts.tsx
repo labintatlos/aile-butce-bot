@@ -7,7 +7,7 @@
 
 import type { ReactNode } from "react";
 
-import type { BudgetStatus, CardUsage, Expense, Settlement, Statement } from "../api";
+import type { BudgetStatus, CardUsage, Expense, Statement } from "../api";
 import { installmentLabel, shortDate } from "../format";
 import { Icon } from "./icons";
 import { Empty, Meter } from "./ui";
@@ -84,41 +84,6 @@ export function CardLimits({ items }: { items: CardUsage[] }) {
           />
         ),
       )}
-    </>
-  );
-}
-
-export function SettlementView({ settlement }: { settlement: Settlement }) {
-  if (settlement.shared_total.minor === 0) {
-    return <p className="muted">Bu ay ortak gider kaydı yok.</p>;
-  }
-  return (
-    <>
-      <dl className="kv">
-        <div>
-          <dt>Ortak gider</dt>
-          <dd>{settlement.shared_total.formatted}</dd>
-        </div>
-        {settlement.balances.map((person) => (
-          <div key={person.user_id}>
-            <dt>{person.name}</dt>
-            <dd>
-              {person.paid.formatted}{" "}
-              <span className="muted small">/ payı {person.share.formatted}</span>
-            </dd>
-          </div>
-        ))}
-      </dl>
-      <div className="alert info mt">
-        {settlement.is_even ? (
-          "Hesap denk; kimsenin borcu yok."
-        ) : (
-          <span>
-            <strong>{settlement.debtor_name}</strong>, {settlement.creditor_name} kişisine{" "}
-            <strong>{settlement.transfer.formatted}</strong> ödemeli.
-          </span>
-        )}
-      </div>
     </>
   );
 }

@@ -151,3 +151,9 @@ async def test_the_hash_prefix_is_optional_when_asking(
     without_hash = await tags.total_for(async_session, "bodrum")
 
     assert with_hash == without_hash
+
+
+async def test_the_personal_tag_marks_an_expense_personal():
+    assert tags.marks_personal("kitap #kisisel") is True
+    assert tags.marks_personal("kitap #özel") is True
+    assert tags.marks_personal("kitap #hediye") is False

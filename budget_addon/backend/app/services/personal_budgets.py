@@ -1,8 +1,8 @@
 """Kişisel yıllık bütçeler.
 
-Her kişinin ortak giderden bağımsız, yıllık bir kişisel harcama hakkı vardır.
-Kişisel işaretlenen harcama, **kimin kartıyla alındığına bakılmaksızın**
-sahibinin bütçesinden düşer ve denkleştirmeye girmez.
+Her kişinin ortak (ev) giderinden bağımsız, yıllık bir kişisel harcama hakkı
+vardır. Kişisel işaretlenen harcama, **kimin kartıyla alındığına bakılmaksızın**
+sahibinin bütçesinden düşer ve ortak gider toplamlarına dahil olmaz.
 
 Taksitli kişisel alışverişin tamamı alışveriş tarihinde bütçeden düşer: bütçe
 "bu yıl kendime ne kadar harcadım" sorusunu yanıtlar, kart ödemesini değil.

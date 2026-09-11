@@ -98,20 +98,6 @@ async def test_card_report_lists_the_card(client, seeded_users, seeded_reference
     assert _is_money(body[0]["outstanding"])
 
 
-async def test_settlement_report_names_both_sides(
-    client, seeded_users, seeded_reference_data
-):
-    await _record_expense(client, seeded_reference_data)
-
-    response = await client.get("/api/reports/settlement", headers=HEADERS)
-
-    body = response.json()
-    assert body["is_even"] is False
-    assert body["creditor_name"] == "Aykut"
-    assert body["debtor_name"] == "Aslıhan"
-    assert _is_money(body["transfer"])
-
-
 async def test_yearly_report_always_returns_twelve_months(
     client, seeded_users, seeded_reference_data
 ):

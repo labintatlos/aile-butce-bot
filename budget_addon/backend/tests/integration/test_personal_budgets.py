@@ -1,7 +1,8 @@
 """Kişisel yıllık bütçeler.
 
 Kişisel harcama, kimin kartıyla alındığına ve kaydı kimin girdiğine
-bakılmaksızın sahibinin bütçesinden düşer ve denkleştirmeye girmez.
+bakılmaksızın sahibinin bütçesinden düşer ve ortak gider toplamlarına dahil
+olmaz.
 """
 
 from __future__ import annotations
@@ -12,7 +13,6 @@ import pytest
 
 from app.services import personal_budgets, reports
 from app.services.expenses import ExpenseInput, create_expense, update_expense
-from app.services.settlement import monthly_settlement
 
 pytestmark = pytest.mark.asyncio
 
@@ -64,13 +64,13 @@ async def test_a_personal_purchase_counts_against_its_owner_not_the_buyer(
     assert _find(status, aykut.id).budget_minor is None
 
 
-async def test_personal_spending_stays_out_of_the_settlement(async_session, people, fixtures):
+async def test_personal_spending_stays_out_of_the_shared_total(async_session, people, fixtures):
     aykut, aslihan = people["aykut"], people["aslihan"]
     await _spend(async_session, aykut, fixtures, "1.000")
     await _spend(async_session, aykut, fixtures, "500", owner=aslihan.id)
 
-    result = await monthly_settlement(async_session, year=2026, month=9)
-    assert result.shared_total_minor == 100_000
+    shared = await reports.monthly_spending(async_session, year=2026, month=9, owner="shared")
+    assert shared.total_minor == 100_000
 
 
 async def test_unticking_shared_without_an_owner_makes_it_the_entrants(

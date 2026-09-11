@@ -248,8 +248,8 @@ export function ExpenseForm({
           label="Kimin harcaması?"
           hint={
             ownership === SHARED
-              ? "Ortak gider olarak denkleştirmeye girer."
-              : "Seçilen kişinin yıllık kişisel bütçesinden düşer, denkleştirmeye girmez."
+              ? "Ortak (ev) gideri olarak kaydedilir."
+              : "Seçilen kişinin yıllık kişisel bütçesinden düşer, ortak giderlere dahil olmaz."
           }
         >
           <Segmented options={ownershipOptions} value={ownership} onChange={setOwnership} />
