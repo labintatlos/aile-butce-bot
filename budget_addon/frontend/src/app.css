@@ -1860,6 +1860,21 @@ code {
   white-space: normal;
 }
 
+/* Sayfa geçişi: App.tsx her ziyarette .page-enter'ı key={visit} ile yeniden
+   oluşturur, bu yüzden animasyon her sayfa değişiminde tekrar oynar. Ayrı bir
+   isim kullanılır çünkü aşağıdaki `rise` (toast için) transform:
+   translate(-50%, …) taşır ve burada yeniden kullanılırsa içeriği yatayda
+   kaydırır. Su Ürünleri ve Görev Maliyet siteleriyle aynı eğri. */
+@keyframes page-rise {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+}
+.page-enter {
+  animation: page-rise 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
 /* Gizleme yalnizca kapatir; acik hali ogenin kendi `display` degerini korur. */
 @media (max-width: 959.98px) {
   .desktop-only {
@@ -1914,6 +1929,11 @@ code {
 .btn { transition: background .18s, box-shadow .18s, transform .18s; }
 .btn.primary { box-shadow: 0 4px 10px -6px #087c60; }
 .btn:active:not(:disabled) { transform: translateY(1px); }
+/* Su Ürünleri ve Görev Maliyet siteleriyle ortak: ikincil/hayalet düğmelerde
+   de masaüstünde ince bir hover gölgesi (primary zaten sürekli gölgeli). */
+@media (hover: hover) {
+  .btn.secondary:hover:not(:disabled), .btn.ghost:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(16, 24, 40, .1); }
+}
 .input:focus { box-shadow: 0 0 0 3px var(--soft); }
 .list-item { padding-top: 15px; padding-bottom: 15px; }
 .list-icon { background: var(--soft); }

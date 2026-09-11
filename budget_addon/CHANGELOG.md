@@ -1,5 +1,15 @@
 # Değişiklik Günlüğü
 
+## 2.1.1
+
+Görsel/arayüz cilası: sayfa değişiminde içerik yumuşak yükselerek belirir
+(her ziyarette yeniden oluşan bir sarmalayıcı üzerinden), ikincil/hayalet
+düğmelerde masaüstünde ince bir hover gölgesi eklendi. Bildirim ve pencere
+animasyonları zaten vardı. Su Ürünleri ve Görev Maliyet siteleriyle aynı
+hareket eğrisi kullanılır; üçü arasında ortak bir görsel dil kuruldu.
+`npm run build` (tsc + vite, hatasız) ve `.smoke-ui.py` ile telefon/masaüstü,
+açık/koyu temada doğrulandı.
+
 ## 2.1.0
 
 **Kişisel yıllık bütçeler.** Harcama eklerken artık "Ortak", "Aykut kişisel"

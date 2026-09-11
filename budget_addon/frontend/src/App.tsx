@@ -305,7 +305,12 @@ function Shell({ route, visit }: { route: Route; visit: number }) {
         </header>
 
         <main className="main" id="main-content" tabIndex={-1}>
-          <Page key={visit} route={route} />
+          {/* key={visit} burada değil sarmalayıcıda: her ziyarette taze bir
+              DOM düğümü oluşur, bu yüzden app.css'teki giriş animasyonu her
+              sayfa değişiminde yeniden oynar. */}
+          <div className="page-enter" key={visit}>
+            <Page route={route} />
+          </div>
         </main>
       </div>
 
