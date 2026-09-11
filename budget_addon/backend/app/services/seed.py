@@ -1,8 +1,8 @@
 """Başlangıç verisi.
 
 Seed **idempotenttir**: her açılışta çalıştırılabilir, var olan kayda dokunmaz.
-Kullanıcının ayarlar ekranından yaptığı düzenlemeler (kart günleri, pasife
-alınmış kategoriler) yeniden yazılmaz.
+Ödeme yöntemleri yalnızca ilk kurulumda oluşturulur; kullanıcının sildiği veya
+yeniden adlandırdığı başlangıç kartları sonraki açılışta geri getirilmez.
 
 Kredi kartlarının hesap kesim ve son ödeme günleri buradaki değerler yalnızca
 başlangıç varsayımıdır; gerçek değerler ayarlardan girilir.
@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import Settings
+from ..models.audit_log import AuditLog, ENTITY_PAYMENT_METHOD
 from ..models.category import Category
 from ..models.payment_method import TYPE_CASH, TYPE_CREDIT_CARD, PaymentMethod
 
@@ -65,24 +66,29 @@ async def seed_categories(session: AsyncSession) -> int:
 
 
 async def seed_payment_methods(session: AsyncSession) -> int:
-    """Nakit ve başlangıç kartlarını oluşturur.
+    """Nakit ve başlangıç kartlarını yalnızca ilk kurulumda oluşturur.
 
     Hesap kesim günü yer tutucudur ve bilinçle böyle bırakılmıştır: uydurulmuş
     bir gün, kullanıcı düzeltene kadar sessizce yanlış ekstre tarihi üretirdi.
     Son ödeme tarihi kesim gününden türetildiği için ayrıca girilmez.
-    """
-    existing = set(
-        (await session.scalars(select(PaymentMethod.name))).all()
-    )
-    created = 0
 
-    if CASH_METHOD_NAME not in existing:
-        session.add(PaymentMethod(name=CASH_METHOD_NAME, type=TYPE_CASH))
-        created += 1
+    Bu fonksiyon her uygulama açılışında çalışır. Ödeme yöntemlerinden birini
+    adına bakarak yeniden eklemek, kullanıcının sildiği veya yeniden
+    adlandırdığı örnek kartı diriltirdi. Herhangi bir ödeme yöntemi ya da geçmiş
+    kullanıcı işlemi varsa başlangıç aşaması tamamlanmış kabul edilir.
+    """
+    existing_method = await session.scalar(select(PaymentMethod.id).limit(1))
+    payment_method_history = await session.scalar(
+        select(AuditLog.id)
+        .where(AuditLog.entity_type == ENTITY_PAYMENT_METHOD)
+        .limit(1)
+    )
+    if existing_method is not None or payment_method_history is not None:
+        return 0
+
+    session.add(PaymentMethod(name=CASH_METHOD_NAME, type=TYPE_CASH))
 
     for name in DEFAULT_CARD_NAMES:
-        if name in existing:
-            continue
         session.add(
             PaymentMethod(
                 name=name,
@@ -91,8 +97,7 @@ async def seed_payment_methods(session: AsyncSession) -> int:
                 notes="Hesap kesim gününü ayarlardan güncelleyin.",
             )
         )
-        created += 1
-    return created
+    return 1 + len(DEFAULT_CARD_NAMES)
 
 
 async def seed_all(session: AsyncSession, settings: Settings) -> dict[str, int]:

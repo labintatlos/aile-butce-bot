@@ -11,7 +11,8 @@ from sqlalchemy import select
 
 from app.config import Settings
 from app.models import Category, PaymentMethod, User
-from app.services.seed import DEFAULT_CATEGORIES, seed_all
+from app.services.seed import DEFAULT_CATEGORIES, DEFAULT_CARD_NAMES, seed_all
+from app.services.settings_service import delete_payment_method, update_payment_method
 
 pytestmark = pytest.mark.asyncio
 
@@ -60,6 +61,48 @@ async def test_seed_does_not_overwrite_user_edits(async_session, settings):
     await async_session.refresh(market)
     assert card.statement_day == 26
     assert market.is_active is False
+
+
+async def test_deleted_starter_card_is_not_recreated_on_next_start(
+    async_session, settings
+):
+    """Açılış seed'i, kullanıcının sildiği örnek kartı geri getirmemelidir."""
+    await seed_all(async_session, settings)
+    user = User(display_name="Yönetici", username="admin", is_admin=True)
+    async_session.add(user)
+    await async_session.commit()
+    card = await async_session.scalar(
+        select(PaymentMethod).where(PaymentMethod.name == DEFAULT_CARD_NAMES[0])
+    )
+
+    await delete_payment_method(async_session, user=user, method=card)
+    counts = await seed_all(async_session, settings)
+
+    assert counts["payment_methods"] == 0
+    assert await async_session.scalar(
+        select(PaymentMethod).where(PaymentMethod.name == DEFAULT_CARD_NAMES[0])
+    ) is None
+
+
+async def test_renamed_starter_card_is_not_duplicated_on_next_start(
+    async_session, settings
+):
+    await seed_all(async_session, settings)
+    user = User(display_name="Yönetici", username="admin", is_admin=True)
+    async_session.add(user)
+    await async_session.commit()
+    card = await async_session.scalar(
+        select(PaymentMethod).where(PaymentMethod.name == DEFAULT_CARD_NAMES[0])
+    )
+
+    await update_payment_method(
+        async_session, user=user, method=card, changes={"name": "Kişisel Kartım"}
+    )
+    await seed_all(async_session, settings)
+
+    names = set((await async_session.scalars(select(PaymentMethod.name))).all())
+    assert "Kişisel Kartım" in names
+    assert DEFAULT_CARD_NAMES[0] not in names
 
 
 async def test_people_are_created_on_the_site_not_by_seed(async_session, settings):
