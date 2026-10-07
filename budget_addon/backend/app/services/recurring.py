@@ -26,7 +26,7 @@ from ..models.audit_log import ACTION_CREATE, ACTION_DELETE, ACTION_UPDATE
 from ..models.expense import Expense
 from ..models.recurring_expense import RecurringExpense
 from ..models.user import User
-from ..utils.time import month_bounds
+from ..utils.time import local_today, month_bounds
 from .audit import record_audit
 from .expenses import ExpenseInput, create_expense
 from .finance.dates import normalized_date, validate_day_of_month
@@ -117,7 +117,7 @@ async def create_template(
         payment_method_id=payment_method_id,
         amount_minor=amount_minor,
         day_of_month=day_of_month,
-        start_date=start_date or date.today(),
+        start_date=start_date or local_today(),
         notes=notes,
     )
     try:
@@ -264,6 +264,10 @@ async def generate_due(
                 continue
 
             user = actor or await session.get(User, template.created_by_user_id)
+            if user is None:
+                # Sablonu olusturan kisi silinmis; kayit kimin adina yapilacagi
+                # bilinmeden olusturulmaz.
+                continue
             expense = await create_expense(
                 session,
                 user=user,

@@ -21,10 +21,12 @@ import {
   type UserSummary,
 } from "./api";
 import { Icon, type IconName } from "./components/icons";
-import { Loading, ToastProvider } from "./components/ui";
+import { QueueList, QuickEntry } from "./components/QuickEntry";
+import { Loading, ToastProvider, useToast } from "./components/ui";
 import { ThemePicker } from "./components/ThemePicker";
 import { authSourceLabel, initialOf, SessionContext, useSession, type Session } from "./context";
 import { errorMessage, useHashRoute, type Route } from "./hooks";
+import { isNetworkError, useOfflineQueue } from "./offline";
 import { Dashboard } from "./pages/Dashboard";
 import { Expenses } from "./pages/Expenses";
 import { Incomes } from "./pages/Incomes";
@@ -43,6 +45,7 @@ type Phase =
   | { kind: "login" }
   | { kind: "setup" }
   | { kind: "failed"; message: string }
+  | { kind: "offline" }
   | { kind: "ready"; me: Me; bootstrap: Bootstrap; users: UserSummary[] };
 
 const NAV: readonly { route: Route; label: string; icon: IconName; admin?: boolean }[] = [
@@ -94,6 +97,8 @@ export default function App() {
         // Henuz yonetici yoksa giris ekrani yerine kurulum gosterilir.
         const setup = await api.setupStatus().catch(() => ({ required: false }));
         setPhase({ kind: setup.required ? "setup" : "login" });
+      } else if (isNetworkError(cause)) {
+        setPhase({ kind: "offline" });
       } else {
         setPhase({ kind: "failed", message: errorMessage(cause, "Bağlantı kurulamadı.") });
       }
@@ -148,6 +153,10 @@ export default function App() {
     );
   }
 
+  if (phase.kind === "offline") {
+    return <OfflineScreen onRetry={retry} />;
+  }
+
   if (phase.kind === "login") {
     return <Login onSuccess={retry} />;
   }
@@ -181,6 +190,65 @@ export default function App() {
         <Shell route={route} visit={visit} />
       </ToastProvider>
     </SessionContext.Provider>
+  );
+}
+
+/**
+ * İnternet yokken açılış. Bütçe verisi gösterilemez (önbelleğe alınmaz), ama
+ * hızlı giriş çalışır: kayıt bu cihazda bekler ve bağlantı gelince gönderilir.
+ */
+function OfflineScreen({ onRetry }: { onRetry: () => void }) {
+  const queue = useOfflineQueue();
+
+  useEffect(() => {
+    window.addEventListener("online", onRetry);
+    return () => window.removeEventListener("online", onRetry);
+  }, [onRetry]);
+
+  return (
+    <div className="offline-screen narrow stack">
+      <div className="empty">
+        <span className="empty-icon">
+          <Icon name="wallet" size={22} />
+        </span>
+        <strong>İnternet bağlantısı yok</strong>
+        <span>
+          Harcamayı yine de yazabilirsiniz; bu cihazda bekler ve bağlantı gelince kaydedilir.
+        </span>
+        <div className="empty-action">
+          <button type="button" className="btn secondary" onClick={onRetry}>
+            Tekrar bağlan
+          </button>
+        </div>
+      </div>
+      <QuickEntry />
+      <QueueList items={queue.items} />
+    </div>
+  );
+}
+
+/** Çevrimdışı kuyruk gönderilince haber verir; bekleyen varsa şerit gösterir. */
+function OfflineQueueBanner({ route }: { route: Route }) {
+  const { navigate } = useSession();
+  const toast = useToast();
+  const onSaved = useCallback(
+    (count: number) => toast(`Çevrimdışı girilen ${count} harcama kaydedildi.`),
+    [toast],
+  );
+  const { items } = useOfflineQueue(onSaved);
+  if (items.length === 0 || route === "yeni") return null;
+  const waiting = items.filter((item) => item.state !== "pending").length;
+  return (
+    <div className="alert info queue-banner" role="status">
+      <span>
+        {waiting > 0
+          ? `Bu cihazda tamamlanması gereken ${waiting} harcama var.`
+          : `Bu cihazda gönderilmeyi bekleyen ${items.length} harcama var.`}
+      </span>
+      <button type="button" className="btn ghost sm" onClick={() => navigate("yeni")}>
+        Göster
+      </button>
+    </div>
   );
 }
 
@@ -310,6 +378,7 @@ function Shell({ route, visit }: { route: Route; visit: number }) {
           {/* key={visit} burada değil sarmalayıcıda: her ziyarette taze bir
               DOM düğümü oluşur, bu yüzden app.css'teki giriş animasyonu her
               sayfa değişiminde yeniden oynar. */}
+          <OfflineQueueBanner route={route} />
           <div className="page-enter" key={visit}>
             <Page route={route} />
           </div>

@@ -11,9 +11,8 @@ from datetime import date, datetime
 
 import pytest
 
-from app.services import scheduler
 from app.models.installment import STATUS_PAID
-from app.services import cards
+from app.services import cards, scheduler
 from app.services.expenses import ExpenseInput, create_expense
 
 pytestmark = pytest.mark.asyncio

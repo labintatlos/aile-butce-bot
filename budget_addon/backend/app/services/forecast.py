@@ -95,14 +95,14 @@ async def _variable_spending(
     Sabit giderler ayrı hesaplandığı için buradan çıkarılır; iadeler de
     düşülür, çünkü geri alınan para harcanmış sayılmamalıdır.
     """
-    spent = await session.scalar(
+    spent = int(await session.scalar(
         select(func.coalesce(func.sum(Expense.total_amount_minor), 0)).where(
             Expense.deleted_at.is_(None),
             Expense.recurring_expense_id.is_(None),
             Expense.transaction_date >= start,
             Expense.transaction_date <= end,
         )
-    )
+    ) or 0)
     year, month = start.year, start.month
     refunded = await refunds.by_category_in_month(session, year=year, month=month)
     return max(spent - sum(refunded.values()), 0)
@@ -110,14 +110,14 @@ async def _variable_spending(
 
 async def _recorded_fixed(session: AsyncSession, *, start: date, end: date) -> int:
     """Bu ay şablondan üretilmiş harcamaların toplamı."""
-    return await session.scalar(
+    return int(await session.scalar(
         select(func.coalesce(func.sum(Expense.total_amount_minor), 0)).where(
             Expense.deleted_at.is_(None),
             Expense.recurring_expense_id.is_not(None),
             Expense.transaction_date >= start,
             Expense.transaction_date <= end,
         )
-    )
+    ) or 0)
 
 
 async def _fixed_total(session: AsyncSession, *, today: date) -> int:

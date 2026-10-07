@@ -9,7 +9,7 @@ Kurallar için bkz. docs/FINANCE_RULES.md, bölüm 1 ve 2.
 
 from __future__ import annotations
 
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 MINOR_UNITS_PER_MAJOR = 100
 """1 TL kaç kuruştur."""

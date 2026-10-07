@@ -157,11 +157,11 @@ async def deliver(
 
 
 async def unread_count(session: AsyncSession, user: User) -> int:
-    return await session.scalar(
+    return int(await session.scalar(
         select(func.count(Notification.id)).where(
             Notification.user_id == user.id, Notification.read_at.is_(None)
         )
-    )
+    ) or 0)
 
 
 async def recent(session: AsyncSession, user: User, *, limit: int) -> list[Notification]:

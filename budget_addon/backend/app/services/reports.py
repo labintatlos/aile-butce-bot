@@ -26,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.category import Category
 from ..models.expense import Expense
 from ..models.installment import STATUS_CANCELLED, STATUS_PAID, ExpenseInstallment
-from ..models.payment_method import TYPE_CASH, TYPE_CREDIT_CARD, PaymentMethod
+from ..models.payment_method import TYPE_CASH, TYPE_CREDIT_CARD
 from ..models.user import User
 from ..utils.time import local_today, month_bounds
 from . import refunds
@@ -141,18 +141,18 @@ async def monthly_spending(
                 .where(Expense.deleted_at.is_(None), *in_month)
                 .group_by(Expense.payment_method_type_snapshot)
             )
-        ).all()
+        ).tuples().all()
     )
 
     by_user = [
-        NamedTotal(id=row.id, name=row.display_name, total_minor=row.total, transaction_count=row.count)
+        NamedTotal(id=row.id, name=row.display_name, total_minor=row.total, transaction_count=row.row_count)
         for row in (
             await session.execute(
                 select(
                     User.id,
                     User.display_name,
                     func.coalesce(func.sum(Expense.total_amount_minor), 0).label("total"),
-                    func.count(Expense.id).label("count"),
+                    func.count(Expense.id).label("row_count"),
                 )
                 .join(Expense, Expense.created_by_user_id == User.id)
                 .where(Expense.deleted_at.is_(None), *in_month)
@@ -168,7 +168,7 @@ async def monthly_spending(
             name=row.name,
             emoji=row.emoji,
             total_minor=row.total,
-            transaction_count=row.count,
+            transaction_count=row.row_count,
         )
         for row in (
             await session.execute(
@@ -177,7 +177,7 @@ async def monthly_spending(
                     Category.name,
                     Category.emoji,
                     func.coalesce(func.sum(Expense.total_amount_minor), 0).label("total"),
-                    func.count(Expense.id).label("count"),
+                    func.count(Expense.id).label("row_count"),
                 )
                 .join(Expense, Expense.category_id == Category.id)
                 .where(Expense.deleted_at.is_(None), *in_month)
@@ -286,7 +286,7 @@ async def upcoming_statements(
                 ExpenseInstallment.statement_date,
                 ExpenseInstallment.due_date,
                 func.sum(ExpenseInstallment.amount_minor).label("total"),
-                func.count(ExpenseInstallment.id).label("count"),
+                func.count(ExpenseInstallment.id).label("row_count"),
             )
             .join(Expense, ExpenseInstallment.expense_id == Expense.id)
             .where(Expense.deleted_at.is_(None), *conditions)
@@ -315,7 +315,7 @@ async def upcoming_statements(
             due_date=row.due_date,
             total_minor=row.total
             - credits.get((row.payment_method_id, row.statement_date), 0),
-            installment_count=row.count,
+            installment_count=row.row_count,
         )
         for row in rows
     ]
@@ -460,7 +460,7 @@ async def future_obligations(
                 func.strftime("%Y", column).label("year"),
                 func.strftime("%m", column).label("month"),
                 func.sum(ExpenseInstallment.amount_minor).label("total"),
-                func.count(ExpenseInstallment.id).label("count"),
+                func.count(ExpenseInstallment.id).label("row_count"),
             )
             .join(Expense, ExpenseInstallment.expense_id == Expense.id)
             .where(
@@ -478,7 +478,7 @@ async def future_obligations(
         )
     ).all()
 
-    totals = {(int(row.year), int(row.month)): (row.total, row.count) for row in rows}
+    totals = {(int(row.year), int(row.month)): (row.total, row.row_count) for row in rows}
 
     obligations = []
     for offset in range(months):
@@ -547,13 +547,13 @@ class YearComparison:
 async def _net_month_total(session: AsyncSession, *, year: int, month: int) -> int:
     """Bir ayın iadeler düşülmüş harcama toplamı."""
     start, end = month_bounds(year, month)
-    spent = await session.scalar(
+    spent = int(await session.scalar(
         select(func.coalesce(func.sum(Expense.total_amount_minor), 0)).where(
             Expense.deleted_at.is_(None),
             Expense.transaction_date >= start,
             Expense.transaction_date <= end,
         )
-    )
+    ) or 0)
     refunded = await refunds.total_in_month(session, year=year, month=month)
     return spent - refunded
 

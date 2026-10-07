@@ -7,6 +7,7 @@ import { useState } from "react";
 import { api } from "../api";
 import { ExpenseDetail } from "../components/ExpenseDetail";
 import { PersonalBudgetsCard } from "../components/PersonalBudgetsCard";
+import { SavingsGoalsCard } from "../components/SavingsGoalsCard";
 import { Icon } from "../components/icons";
 import {
   BarRow,
@@ -173,6 +174,8 @@ export function Dashboard() {
 
       <div className="grid three">
         <PersonalBudgetsCard year={position.year} />
+
+        <SavingsGoalsCard />
 
         <Card title="Yaklaşan ekstreler" flush>
           <StatementList items={statements} limit={4} />

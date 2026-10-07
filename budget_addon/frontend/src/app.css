@@ -1707,6 +1707,16 @@ button.list-item:hover {
   max-width: 760px;
 }
 
+/* Cevrimdisi acilis: veri yok, yalnizca hizli giris ve bekleyen kayitlar. */
+.offline-screen {
+  margin: 0 auto;
+  padding: 32px 16px calc(32px + env(safe-area-inset-bottom));
+}
+
+.queue-banner {
+  margin-bottom: 16px;
+}
+
 .mt {
   margin-top: 12px;
 }
@@ -1871,8 +1881,10 @@ code {
     transform: translateY(9px);
   }
 }
+/* `backwards`: animasyon bittikten sonra transform kalmaz. Kalırsa sarmalayıcı
+   `position: fixed` öğeler için kapsayıcı olur. */
 .page-enter {
-  animation: page-rise 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: page-rise 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
 }
 
 /* Gizleme yalnizca kapatir; acik hali ogenin kendi `display` degerini korur. */

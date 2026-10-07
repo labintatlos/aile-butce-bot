@@ -55,22 +55,27 @@ class CardUsage:
         return self.credit_limit_minor is not None and self.credit_limit_minor > 0
 
     @property
+    def limit_minor(self) -> int:
+        """Girilmiş limit; limit yoksa sıfır."""
+        return self.credit_limit_minor if self.credit_limit_minor is not None else 0
+
+    @property
     def available_minor(self) -> int:
         """Kullanılabilir limit. Limit aşıldıysa sıfırlanır, negatife inmez."""
         if not self.has_limit:
             return 0
-        return max(self.credit_limit_minor - self.outstanding_minor, 0)
+        return max(self.limit_minor - self.outstanding_minor, 0)
 
     @property
     def ratio(self) -> int:
         """Limitin yüzde kaçı bağlanmış. Limit girilmemişse sıfır."""
         if not self.has_limit:
             return 0
-        return round(self.outstanding_minor * 100 / self.credit_limit_minor)
+        return round(self.outstanding_minor * 100 / self.limit_minor)
 
     @property
     def is_over_limit(self) -> bool:
-        return self.has_limit and self.outstanding_minor > self.credit_limit_minor
+        return self.has_limit and self.outstanding_minor > self.limit_minor
 
     @property
     def bar(self) -> str:
@@ -103,7 +108,7 @@ async def card_usage(
                 )
                 .group_by(Expense.payment_method_id)
             )
-        ).all()
+        ).tuples().all()
     )
 
     # Iade, karta baglanmis limiti serbest birakir.

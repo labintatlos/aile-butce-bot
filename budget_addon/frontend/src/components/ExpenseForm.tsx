@@ -6,7 +6,7 @@
  * önce taksit ve ekstre özeti gösterilir (§17). Nakitte taksit her zaman 1'dir.
  */
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { api, type Expense, type ExpenseInput, type SchedulePreview } from "../api";
 import { useSession } from "../context";
@@ -24,6 +24,8 @@ import { Field, Segmented } from "./ui";
 const SHARED = "shared";
 
 const PREVIEW_DEBOUNCE_MS = 350;
+const SUGGEST_DEBOUNCE_MS = 400;
+const SUGGEST_MIN_LENGTH = 3;
 
 export function ExpenseForm({
   initial,
@@ -33,8 +35,17 @@ export function ExpenseForm({
   onCancel,
 }: {
   initial?: Expense;
-  /** Hızlı girişte kategorisi bulunamayan metinden gelen tutar ve açıklama. */
-  defaults?: { amount: string; description: string };
+  /**
+   * Hızlı girişte kategorisi bulunamayan metinden gelen tutar ve açıklama;
+   * geçmiş kayıtlardan önerilen kategori varsa o da seçili gelir.
+   */
+  defaults?: {
+    amount: string;
+    description: string;
+    categoryId?: number | null;
+    /** Çevrimdışı girilen kaydın girildiği gün. */
+    transactionDate?: string;
+  };
   submitLabel: string;
   onSubmit: (input: ExpenseInput) => Promise<void>;
   onCancel?: () => void;
@@ -56,7 +67,7 @@ export function ExpenseForm({
     initial ? minorToInput(initial.total.minor) : (defaults?.amount ?? ""),
   );
   const [transactionDate, setTransactionDate] = useState(
-    initial?.transaction_date ?? bootstrap.today,
+    initial?.transaction_date ?? defaults?.transactionDate ?? bootstrap.today,
   );
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(() => {
     if (initial) return initial.payment_method_id;
@@ -64,7 +75,15 @@ export function ExpenseForm({
     return cash?.id ?? methods[0]?.id ?? null;
   });
   const [installmentCount, setInstallmentCount] = useState(initial?.installment_count ?? 1);
-  const [categoryId, setCategoryId] = useState<number | null>(initial?.category.id ?? null);
+  const [categoryId, setCategoryId] = useState<number | null>(
+    initial?.category.id ?? defaults?.categoryId ?? null,
+  );
+  // Kategori geçmişten önerildiyse kullanıcıya söylenir. Kullanıcı bir kategoriye
+  // kendisi dokunduysa öneri artık seçimini değiştirmez.
+  const [suggested, setSuggested] = useState(Boolean(!initial && defaults?.categoryId));
+  const [categoryTouched, setCategoryTouched] = useState(false);
+  const suggestedRef = useRef(suggested);
+  suggestedRef.current = suggested;
   const [description, setDescription] = useState(
     initial?.description ?? defaults?.description ?? "",
   );
@@ -114,6 +133,35 @@ export function ExpenseForm({
     }, PREVIEW_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
   }, [isCreditCard, amountMinor, amount, paymentMethodId, transactionDate, installmentCount]);
+
+  useEffect(() => {
+    // Düzenlemede kayıtlı kategori korunur; öneri yalnızca yeni kayıtta yapılır.
+    if (initial || categoryTouched) return;
+    const text = description.trim();
+    if (text.length < SUGGEST_MIN_LENGTH) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      api
+        .suggestCategory(text)
+        .then((result) => {
+          if (cancelled) return;
+          const found = categories.some((category) => category.id === result.category_id);
+          if (result.category_id !== null && found) {
+            setCategoryId(result.category_id);
+            setSuggested(true);
+          } else if (suggestedRef.current) {
+            // Önceki açıklamanın önerisi artık geçerli değil; kullanıcı kendisi seçer.
+            setCategoryId(null);
+            setSuggested(false);
+          }
+        })
+        .catch(() => undefined);
+    }, SUGGEST_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [description, initial, categoryTouched, categories]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -212,7 +260,16 @@ export function ExpenseForm({
         </div>
       </Field>
 
-      <Field label="Kategori" className="full" group>
+      <Field
+        label="Kategori"
+        className="full"
+        group
+        hint={
+          suggested && !categoryTouched && categoryId !== null
+            ? "Bu açıklamayla en son bu kategori kullanılmış; farklıysa değiştirin."
+            : undefined
+        }
+      >
         <div className="chips">
           {categories.map((category) => (
             <button
@@ -220,7 +277,10 @@ export function ExpenseForm({
               type="button"
               className={category.id === categoryId ? "chip active" : "chip"}
               aria-pressed={category.id === categoryId}
-              onClick={() => setCategoryId(category.id)}
+              onClick={() => {
+                setCategoryId(category.id);
+                setCategoryTouched(true);
+              }}
             >
               <span aria-hidden="true">{category.emoji}</span>
               {category.name}

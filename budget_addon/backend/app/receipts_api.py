@@ -8,21 +8,26 @@ kategori formda seçilir.
 
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .api import _expense_out, _reload
 from .config import Settings, get_settings
 from .database import get_session
+from .expenses_api import expense_out, reload_expense
 from .models.category import Category
+from .models.expense import Expense
 from .models.payment_method import TYPE_CASH, PaymentMethod
 from .models.user import User
 from .schemas import ExpenseOut
 from .security.identity import current_user
 from .services import receipts, tags
+from .services.category_suggest import suggest_category
 from .services.expenses import ExpenseError, ExpenseInput, create_expense, get_expense
 from .services.quick_entry import NotAnExpense, parse_quick_entry
 from .utils.time import local_today
@@ -108,8 +113,23 @@ async def delete_receipt(
 # ---------------------------------------------------------------------------
 
 
+OFFLINE_MAX_AGE_DAYS = 60
+"""Çevrimdışı kuyruktan gelen kaydın tarihi en fazla bu kadar geride olabilir.
+
+Telefon haftalarca kapalı kalmış olabilir; ama yıllar öncesine düşen bir tarih
+büyük olasılıkla bozuk bir saatten gelir ve geçmiş ekstreleri sessizce
+değiştirirdi."""
+
+
 class QuickEntryIn(BaseModel):
     text: str = Field(min_length=1, max_length=200)
+    transaction_date: date | None = None
+    """Çevrimdışı girilen kaydın girildiği gün. Boşsa bugün."""
+    client_ref: str | None = Field(
+        default=None, min_length=8, max_length=64, pattern=r"^[A-Za-z0-9-]+$"
+    )
+    """Telefonun kayda verdiği tekil anahtar; aynı kayıt iki kez gönderilirse
+    ikinci gönderim yeni harcama açmaz, ilkini döndürür."""
 
 
 class QuickEntryOut(BaseModel):
@@ -119,6 +139,9 @@ class QuickEntryOut(BaseModel):
     description: str | None = None
     candidate_ids: list[int] = Field(default_factory=list)
     """Kategori belirsizse seçilebilecek kategoriler."""
+    suggested_category_id: int | None = None
+    """Kategori yazılmadıysa geçmiş kayıtlardan önerilen kategori. Kayıt yapılmaz;
+    arayüz formu bu kategori seçili olarak açar."""
 
 
 @router.post("/expenses/quick", response_model=QuickEntryOut)
@@ -128,6 +151,21 @@ async def quick_entry(
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
 ) -> QuickEntryOut:
+    if payload.client_ref:
+        already = await _expense_with_ref(session, payload.client_ref)
+        if already is not None:
+            return QuickEntryOut(expense=expense_out(await reload_expense(session, already.id)))
+
+    today = local_today(settings.timezone)
+    when = payload.transaction_date or today
+    if when > today:
+        raise HTTPException(UNPROCESSABLE, "Harcama tarihi bugünden ileri olamaz.")
+    if when < today - timedelta(days=OFFLINE_MAX_AGE_DAYS):
+        raise HTTPException(
+            UNPROCESSABLE,
+            f"Harcama tarihi {OFFLINE_MAX_AGE_DAYS} günden eski; formdan girin.",
+        )
+
     categories = list(
         (
             await session.scalars(
@@ -142,11 +180,13 @@ async def quick_entry(
     except NotAnExpense as exc:
         raise HTTPException(UNPROCESSABLE, QUICK_ENTRY_HELP) from exc
 
-    if entry.needs_category_choice:
+    if entry.category is None:
+        suggested = await suggest_category(session, entry.description)
         return QuickEntryOut(
             amount_minor=entry.amount_minor,
             description=entry.description,
             candidate_ids=[category.id for category in entry.candidates],
+            suggested_category_id=suggested.id if suggested else None,
         )
 
     cash = await session.scalar(
@@ -168,14 +208,32 @@ async def quick_entry(
             data=ExpenseInput(
                 payment_method_id=cash.id,
                 category_id=entry.category.id,
-                transaction_date=local_today(settings.timezone),
+                transaction_date=when,
                 amount=entry.amount_minor,
                 description=entry.description,
                 # `#kisisel` yazan kisi harcamanin kendi kisisel butcesinden
                 # dusmesini ister.
                 is_shared=not tags.marks_personal(entry.description),
+                client_ref=payload.client_ref,
             ),
         )
+    except IntegrityError:
+        # Ayni kayit es zamanli iki kez geldi; digeri once yazdi.
+        already = (
+            await _expense_with_ref(session, payload.client_ref) if payload.client_ref else None
+        )
+        if already is None:
+            raise
+        return QuickEntryOut(expense=expense_out(await reload_expense(session, already.id)))
     except (ExpenseError, ValueError) as exc:
         raise HTTPException(UNPROCESSABLE, str(exc)) from exc
-    return QuickEntryOut(expense=_expense_out(await _reload(session, expense.id)))
+    return QuickEntryOut(expense=expense_out(await reload_expense(session, expense.id)))
+
+
+async def _expense_with_ref(session: AsyncSession, client_ref: str) -> Expense | None:
+    """Bu anahtarla daha önce kaydedilmiş harcama (silinmiş olsa bile).
+
+    Silinmiş kayıt da döndürülür: kişi kaydı sitede sildiyse, telefonda
+    bekleyen eski gönderim onu yeniden canlandırmamalıdır.
+    """
+    return await session.scalar(select(Expense).where(Expense.client_ref == client_ref))

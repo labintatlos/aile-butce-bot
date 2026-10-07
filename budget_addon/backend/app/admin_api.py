@@ -159,6 +159,7 @@ async def complete_setup(
     try:
         username = clean_username(payload.username)
         password = check_password(payload.password)
+        user: User | None
         if payload.user_id is None:
             user = User(
                 display_name=clean_display_name(payload.display_name or ""),

@@ -10,8 +10,9 @@ harcama) oluşamaz.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -65,6 +66,8 @@ class ExpenseInput:
     owner_user_id: int | None = None
     """Kişisel harcamanın sahibi. Verilirse harcama kişiseldir; `is_shared`
     yanlış verilip sahip boş bırakılırsa sahip kaydı giren kişidir."""
+    client_ref: str | None = None
+    """Çevrimdışı kuyruktan gelen kaydın tekil anahtarı (bkz. `Expense.client_ref`)."""
 
 
 async def _resolve_owner(
@@ -106,7 +109,7 @@ def _resolve_installment_count(method: PaymentMethod, requested: int) -> int:
     return requested
 
 
-def _snapshot_of(method: PaymentMethod) -> dict[str, object]:
+def _snapshot_of(method: PaymentMethod) -> dict[str, Any]:
     """Kart koşullarını harcamaya kopyalar.
 
     Kart ayarı sonradan değişse bile bu harcamanın planı yeniden hesaplanmaz.
@@ -127,7 +130,7 @@ def _build_installments(
     total_amount_minor: int,
     installment_count: int,
     transaction_date: date,
-    snapshot: dict[str, object],
+    snapshot: dict[str, Any],
 ) -> list[ExpenseInstallment]:
     """Anlik goruntudeki kart kosullarina gore taksit satirlarini uretir.
 
@@ -155,7 +158,7 @@ def _build_installments(
     ]
 
 
-def _audit_payload(expense: Expense) -> dict[str, object]:
+def _audit_payload(expense: Expense) -> dict[str, Any]:
     return {
         "public_id": expense.public_id,
         "total_amount_minor": expense.total_amount_minor,
@@ -200,6 +203,7 @@ async def create_expense(
         recurring_expense_id=data.recurring_expense_id,
         is_shared=owner_id is None,
         owner_user_id=owner_id,
+        client_ref=data.client_ref,
         # Taksitler kayit henuz gecici haldeyken baglanir; bu sayede
         # koleksiyona atama bir veritabani okumasi tetiklemez.
         installments=_build_installments(
@@ -249,7 +253,7 @@ async def get_expense(
 
 
 async def update_expense(
-    session: AsyncSession, *, user: User, expense: Expense, changes: dict[str, object]
+    session: AsyncSession, *, user: User, expense: Expense, changes: dict[str, Any]
 ) -> Expense:
     """Harcamayı günceller ve gerekiyorsa taksit planını yeniden üretir.
 
@@ -346,7 +350,7 @@ async def soft_delete_expense(
     if expense.deleted_at is not None:
         return expense
     try:
-        expense.deleted_at = datetime.now(timezone.utc)
+        expense.deleted_at = datetime.now(UTC)
         record_audit(
             session,
             user_id=user.id,

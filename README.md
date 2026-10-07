@@ -19,6 +19,9 @@ Sürüm notları: [CHANGELOG.md](budget_addon/CHANGELOG.md).
 - Gelirleri kaydeder, iadeleri harcamayı silmeden düşer (kısmi iade dâhil).
 - Kira, aidat, abonelik gibi sabit giderleri her ay kendiliğinden kaydeder.
 - Fiş fotoğrafını harcamaya yükler.
+- İnternet yokken girilen harcamayı telefonda saklar, bağlantı gelince
+  girildiği günün tarihiyle kaydeder.
+- Açıklamaya göre, aynı açıklamayla en son kullanılan kategoriyi önerir.
 
 **Kendiliğinden haber verir**
 
@@ -32,7 +35,8 @@ Sürüm notları: [CHANGELOG.md](budget_addon/CHANGELOG.md).
 - Aylık harcama, ekstre, aktif taksit ve gelecek 12 aylık ödeme yükü.
 - Ay sonunda ne kalacağı, ay sonu harcama tahmini, geçen yılla karşılaştırma.
 - Kategori hedefleri, kart limitleri, etiket toplamları.
-- Ortak giderlerde kimin kime ne kadar borçlu olduğu.
+- Kişisel yıllık bütçeler: kimin ne kadar harcadığı ve ne kaldığı.
+- Birikim hedefleri: hedefe zamanında ulaşmak için ayda ne kadar gerektiği.
 - CSV dışa aktarma; Home Assistant'a altı sensör.
 
 **Erişim**

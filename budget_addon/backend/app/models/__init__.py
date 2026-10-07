@@ -17,6 +17,7 @@ from .payment_method import PaymentMethod
 from .personal_budget import PersonalBudget
 from .recurring_expense import RecurringExpense
 from .refund import Refund
+from .savings_goal import SavingsGoal
 from .user import User
 
 __all__ = [
@@ -34,6 +35,7 @@ __all__ = [
     "PushSubscription",
     "RecurringExpense",
     "Refund",
+    "SavingsGoal",
     "User",
     "format_public_id",
 ]

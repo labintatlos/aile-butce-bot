@@ -7,7 +7,6 @@ kafa karıştırıcı olur; bu yüzden sıralama testle sabitlenir.
 
 from __future__ import annotations
 
-import httpx
 import pytest
 
 pytestmark = pytest.mark.asyncio

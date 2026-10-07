@@ -7,6 +7,7 @@ sonradan değişse bile bu harcamanın taksit planı yeniden hesaplanmaz.
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     BigInteger,
@@ -23,6 +24,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
 from .payment_method import DEFAULT_CURRENCY
+
+if TYPE_CHECKING:
+    from .category import Category
+    from .installment import ExpenseInstallment
+    from .user import User
 
 PUBLIC_ID_PREFIX = "EXP"
 PUBLIC_ID_DIGITS = 6
@@ -94,6 +100,14 @@ class Expense(TimestampMixin, Base):
     Site fişleri kendisi saklar (`receipt_path`); bu sütun yalnızca Telegram
     döneminden kalan ve henüz aktarılmamış fişler için durur."""
 
+    client_ref: Mapped[str | None] = mapped_column(
+        String(64), unique=True, index=True, default=None
+    )
+    """Çevrimdışı girişte telefonun verdiği tekil anahtar.
+
+    Bağlantı gelince kuyruktaki kayıt gönderilir; yanıt kaybolup aynı kayıt
+    yeniden gelirse bu anahtar sayesinde ikinci bir harcama açılmaz."""
+
     receipt_path: Mapped[str | None] = mapped_column(String(64), default=None)
     """Veri dizinindeki `receipts/` klasöründe fiş fotoğrafının dosya adı."""
 
@@ -126,17 +140,17 @@ class Expense(TimestampMixin, Base):
 
     # Kategori ve kullanici kucuk tablolardir; her zaman birlikte yuklenmeleri
     # asenkron oturumda beklenmedik tembel yukleme riskini ortadan kaldirir.
-    category: Mapped["Category"] = relationship(lazy="selectin")
-    created_by: Mapped["User"] = relationship(
+    category: Mapped[Category] = relationship(lazy="selectin")
+    created_by: Mapped[User] = relationship(
         lazy="selectin", foreign_keys=[created_by_user_id]
     )
-    owner: Mapped["User | None"] = relationship(
+    owner: Mapped[User | None] = relationship(
         primaryjoin="foreign(Expense.owner_user_id) == User.id",
         lazy="selectin",
         viewonly=True,
     )
 
-    installments: Mapped[list["ExpenseInstallment"]] = relationship(
+    installments: Mapped[list[ExpenseInstallment]] = relationship(
         back_populates="expense",
         cascade="all, delete-orphan",
         order_by="ExpenseInstallment.installment_number",

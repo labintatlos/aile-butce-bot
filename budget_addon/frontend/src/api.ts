@@ -87,6 +87,39 @@ export interface QuickEntryResult {
   amount_minor: number | null;
   description: string | null;
   candidate_ids: number[];
+  /** Kategori yazılmadıysa geçmiş kayıtlardan önerilen kategori. */
+  suggested_category_id: number | null;
+}
+
+export interface SavingsGoal {
+  id: number;
+  name: string;
+  target: Money;
+  saved: Money;
+  remaining: Money;
+  target_date: string;
+  months_left: number;
+  monthly_required: Money;
+  ratio: number;
+  is_complete: boolean;
+  is_overdue: boolean;
+}
+
+export interface SavingsOverview {
+  goals: SavingsGoal[];
+  /** Tüm hedefler için bu ay ayrılması gereken toplam. */
+  monthly_required: Money;
+  /** Bu ayın nakit durumunda kalan; gelir girilmemişse boş. */
+  month_remaining: Money | null;
+  /** Bu ayın kalanı hedeflere yetiyor mu; karşılaştırılamıyorsa boş. */
+  covers: boolean | null;
+}
+
+export interface SavingsGoalInput {
+  name: string;
+  target_minor: number;
+  target_date: string;
+  saved_minor?: number;
 }
 
 export interface AppNotification {
@@ -535,7 +568,9 @@ export const api = {
     patch<Expense>(`expenses/${id}`, changes),
   deleteExpense: (id: number) => remove(`expenses/${id}`),
   searchExpenses: (filters: SearchFilters) => get<SearchResult>("expenses", { ...filters }),
-  quickEntry: (text: string) => post<QuickEntryResult>("expenses/quick", { text }),
+  /** `extra`: çevrimdışı kuyruktan gelen kaydın günü ve tekil anahtarı. */
+  quickEntry: (text: string, extra?: { transaction_date?: string; client_ref?: string }) =>
+    post<QuickEntryResult>("expenses/quick", { text, ...extra }),
 
   // Fis fotografi
   uploadReceipt: (expenseId: number, image: Blob) =>
@@ -582,6 +617,9 @@ export const api = {
     patch<PaymentMethod>(`payment-methods/${id}`, changes),
   deletePaymentMethod: (id: number) => remove(`payment-methods/${id}`),
   categories: () => get<Category[]>("categories", { include_inactive: true }),
+  /** Açıklamaya göre geçmiş kayıtlardan kategori önerisi. Hiçbir şey kaydetmez. */
+  suggestCategory: (description: string) =>
+    get<{ category_id: number | null }>("categories/suggest", { description }),
   addCategory: (payload: CategoryInput) => post<Category>("categories", payload),
   updateCategory: (id: number, changes: Partial<CategoryInput>) =>
     patch<Category>(`categories/${id}`, changes),
@@ -606,6 +644,15 @@ export const api = {
   upcoming: (months: number, basis: ObligationBasis) =>
     get<Obligations>("reports/cashflow/upcoming", { months, basis }),
   installmentPlans: () => get<InstallmentPlan[]>("reports/installments"),
+
+  // Birikim hedefleri
+  savingsGoals: () => get<SavingsOverview>("savings-goals"),
+  addSavingsGoal: (payload: SavingsGoalInput) => post<SavingsOverview>("savings-goals", payload),
+  updateSavingsGoal: (id: number, changes: Partial<Omit<SavingsGoalInput, "saved_minor">>) =>
+    patch<SavingsOverview>(`savings-goals/${id}`, changes),
+  depositSavings: (id: number, amount_minor: number) =>
+    post<SavingsOverview>(`savings-goals/${id}/deposits`, { amount_minor }),
+  deleteSavingsGoal: (id: number) => remove(`savings-goals/${id}`),
 
   // Disa aktarma
   exportCsv: (kind: "expenses" | "incomes", query: YearMonthQuery, filename: string) =>

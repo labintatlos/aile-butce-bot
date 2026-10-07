@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import Settings
-from ..models.audit_log import AuditLog, ENTITY_PAYMENT_METHOD
+from ..models.audit_log import ENTITY_PAYMENT_METHOD, AuditLog
 from ..models.category import Category
 from ..models.payment_method import TYPE_CASH, TYPE_CREDIT_CARD, PaymentMethod
 

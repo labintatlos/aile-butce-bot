@@ -99,7 +99,7 @@ async def monthly_status(
                 )
                 .group_by(Expense.category_id)
             )
-        ).all()
+        ).tuples().all()
     )
 
     # Iade edilen tutar kategoriyi rahatlatmalidir: geri alinan para

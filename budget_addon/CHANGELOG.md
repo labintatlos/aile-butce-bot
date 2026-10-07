@@ -1,5 +1,47 @@
 # Değişiklik Günlüğü
 
+## 2.3.0
+
+**Harcama ayrıntısı telefonda sayfanın dibinde açılıyordu.** Sayfa geçiş
+animasyonu içeriğe `transform` uyguluyordu; tarayıcılar transform taşıyan bir
+öğeyi sabit konumlu pencereler için kapsayıcı sayar, bu yüzden pencere ekrana
+değil uzun sayfaya göre yerleşiyor ve telefonda en alta düşüyordu. Pencereler
+artık doğrudan sayfa gövdesine çiziliyor, animasyon da bitince iz bırakmıyor.
+
+**Birikim hedefleri.** Özet ekranında "Tatil için Haziran'a kadar 50.000 TL"
+gibi hedefler açılabiliyor. Her hedef için biriken, kalan ve hedefe zamanında
+ulaşmak için bu aydan itibaren ayda ne kadar ayrılması gerektiği gösterilir
+(bu ay dahil kalan aylara bölünür, kuruşa yukarı yuvarlanır). Tüm hedeflerin
+bu ay gerektirdiği toplam, ayın kalanıyla karşılaştırılır; gelir girilmemişse
+karşılaştırma yapılmaz.
+
+**İnternet yokken hızlı giriş.** Site artık bağlantı yokken de açılıyor
+(yalnızca sayfanın kendisi saklanır, bütçe verisi asla). Markette, otoparkta
+yazılan "45 market" bu cihazda bekler ve bağlantı gelince **girildiği günün
+tarihiyle** kaydedilir. Her kaydın tekil bir anahtarı olduğundan yanıt yolda
+kaybolup kayıt yeniden gönderilse de ikinci harcama açılmaz. Kategorisi
+anlaşılamayan kayıt sessizce kaydedilmez; "Tamamla" ile formdan bitirilir.
+
+**Kategori önerisi.** "500 migros" yazıldığında kategori bulunamazsa, aynı
+açıklamayla en son kullanılan kategori formda seçili gelir; formda açıklama
+yazarken de öneri yapılır. Öneri ailenin kendi geçmişinden yapılan bir sözlük
+aramasıdır ve hiçbir zaman onaysız kayıt atmaz.
+
+**Düzeltmeler.** Kart limiti uyarısı, zamanlayıcıya verilen gün yerine
+duvar saatine göre hesaplanıyordu (test tarihe bağlı olarak kırılıyordu).
+Sabit gider başlangıç günü İstanbul saatiyle 00:00–03:00 arasında bir önceki
+gün yazılıyordu.
+
+**Geliştirme.** `api.py` konu bazlı router dosyalarına bölündü (uç noktalar
+birebir aynı). Arka uçta `ruff` ve `mypy` hatasız; GitHub Actions her push'ta
+testleri, tip/lint denetimini, arayüz derlemesini ve iki mimari için eklenti
+imajını çalıştırıyor. Dependabot bağımlılıkları aylık güncelliyor (`holidays`
+ayrı PR olarak gelir ki yeni yılın bayramları gözden kaçmasın).
+
+`budget_addon/backend` pytest (536 passed), `ruff check`, `mypy`,
+`npm run build` ve tarayıcıda telefon/masaüstü denemesi (pencere konumu,
+çevrimdışı açılış ve kuyruk, kategori önerisi, birikim hedefi) ile doğrulandı.
+
 ## 2.2.0
 
 **Görünüm teması seçimi.** Ayarlar sayfasına "Görünüm" kartı eklendi:

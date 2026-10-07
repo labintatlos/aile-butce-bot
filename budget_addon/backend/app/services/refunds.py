@@ -28,9 +28,9 @@ from ..models.refund import Refund
 from ..models.user import User
 from ..utils.time import month_bounds
 from .audit import record_audit
+from .expenses import get_expense
 from .finance.money import parse_amount_to_minor
 from .finance.statement import due_date_for, first_statement_date
-from .expenses import get_expense
 
 ENTITY_REFUND = "refund"
 
@@ -55,11 +55,11 @@ def _snapshot(refund: Refund) -> dict[str, object]:
 
 async def refunded_total(session: AsyncSession, expense_id: int) -> int:
     """Bir harcamadan bugüne kadar iade edilen toplam."""
-    return await session.scalar(
+    return int(await session.scalar(
         select(func.coalesce(func.sum(Refund.amount_minor), 0)).where(
             Refund.expense_id == expense_id, *_live()
         )
-    )
+    ) or 0)
 
 
 def _statement_date_for(expense: Expense, refund_date: date) -> date | None:
@@ -191,14 +191,14 @@ async def total_in_month(
 ) -> int:
     """Bir ayda alınan iadelerin toplamı."""
     start, end = month_bounds(year, month)
-    return await session.scalar(
+    return int(await session.scalar(
         _with_expense_filter(
             select(func.coalesce(func.sum(Refund.amount_minor), 0)).where(
                 Refund.refund_date >= start, Refund.refund_date <= end, *_live()
             ),
             expense_filter,
         )
-    )
+    ) or 0)
 
 
 async def by_category_in_month(
@@ -213,7 +213,7 @@ async def by_category_in_month(
             expense_filter,
         ).group_by(Refund.category_id)
     )
-    return dict(rows.all())
+    return dict(rows.tuples().all())
 
 
 async def cash_total_in_month(
@@ -221,7 +221,7 @@ async def cash_total_in_month(
 ) -> int:
     """Nakit harcamalardan ay içinde geri alınan tutar."""
     start, end = month_bounds(year, month)
-    return await session.scalar(
+    return int(await session.scalar(
         select(func.coalesce(func.sum(Refund.amount_minor), 0))
         .join(Expense, Refund.expense_id == Expense.id)
         .where(
@@ -231,7 +231,7 @@ async def cash_total_in_month(
             *_live(),
             *expense_filter,
         )
-    )
+    ) or 0)
 
 
 async def by_card(session: AsyncSession) -> dict[int, int]:
@@ -246,7 +246,7 @@ async def by_card(session: AsyncSession) -> dict[int, int]:
         )
         .group_by(Expense.payment_method_id)
     )
-    return dict(rows.all())
+    return dict(rows.tuples().all())
 
 
 @dataclass(frozen=True, slots=True)
@@ -294,7 +294,7 @@ async def card_credit_due_in_month(
     yansır: ödenecek tutarı azaltır.
     """
     start, end = month_bounds(year, month)
-    return await session.scalar(
+    return int(await session.scalar(
         select(func.coalesce(func.sum(Refund.amount_minor), 0))
         .join(Expense, Refund.expense_id == Expense.id)
         .where(
@@ -304,4 +304,4 @@ async def card_credit_due_in_month(
             Refund.due_date <= end,
             *_live(),
         )
-    )
+    ) or 0)

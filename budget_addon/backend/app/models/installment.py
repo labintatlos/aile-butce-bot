@@ -8,6 +8,7 @@ ileride taksit bazında manuel tarih düzeltmesi eklemeyi mümkün kılar.
 from __future__ import annotations
 
 from datetime import date
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     BigInteger,
@@ -23,6 +24,9 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+
+if TYPE_CHECKING:
+    from .expense import Expense
 
 STATUS_SCHEDULED = "scheduled"
 STATUS_PAID = "paid"
@@ -64,7 +68,7 @@ class ExpenseInstallment(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    expense: Mapped["Expense"] = relationship(back_populates="installments")
+    expense: Mapped[Expense] = relationship(back_populates="installments")
 
     def __repr__(self) -> str:  # pragma: no cover
         return (

@@ -186,7 +186,7 @@ async def period_summary(
             id=row.id,
             name=row.display_name,
             total_minor=row.total,
-            transaction_count=row.count,
+            transaction_count=row.row_count,
         )
         for row in (
             await session.execute(
@@ -196,7 +196,7 @@ async def period_summary(
                     func.coalesce(func.sum(Expense.total_amount_minor), 0).label(
                         "total"
                     ),
-                    func.count(Expense.id).label("count"),
+                    func.count(Expense.id).label("row_count"),
                 )
                 .join(Expense, Expense.created_by_user_id == User.id)
                 .where(*live)
@@ -211,7 +211,7 @@ async def period_summary(
             id=row.id,
             name=row.name,
             total_minor=row.total,
-            transaction_count=row.count,
+            transaction_count=row.row_count,
             emoji=row.emoji or "",
         )
         for row in (
@@ -223,7 +223,7 @@ async def period_summary(
                     func.coalesce(func.sum(Expense.total_amount_minor), 0).label(
                         "total"
                     ),
-                    func.count(Expense.id).label("count"),
+                    func.count(Expense.id).label("row_count"),
                 )
                 .join(Expense, Expense.category_id == Category.id)
                 .where(*live)

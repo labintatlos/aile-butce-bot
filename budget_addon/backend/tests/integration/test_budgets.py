@@ -10,8 +10,7 @@ from datetime import date, datetime
 
 import pytest
 
-from app.services import scheduler
-from app.services import budgets
+from app.services import budgets, scheduler
 from app.services.expenses import ExpenseInput, create_expense
 
 pytestmark = pytest.mark.asyncio

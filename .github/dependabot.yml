@@ -1,0 +1,33 @@
+# Bagimlilik guncellemeleri. Ozellikle `holidays` paketi her yil guncellenmeli:
+# eski surum yeni yilin dini bayramlarini bilmez ve son odeme tarihleri
+# tatile denk gelebilir.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /budget_addon/backend
+    schedule:
+      interval: monthly
+    groups:
+      python:
+        patterns: ["*"]
+        exclude-patterns: ["holidays"]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /budget_addon/frontend
+    schedule:
+      interval: monthly
+    groups:
+      frontend:
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: docker
+    directory: /budget_addon
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

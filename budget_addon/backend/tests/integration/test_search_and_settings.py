@@ -161,7 +161,7 @@ async def test_i_l9_correcting_a_card_does_not_move_existing_installments(
         async_session, people["aykut"], fixtures, method="card",
         amount="3.000", count=3, when=date(2026, 9, 8),
     )
-    before = [(l.amount_minor, l.statement_date, l.due_date) for l in expense.installments]
+    before = [(line.amount_minor, line.statement_date, line.due_date) for line in expense.installments]
 
     await update_payment_method(
         async_session,
@@ -171,7 +171,7 @@ async def test_i_l9_correcting_a_card_does_not_move_existing_installments(
     )
 
     await async_session.refresh(expense, attribute_names=["installments"])
-    after = [(l.amount_minor, l.statement_date, l.due_date) for l in expense.installments]
+    after = [(line.amount_minor, line.statement_date, line.due_date) for line in expense.installments]
     assert after == before
 
 

@@ -6,24 +6,29 @@
  * Eşleşmezse tutar ve açıklama forma aktarılır, kategori oradan seçilir.
  */
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 
 import { api, type Expense } from "../api";
 import { ExpenseForm } from "../components/ExpenseForm";
 import { Icon } from "../components/icons";
+import { QueueList, QuickEntry, type Draft } from "../components/QuickEntry";
 import { ReceiptPanel } from "../components/ReceiptPanel";
 import { Card, PageHeader } from "../components/ui";
 import { useSession } from "../context";
-import { installmentLabel, longDate, minorToInput } from "../format";
-import { errorMessage } from "../hooks";
-
-type Draft = { amount: string; description: string };
+import { installmentLabel, longDate } from "../format";
+import { discard, useOfflineQueue } from "../offline";
 
 export function NewExpense() {
   const { bootstrap, navigate } = useSession();
   const [saved, setSaved] = useState<Expense | null>(null);
   const [formKey, setFormKey] = useState(0);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const queue = useOfflineQueue();
+  const openDraft = (next: Draft) => {
+    setDraft(next);
+    setFormKey((value) => value + 1);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   if (saved) {
     return (
@@ -43,16 +48,21 @@ export function NewExpense() {
     <>
       <PageHeader title="Yeni harcama" subtitle={longDate(bootstrap.today)} />
       <div className="narrow stack">
-        <QuickEntry
-          onSaved={setSaved}
-          onDraft={(next) => {
-            setDraft(next);
-            setFormKey((value) => value + 1);
-          }}
-        />
-        {draft && (
+        <QuickEntry onSaved={setSaved} onDraft={openDraft} />
+        {draft?.queueRef && (
           <div className="alert info" role="status">
-            Kategori bulunamadı. Tutar ve açıklama forma aktarıldı; kategoriyi seçip kaydedin.
+            Çevrimdışı girilen kayıt forma aktarıldı ({longDate(draft.transactionDate ?? "")}).
+            Kategoriyi seçip kaydedin.
+          </div>
+        )}
+        {draft && !draft.queueRef && (
+          <div className="alert info" role="status">
+            {draft.categoryId !== null
+              ? `Kategori yazılmadı. Bu açıklamayla en son kullanılan kategori (${
+                  bootstrap.categories.find((category) => category.id === draft.categoryId)
+                    ?.name ?? ""
+                }) seçildi; kontrol edip kaydedin.`
+              : "Kategori bulunamadı. Tutar ve açıklama forma aktarıldı; kategoriyi seçip kaydedin."}
           </div>
         )}
         <Card>
@@ -61,76 +71,15 @@ export function NewExpense() {
             defaults={draft ?? undefined}
             submitLabel="Kaydet"
             onSubmit={async (input) => {
-              setSaved(await api.createExpense(input));
+              const expense = await api.createExpense(input);
+              if (draft?.queueRef) discard(draft.queueRef);
+              setSaved(expense);
             }}
           />
         </Card>
+        <QueueList items={queue.items} onComplete={openDraft} onRetry={() => void queue.flush()} />
       </div>
     </>
-  );
-}
-
-function QuickEntry({
-  onSaved,
-  onDraft,
-}: {
-  onSaved: (expense: Expense) => void;
-  onDraft: (draft: Draft) => void;
-}) {
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!text.trim()) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const result = await api.quickEntry(text.trim());
-      if (result.expense) {
-        onSaved(result.expense);
-        return;
-      }
-      onDraft({
-        amount: minorToInput(result.amount_minor ?? 0),
-        description: result.description ?? "",
-      });
-      setText("");
-    } catch (cause: unknown) {
-      setError(errorMessage(cause));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Card title="Hızlı giriş">
-      <form className="stack" onSubmit={submit} noValidate>
-        <div className="row">
-          <input
-            className="input"
-            placeholder="Örn. 500 market"
-            autoComplete="off"
-            enterKeyHint="send"
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-          />
-          <button type="submit" className="btn primary" disabled={busy || !text.trim()}>
-            {busy ? "Kaydediliyor…" : "Kaydet"}
-          </button>
-        </div>
-        <span className="muted small">
-          Tutarı ve kategoriyi yazın; harcama bugünün tarihiyle nakit olarak kaydedilir. #kisisel
-          yazarsanız ortak gider olarak sayılmaz.
-        </span>
-        {error && (
-          <div className="alert danger" role="alert">
-            {error}
-          </div>
-        )}
-      </form>
-    </Card>
   );
 }
 

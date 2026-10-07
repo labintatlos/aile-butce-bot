@@ -14,6 +14,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 
 import { monthName } from "../format";
 import { Icon, type IconName } from "./icons";
@@ -176,7 +177,11 @@ export function Modal({
     };
   }, []);
 
-  return (
+  // Pencere sayfa ağacının dışına, doğrudan <body>'ye çizilir. Sayfa geçiş
+  // animasyonu sarmalayıcıya transform uygular; transform taşıyan bir ata
+  // `position: fixed` için kapsayıcı olur ve pencere ekrana değil uzun sayfaya
+  // göre konumlanırdı (telefonda sayfanın en dibinde açılıyordu).
+  return createPortal(
     <div
       className="modal-backdrop"
       onMouseDown={(event) => {
@@ -193,7 +198,8 @@ export function Modal({
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

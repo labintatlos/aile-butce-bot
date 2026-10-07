@@ -86,17 +86,17 @@ async def yearly_status(
                     PersonalBudget.year == year
                 )
             )
-        ).all()
+        ).tuples().all()
     )
 
     spent = {
-        row.owner: (row.total, row.count)
+        row.owner: (row.total, row.row_count)
         for row in (
             await session.execute(
                 select(
                     Expense.owner_user_id.label("owner"),
                     func.coalesce(func.sum(Expense.total_amount_minor), 0).label("total"),
-                    func.count(Expense.id).label("count"),
+                    func.count(Expense.id).label("row_count"),
                 )
                 .where(
                     Expense.deleted_at.is_(None),
@@ -123,7 +123,7 @@ async def yearly_status(
                 )
                 .group_by(Expense.owner_user_id)
             )
-        ).all()
+        ).tuples().all()
     )
 
     elapsed = _elapsed_ratio(year, today)

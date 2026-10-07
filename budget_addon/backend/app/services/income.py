@@ -122,10 +122,10 @@ async def list_incomes(
 
 async def monthly_total(session: AsyncSession, *, year: int, month: int) -> int:
     start, end = month_bounds(year, month)
-    return await session.scalar(
+    return int(await session.scalar(
         select(func.coalesce(func.sum(Income.amount_minor), 0)).where(
             Income.deleted_at.is_(None),
             Income.received_date >= start,
             Income.received_date <= end,
         )
-    )
+    ) or 0)

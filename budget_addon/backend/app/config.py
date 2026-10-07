@@ -132,7 +132,7 @@ class Settings(BaseSettings):
         Ayrıştırma hataları normalde uygulama başlarken, yığın izinin altında
         patlıyordu. Burada erken ve açık bir mesajla yakalanır.
         """
-        self.ha_user_mapping
+        _ = self.ha_user_mapping
 
     def safe_summary(self) -> dict[str, object]:
         """Loglanabilir özet. Şifre ve anahtarlar asla yer almaz."""

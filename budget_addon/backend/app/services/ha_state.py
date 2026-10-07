@@ -185,7 +185,7 @@ def _card_sensor(usages: list[cards.CardUsage]) -> SensorState:
         attributes={
             **_money_attributes("Kart borcu", "mdi:credit-card-outline"),
             "toplam_limit": to_major(
-                sum(usage.credit_limit_minor for usage in with_limit)
+                sum(usage.limit_minor for usage in with_limit)
             ),
             "kullanilabilir": to_major(
                 sum(usage.available_minor for usage in with_limit)

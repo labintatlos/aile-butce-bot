@@ -125,7 +125,7 @@ async def totals(
         select(
             ExpenseTag.tag,
             func.coalesce(func.sum(Expense.total_amount_minor), 0).label("total"),
-            func.count(Expense.id).label("count"),
+            func.count(Expense.id).label("row_count"),
         )
         .join(Expense, ExpenseTag.expense_id == Expense.id)
         .where(*_live_filters(start, end))
@@ -133,7 +133,7 @@ async def totals(
         .order_by(func.sum(Expense.total_amount_minor).desc())
     )
     return [
-        TagTotal(tag=row.tag, total_minor=row.total, transaction_count=row.count)
+        TagTotal(tag=row.tag, total_minor=row.total, transaction_count=row.row_count)
         for row in rows.all()
     ]
 

@@ -22,7 +22,7 @@ class Money(BaseModel):
     formatted: str
 
     @classmethod
-    def of(cls, minor: int) -> "Money":
+    def of(cls, minor: int) -> Money:
         return cls(minor=minor, formatted=format_try(minor))
 
 
@@ -34,6 +34,12 @@ class CategoryOut(BaseModel):
     emoji: str
     is_active: bool
     monthly_budget_minor: int | None = None
+
+
+class CategorySuggestionOut(BaseModel):
+    """Geçmiş kayıtlardan önerilen kategori; öneri yoksa boş."""
+
+    category_id: int | None = None
 
 
 class PaymentMethodOut(BaseModel):
@@ -443,3 +449,46 @@ class YearComparisonOut(BaseModel):
     last_year_total: Money
 
 
+
+
+class SavingsGoalCreateIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    target_minor: int = Field(gt=0)
+    target_date: date
+    saved_minor: int = Field(default=0, ge=0)
+    """Hedef açılırken zaten kenarda duran tutar."""
+
+
+class SavingsGoalUpdateIn(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    target_minor: int | None = Field(default=None, gt=0)
+    target_date: date | None = None
+
+
+class SavingsDepositIn(BaseModel):
+    amount_minor: int
+    """Eklenen tutar; eksi tutar birikimden para alındığını gösterir."""
+
+
+class SavingsGoalOut(BaseModel):
+    id: int
+    name: str
+    target: Money
+    saved: Money
+    remaining: Money
+    target_date: date
+    months_left: int
+    monthly_required: Money
+    ratio: int
+    is_complete: bool
+    is_overdue: bool
+
+
+class SavingsOverviewOut(BaseModel):
+    goals: list[SavingsGoalOut]
+    monthly_required: Money
+    """Tüm hedefler için bu ay ayrılması gereken toplam."""
+    month_remaining: Money | None
+    """Bu ayın nakit durumunda kalan; gelir girilmemişse boş."""
+    covers: bool | None
+    """Bu ayın kalanı hedeflere yetiyor mu; karşılaştırılamıyorsa boş."""

@@ -26,13 +26,13 @@ from fastapi.staticfiles import StaticFiles
 from .admin_api import router as admin_router
 from .api import router
 from .auth_api import router as auth_router
-from .notifications_api import router as notifications_router
-from .receipts_api import router as receipts_router
-from .services.scheduler import start_scheduler_task
-from .security.setup import announce_setup_code, ensure_setup_code, setup_required
-from .ha_publisher import start_publisher_task
 from .config import Settings, get_settings
 from .database import dispose_engine, get_session_factory
+from .ha_publisher import start_publisher_task
+from .notifications_api import router as notifications_router
+from .receipts_api import router as receipts_router
+from .security.setup import announce_setup_code, ensure_setup_code, setup_required
+from .services.scheduler import start_scheduler_task
 from .services.seed import seed_all
 
 logger = logging.getLogger(__name__)

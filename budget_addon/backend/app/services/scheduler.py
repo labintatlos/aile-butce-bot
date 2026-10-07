@@ -57,7 +57,7 @@ async def pending_messages(
     ]
     statuses = await budgets.monthly_status(session, year=today.year, month=today.month)
     items += [texts.budget_alert(alert) for alert in budgets.alerts_for(statuses)]
-    usages = await cards.card_usage(session)
+    usages = await cards.card_usage(session, today=today)
     items += [
         texts.card_limit_alert(alert)
         for alert in cards.alerts_for(usages, year=today.year, month=today.month)

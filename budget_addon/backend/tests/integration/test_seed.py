@@ -11,7 +11,7 @@ from sqlalchemy import select
 
 from app.config import Settings
 from app.models import Category, PaymentMethod, User
-from app.services.seed import DEFAULT_CATEGORIES, DEFAULT_CARD_NAMES, seed_all
+from app.services.seed import DEFAULT_CARD_NAMES, DEFAULT_CATEGORIES, seed_all
 from app.services.settings_service import delete_payment_method, update_payment_method
 
 pytestmark = pytest.mark.asyncio

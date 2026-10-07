@@ -6,7 +6,7 @@ kullanılmaz; gerekçesi docs/FINANCE_RULES.md bölüm 1'de.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 
 from sqlalchemy import BigInteger, DateTime, func
@@ -17,7 +17,7 @@ MoneyMinor = Annotated[int, mapped_column(BigInteger)]
 
 
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Base(DeclarativeBase):

@@ -65,7 +65,7 @@ async def _card_due_in_month(session: AsyncSession, *, start: date, end: date) -
     filtresi olmadan bu satırlar hem nakit hem kart kaleminde sayılır ve ayın
     çıkışı iki katı görünürdü.
     """
-    return await session.scalar(
+    return int(await session.scalar(
         select(func.coalesce(func.sum(ExpenseInstallment.amount_minor), 0))
         .join(Expense, ExpenseInstallment.expense_id == Expense.id)
         .where(
@@ -75,19 +75,19 @@ async def _card_due_in_month(session: AsyncSession, *, start: date, end: date) -
             ExpenseInstallment.due_date >= start,
             ExpenseInstallment.due_date <= end,
         )
-    )
+    ) or 0)
 
 
 async def _cash_spent_in_month(session: AsyncSession, *, start: date, end: date) -> int:
     """Nakit harcamalar. Kart harcaması buraya girmez: o, ekstresiyle çıkar."""
-    return await session.scalar(
+    return int(await session.scalar(
         select(func.coalesce(func.sum(Expense.total_amount_minor), 0)).where(
             Expense.deleted_at.is_(None),
             Expense.payment_method_type_snapshot == TYPE_CASH,
             Expense.transaction_date >= start,
             Expense.transaction_date <= end,
         )
-    )
+    ) or 0)
 
 
 async def _expected_recurring(session: AsyncSession, *, today: date) -> int:

@@ -132,8 +132,7 @@ def build_schedule(
         raise ValueError(
             f"Taksit sayısı {MIN_INSTALLMENTS} ile {MAX_INSTALLMENTS} arasında olmalıdır"
         )
-    is_cash = statement_day is None
-    if is_cash:
+    if statement_day is None:
         if installment_count != SINGLE_INSTALLMENT:
             raise ValueError("Nakit harcamalarda taksit kullanılamaz")
         return build_cash_schedule(total_minor, transaction_date)

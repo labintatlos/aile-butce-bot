@@ -110,7 +110,7 @@ async def test_i_l3_l6_financial_changes_regenerate_the_plan(
     )
 
     assert len(updated.installments) == updated.installment_count
-    assert sum(l.amount_minor for l in updated.installments) == updated.total_amount_minor
+    assert sum(line.amount_minor for line in updated.installments) == updated.total_amount_minor
     assert updated.installments[0].statement_date == expected_first_statement
 
 

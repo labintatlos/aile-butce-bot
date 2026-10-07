@@ -118,7 +118,7 @@ async def _lookup_user(
 ) -> User | None:
     if identity.session is not None:
         user = await session.get(User, identity.session.user_id)
-        if user is None or not can_use_web_login(user):
+        if user is None or user.password_hash is None or not can_use_web_login(user):
             return None
         # Sifre degistiyse parmak izi tutmaz ve eski cerez gecersiz olur.
         if not hmac.compare_digest(

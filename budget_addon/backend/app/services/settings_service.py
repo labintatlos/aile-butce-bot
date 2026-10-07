@@ -11,6 +11,8 @@ kategorilere bağlıdır, silinirlerse geçmiş raporlar okunamaz hâle gelirdi.
 
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -62,7 +64,7 @@ def _validate_due_offset(offset_days: int) -> None:
         raise SettingsError(str(exc)) from exc
 
 
-def _card_snapshot(method: PaymentMethod) -> dict[str, object]:
+def _card_snapshot(method: PaymentMethod) -> dict[str, Any]:
     return {
         "name": method.name,
         "type": method.type,
@@ -136,7 +138,7 @@ async def create_payment_method(
 
 
 async def update_payment_method(
-    session: AsyncSession, *, user: User, method: PaymentMethod, changes: dict[str, object]
+    session: AsyncSession, *, user: User, method: PaymentMethod, changes: dict[str, Any]
 ) -> PaymentMethod:
     """Kart ayarlarını günceller.
 
@@ -229,7 +231,7 @@ async def create_category(
 
 
 async def update_category(
-    session: AsyncSession, *, user: User, category: Category, changes: dict[str, object]
+    session: AsyncSession, *, user: User, category: Category, changes: dict[str, Any]
 ) -> Category:
     """Kategoriyi günceller. Taksit planlarına hiçbir etkisi yoktur (kural E2)."""
     unknown = set(changes) - CATEGORY_FIELDS

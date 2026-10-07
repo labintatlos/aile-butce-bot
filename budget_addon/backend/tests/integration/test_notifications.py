@@ -12,6 +12,7 @@ import struct
 
 import pytest
 import pytest_asyncio
+from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
@@ -115,14 +116,14 @@ def _decrypt(body: bytes, receiver, auth: str) -> bytes:
 
 def test_push_content_can_only_be_read_by_the_subscribed_browser():
     receiver, p256dh, auth = _browser_keys()
-    message = '{"title":"Bütçe aşıldı"}'.encode("utf-8")
+    message = '{"title":"Bütçe aşıldı"}'.encode()
 
     body = webpush.encrypt(message, p256dh=p256dh, auth=auth)
 
     assert message not in body
     assert _decrypt(body, receiver, auth) == message
     stranger, _, _ = _browser_keys()
-    with pytest.raises(Exception):
+    with pytest.raises(InvalidTag):
         _decrypt(body, stranger, auth)
 
 

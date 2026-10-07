@@ -66,16 +66,16 @@ def test_blank_entries_inside_a_mapping_are_skipped():
 
 def test_a_mapping_without_a_colon_names_the_broken_setting():
     with pytest.raises(ValueError) as error:
-        settings(ha_user_map="aykut,aslihan").ha_user_mapping
+        _ = settings(ha_user_map="aykut,aslihan").ha_user_mapping
     assert "ha_user_map" in str(error.value)
     assert "anahtar:değer" in str(error.value)
 
 
 def test_a_half_written_mapping_entry_is_refused():
     with pytest.raises(ValueError):
-        settings(ha_user_map="abc:").ha_user_mapping
+        _ = settings(ha_user_map="abc:").ha_user_mapping
     with pytest.raises(ValueError):
-        settings(ha_user_map=":aykut").ha_user_mapping
+        _ = settings(ha_user_map=":aykut").ha_user_mapping
 
 
 # ---------------------------------------------------------------------------
@@ -97,7 +97,7 @@ def test_validation_passes_when_every_optional_field_is_blank():
 
 def test_validation_surfaces_a_broken_mapping():
     with pytest.raises(ValueError) as error:
-        settings(ha_user_map="bozuk-girdi").validate_configuration()
+        _ = settings(ha_user_map="bozuk-girdi").validate_configuration()
     assert "ha_user_map" in str(error.value)
 
 
