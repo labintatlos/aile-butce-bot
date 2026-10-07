@@ -18,4 +18,4 @@ cryptography==50.0.1
 tzdata==2025.2
 # Turkiye resmi tatil takvimi (dini bayramlar dahil); son odeme tarihi
 # tatile denk gelirse ilk is gunune kaydirilir. Saf Python, derleme gerekmez.
-holidays==0.104
+holidays==0.105
