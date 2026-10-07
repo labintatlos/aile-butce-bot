@@ -1,21 +1,21 @@
-fastapi==0.118.0
+fastapi==0.142.2
 # [standard] eklentisi uvloop, httptools ve watchfiles cekiyor; bunlarin
 # musl/aarch64 icin hazir tekerlegi her zaman bulunmuyor ve derlenmeleri
 # gerekiyor. Iki kisilik bir kurulumda saglayacaklari hiz farki yok.
-uvicorn==0.37.0
-aiohttp==3.12.15
-SQLAlchemy==2.0.43
-aiosqlite==0.21.0
-alembic==1.16.5
-pydantic==2.11.9
-pydantic-settings==2.11.0
+uvicorn==0.54.0
+aiohttp==3.14.3
+SQLAlchemy==2.1.3
+aiosqlite==0.22.1
+alembic==1.20.0
+pydantic==2.13.5
+pydantic-settings==2.15.0
 # Anlik bildirim (Web Push) sifrelemesi ve imzasi. musllinux tekerlegi
 # aarch64 ve amd64 icin hazir gelir; derleme gerekmez.
-cryptography==50.0.1
+cryptography==50.0.2
 # IANA saat dilimi verisi. Windows'ta ve minimal konteyner imajlarinda
 # sistem tzdata'si bulunmaz; ZoneInfo('Europe/Istanbul') o durumda hata
 # verir ve tum tarih varsayilanlari coker.
-tzdata==2025.2
+tzdata==2026.5
 # Turkiye resmi tatil takvimi (dini bayramlar dahil); son odeme tarihi
 # tatile denk gelirse ilk is gunune kaydirilir. Saf Python, derleme gerekmez.
 holidays==0.104
