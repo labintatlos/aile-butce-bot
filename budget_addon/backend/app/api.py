@@ -11,7 +11,15 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import expenses_api, incomes_api, reports_api, savings_api, settings_api
+from . import (
+    accounts_api,
+    expenses_api,
+    incomes_api,
+    reports_api,
+    savings_api,
+    settings_api,
+    tools_api,
+)
 from .config import Settings, get_settings
 from .database import get_session
 from .models.category import Category
@@ -66,5 +74,13 @@ async def bootstrap(
 
 
 # Konu bazli router'lar; hepsi `/api` altinda yayimlanir.
-for _sub in (expenses_api, reports_api, settings_api, incomes_api, savings_api):
+for _sub in (
+    expenses_api,
+    reports_api,
+    settings_api,
+    incomes_api,
+    savings_api,
+    tools_api,
+    accounts_api,
+):
     router.include_router(_sub.router)

@@ -178,3 +178,53 @@ async def test_the_migrated_schema_carries_the_reminder_tables(migrated_database
 
     assert "notification_log" in tables
     assert "reminders_enabled" in user_columns
+
+
+async def test_the_migrated_schema_carries_splits_rules_and_accounts(
+    migrated_session, settings
+):
+    """Bölünmüş harcama, kural ve hesap tabloları göç zincirinde de kurulmalıdır."""
+    from app.models import Account, Rule
+    from app.models.category import Category
+    from app.models.user import User
+    from app.services import accounts
+    from app.services.expenses import SplitInput
+
+    await seed_all(migrated_session, settings)
+    user = User(display_name="Aykut", username="aykut", is_admin=True)
+    migrated_session.add(user)
+    await migrated_session.commit()
+    first, second = (await migrated_session.scalars(select(Category).limit(2))).all()
+    cash = await migrated_session.scalar(
+        select(PaymentMethod).where(PaymentMethod.name == "Nakit")
+    )
+
+    expense = await create_expense(
+        migrated_session,
+        user=user,
+        data=ExpenseInput(
+            payment_method_id=cash.id,
+            category_id=first.id,
+            transaction_date=date(2026, 10, 5),
+            amount="100",
+            splits=(
+                SplitInput(category_id=first.id, amount="60"),
+                SplitInput(category_id=second.id, amount="40"),
+            ),
+        ),
+    )
+    assert len(expense.splits) == 2
+    assert expense.installments[0].cleared is False
+
+    migrated_session.add(Rule(pattern="migros", set_category_id=first.id))
+    await migrated_session.commit()
+    account = await accounts.create_account(
+        migrated_session,
+        user=user,
+        name="Vadesiz",
+        kind="bank",
+        opening_balance_minor=1_000,
+        opening_date=date(2026, 10, 1),
+    )
+    assert isinstance(account, Account)
+    assert first.rollover is False

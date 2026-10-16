@@ -11,6 +11,7 @@ kategorilere bağlıdır, silinirlerse geçmiş raporlar okunamaz hâle gelirdi.
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from sqlalchemy import func, select
@@ -32,6 +33,7 @@ from ..models.payment_method import (
 from ..models.user import User
 from ..services.finance.dates import MAX_DAY_OF_MONTH, MIN_DAY_OF_MONTH
 from ..services.finance.statement import DEFAULT_DUE_OFFSET_DAYS, validate_due_offset
+from ..utils.time import local_today
 from .audit import record_audit
 
 CARD_FIELDS = frozenset(
@@ -39,8 +41,26 @@ CARD_FIELDS = frozenset(
      "credit_limit_minor", "owner_user_id", "notes", "is_active"}
 )
 CATEGORY_FIELDS = frozenset(
-    {"name", "emoji", "sort_order", "is_active", "monthly_budget_minor"}
+    {
+        "name",
+        "emoji",
+        "sort_order",
+        "is_active",
+        "monthly_budget_minor",
+        "group_name",
+        "rollover",
+    }
 )
+
+
+def _clean_group(value: str | None) -> str | None:
+    """Grup adını sadeleştirir; boş metin grubu kaldırır."""
+    cleaned = " ".join((value or "").split())
+    return cleaned[:64] or None
+
+
+def _month_start(today: date) -> date:
+    return today.replace(day=1)
 
 
 class SettingsError(Exception):
@@ -203,6 +223,9 @@ async def create_category(
     emoji: str = "",
     sort_order: int = 0,
     monthly_budget_minor: int | None = None,
+    group_name: str | None = None,
+    rollover: bool = False,
+    today: date | None = None,
 ) -> Category:
     if await session.scalar(select(Category).where(Category.name == name)):
         raise SettingsError(f"'{name}' adında bir kategori zaten var")
@@ -211,6 +234,9 @@ async def create_category(
         emoji=emoji,
         sort_order=sort_order,
         monthly_budget_minor=monthly_budget_minor,
+        group_name=_clean_group(group_name),
+        rollover=rollover,
+        rollover_since=_month_start(today or local_today()) if rollover else None,
     )
     try:
         session.add(category)
@@ -231,12 +257,28 @@ async def create_category(
 
 
 async def update_category(
-    session: AsyncSession, *, user: User, category: Category, changes: dict[str, Any]
+    session: AsyncSession,
+    *,
+    user: User,
+    category: Category,
+    changes: dict[str, Any],
+    today: date | None = None,
 ) -> Category:
-    """Kategoriyi günceller. Taksit planlarına hiçbir etkisi yoktur (kural E2)."""
+    """Kategoriyi günceller. Taksit planlarına hiçbir etkisi yoktur (kural E2).
+
+    Devir açıldığında başlangıç ayı bu ay olarak yazılır; kapatılıp yeniden
+    açılırsa birikmiş devir sıfırdan başlar.
+    """
     unknown = set(changes) - CATEGORY_FIELDS
     if unknown:
         raise SettingsError(f"Düzenlenemeyen alan: {', '.join(sorted(unknown))}")
+    changes = dict(changes)
+    if "group_name" in changes:
+        changes["group_name"] = _clean_group(changes["group_name"])
+    if "rollover" in changes and bool(changes["rollover"]) != category.rollover:
+        changes["rollover_since"] = (
+            _month_start(today or local_today()) if changes["rollover"] else None
+        )
 
     before = {"name": category.name, "emoji": category.emoji, "is_active": category.is_active}
     if "name" in changes:
@@ -286,10 +328,17 @@ async def count_expenses_for_payment_method(session: AsyncSession, method_id: in
 
 async def count_expenses_for_category(session: AsyncSession, category_id: int) -> int:
     from ..models.expense import Expense
+    from ..models.expense_split import ExpenseSplit
 
-    return await session.scalar(
+    direct = await session.scalar(
         select(func.count(Expense.id)).where(Expense.category_id == category_id)
     ) or 0
+    in_splits = await session.scalar(
+        select(func.count(func.distinct(ExpenseSplit.expense_id))).where(
+            ExpenseSplit.category_id == category_id
+        )
+    ) or 0
+    return direct + in_splits
 
 
 async def delete_payment_method(

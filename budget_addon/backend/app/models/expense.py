@@ -27,6 +27,7 @@ from .payment_method import DEFAULT_CURRENCY
 
 if TYPE_CHECKING:
     from .category import Category
+    from .expense_split import ExpenseSplit
     from .installment import ExpenseInstallment
     from .user import User
 
@@ -158,6 +159,22 @@ class Expense(TimestampMixin, Base):
         # hatasi verir; taksitler her zaman ust kayitla birlikte yuklenir.
         lazy="selectin",
     )
+
+    splits: Mapped[list[ExpenseSplit]] = relationship(
+        back_populates="expense",
+        cascade="all, delete-orphan",
+        order_by="ExpenseSplit.position",
+        lazy="selectin",
+    )
+    """Bölünmüş harcamanın kategori parçaları; bölünmemişse boştur.
+
+    Bölünmüş harcamada `category_id` en büyük parçanın kategorisidir: liste ve
+    aramada tek kategori gösterilen yerler onu kullanır, kategori toplamları
+    ise parçalardan hesaplanır (bkz. `services/allocation.py`)."""
+
+    @property
+    def is_split(self) -> bool:
+        return bool(self.splits)
 
     @property
     def is_deleted(self) -> bool:

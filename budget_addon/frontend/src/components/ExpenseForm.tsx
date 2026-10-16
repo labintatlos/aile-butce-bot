@@ -4,13 +4,17 @@
  * Tasarım hedefi hız: normal bir harcama birkaç dokunuşla girilebilmeli.
  * Ancak hız uğruna doğruluk feda edilmez — kredi kartı seçiliyse kaydetmeden
  * önce taksit ve ekstre özeti gösterilir (§17). Nakitte taksit her zaman 1'dir.
+ *
+ * "Böl" açılınca tek fiş birden çok kategoriye paylaştırılır. Parçaların
+ * toplamı tutara eşit olmadan kayıt gönderilmez; asıl doğrulama sunucudadır.
  */
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
-import { api, type Expense, type ExpenseInput, type SchedulePreview } from "../api";
+import { api, type Expense, type ExpenseInput, type SchedulePreview, type SplitInput } from "../api";
 import { useSession } from "../context";
 import {
+  formatMinor,
   installmentLabel,
   longDate,
   minorToInput,
@@ -26,6 +30,14 @@ const SHARED = "shared";
 const PREVIEW_DEBOUNCE_MS = 350;
 const SUGGEST_DEBOUNCE_MS = 400;
 const SUGGEST_MIN_LENGTH = 3;
+
+interface Part {
+  categoryId: number | null;
+  amount: string;
+  note: string;
+}
+
+const EMPTY_PART: Part = { categoryId: null, amount: "", note: "" };
 
 export function ExpenseForm({
   initial,
@@ -102,6 +114,18 @@ export function ExpenseForm({
     [bootstrap.people],
   );
 
+  const [splitMode, setSplitMode] = useState(Boolean(initial && initial.splits.length > 1));
+  const [parts, setParts] = useState<Part[]>(() =>
+    initial && initial.splits.length > 1
+      ? initial.splits.map((part) => ({
+          categoryId: part.category_id,
+          amount: minorToInput(part.amount.minor),
+          note: part.note ?? "",
+        }))
+      : [EMPTY_PART, EMPTY_PART],
+  );
+  const partsMinor = parts.reduce((sum, part) => sum + (parseAmountToMinor(part.amount) ?? 0), 0);
+
   const [preview, setPreview] = useState<SchedulePreview | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -167,7 +191,33 @@ export function ExpenseForm({
     event.preventDefault();
     if (amountMinor === null) return setError("Geçerli bir tutar girin.");
     if (paymentMethodId === null) return setError("Ödeme yöntemi seçin.");
-    if (categoryId === null) return setError("Kategori seçin.");
+    let splits: SplitInput[] | undefined;
+    let mainCategory = categoryId;
+    if (splitMode) {
+      const filled = parts.filter((part) => part.categoryId !== null || part.amount.trim());
+      if (filled.length < 2) return setError("Bölmek için en az iki parça girin.");
+      if (filled.some((part) => part.categoryId === null)) {
+        return setError("Her parçanın kategorisini seçin.");
+      }
+      if (filled.some((part) => (parseAmountToMinor(part.amount) ?? 0) <= 0)) {
+        return setError("Her parçanın tutarını girin.");
+      }
+      if (partsMinor !== amountMinor) {
+        return setError(
+          `Parçaların toplamı (${formatMinor(partsMinor)}) tutara (${formatMinor(amountMinor)}) eşit olmalı.`,
+        );
+      }
+      splits = filled.map((part) => ({
+        category_id: part.categoryId as number,
+        amount: part.amount.trim(),
+        note: part.note.trim() || null,
+      }));
+      mainCategory = filled[0].categoryId;
+    } else if (initial && initial.splits.length > 1) {
+      // Bolme kapatildi: sunucuda parcalar silinir.
+      splits = [];
+    }
+    if (mainCategory === null) return setError("Kategori seçin.");
     if (!transactionDate) return setError("Harcama tarihini seçin.");
 
     setSaving(true);
@@ -175,13 +225,14 @@ export function ExpenseForm({
     try {
       await onSubmit({
         payment_method_id: paymentMethodId,
-        category_id: categoryId,
+        category_id: mainCategory,
         transaction_date: transactionDate,
         amount: amount.trim(),
         installment_count: installmentCount,
         description: description.trim() || null,
         is_shared: ownership === SHARED,
         owner_user_id: ownership === SHARED ? null : Number(ownership),
+        splits,
       });
     } catch (cause: unknown) {
       setError(
@@ -260,13 +311,139 @@ export function ExpenseForm({
         </div>
       </Field>
 
+      <div className="full row between">
+        <span className="field-label">{splitMode ? "Parçalar" : "Kategori"}</span>
+        <button
+          type="button"
+          className="btn ghost sm"
+          aria-pressed={splitMode}
+          onClick={() => {
+            setSplitMode((value) => !value);
+            if (!splitMode && categoryId !== null && parts[0].categoryId === null) {
+              setParts([{ ...EMPTY_PART, categoryId }, EMPTY_PART]);
+            }
+          }}
+        >
+          <Icon name="split" size={16} />
+          {splitMode ? "Bölmeyi kaldır" : "Birden çok kategoriye böl"}
+        </button>
+      </div>
+
+      {splitMode ? (
+        <div className="full split-editor">
+          {parts.map((part, index) => (
+            <div className="split-line" key={index}>
+              <select
+                className="select"
+                aria-label={`${index + 1}. parçanın kategorisi`}
+                value={part.categoryId ?? ""}
+                onChange={(event) => {
+                  const value = event.target.value ? Number(event.target.value) : null;
+                  setParts((current) =>
+                    current.map((item, i) => (i === index ? { ...item, categoryId: value } : item)),
+                  );
+                }}
+              >
+                <option value="">Kategori seçin</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.emoji} {category.name}
+                  </option>
+                ))}
+              </select>
+              <div className="input-wrap">
+                <input
+                  className="input"
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  aria-label={`${index + 1}. parçanın tutarı`}
+                  value={part.amount}
+                  onChange={(event) => {
+                    const value = sanitiseAmount(event.target.value);
+                    setParts((current) =>
+                      current.map((item, i) => (i === index ? { ...item, amount: value } : item)),
+                    );
+                  }}
+                />
+                <span className="suffix">TL</span>
+              </div>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label={`${index + 1}. parçayı kaldır`}
+                disabled={parts.length <= 2}
+                onClick={() => setParts((current) => current.filter((_, i) => i !== index))}
+              >
+                <Icon name="close" size={16} />
+              </button>
+              <input
+                className="input note"
+                maxLength={200}
+                placeholder="Not (isteğe bağlı)"
+                aria-label={`${index + 1}. parçanın notu`}
+                value={part.note}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setParts((current) =>
+                    current.map((item, i) => (i === index ? { ...item, note: value } : item)),
+                  );
+                }}
+              />
+            </div>
+          ))}
+          <div className="split-status">
+            <button
+              type="button"
+              className="btn ghost sm"
+              disabled={parts.length >= 20}
+              onClick={() => setParts((current) => [...current, EMPTY_PART])}
+            >
+              <Icon name="plus" size={16} />
+              Parça ekle
+            </button>
+            {amountMinor !== null && (
+              <span className={partsMinor === amountMinor ? "success-text" : "muted"}>
+                {partsMinor === amountMinor
+                  ? "Parçalar tutara eşit"
+                  : partsMinor < amountMinor
+                    ? `Dağıtılacak: ${formatMinor(amountMinor - partsMinor)}`
+                    : `Fazla: ${formatMinor(partsMinor - amountMinor)}`}
+              </span>
+            )}
+            {amountMinor !== null && partsMinor < amountMinor && (
+              <button
+                type="button"
+                className="btn ghost sm"
+                onClick={() => {
+                  // Kalan tutar son bos ya da son parcaya yazilir.
+                  const rest = amountMinor - partsMinor;
+                  setParts((current) => {
+                    const target = current.findIndex((item) => !item.amount.trim());
+                    const index = target >= 0 ? target : current.length - 1;
+                    return current.map((item, i) =>
+                      i === index
+                        ? {
+                            ...item,
+                            amount: minorToInput((parseAmountToMinor(item.amount) ?? 0) + rest),
+                          }
+                        : item,
+                    );
+                  });
+                }}
+              >
+                Kalanı son parçaya yaz
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
       <Field
         label="Kategori"
         className="full"
         group
         hint={
           suggested && !categoryTouched && categoryId !== null
-            ? "Bu açıklamayla en son bu kategori kullanılmış; farklıysa değiştirin."
+            ? "Kural veya geçmiş kayıtlara göre önerildi; farklıysa değiştirin."
             : undefined
         }
       >
@@ -288,6 +465,7 @@ export function ExpenseForm({
           ))}
         </div>
       </Field>
+      )}
 
       <Field
         label="Açıklama"

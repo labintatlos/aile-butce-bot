@@ -150,6 +150,53 @@ Seed (sıralı): Market, Yeme & İçme, Araç, Yakıt, Ev, Faturalar, Alışveri
 Giyim, Sağlık, Eğitim, Eğlence, Seyahat, Hediye, Çocuk, Evcil Hayvan, Diğer.
 Her biri bir emoji taşır. Kategoriler pasife alınabilir, silinmez.
 
+| Sütun | Kural |
+|---|---|
+| `group_name` | Serbest metin, NULL olabilir; raporda aynı adlılar birlikte toplanır |
+| `rollover` | Harcanmayan hedef sonraki aya devreder mi |
+| `rollover_since` | Devrin başladığı ayın 1'i; devir kapatılınca NULL |
+
+### expense_splits
+
+Bölünmüş harcamanın kategori parçaları. Değişmez kural, harcamayla aynı
+transaction içinde doğrulanır:
+
+```
+SUM(expense_splits.amount_minor WHERE expense_id = X)
+    == expenses.total_amount_minor WHERE id = X      -- parça varsa
+```
+
+`amount_minor > 0`, en az iki parça. `expenses.category_id` en büyük parçanın
+kategorisidir. Kategori toplamları `services/allocation.py` üzerinden
+parçalardan hesaplanır; iade parçalara orantılı paylaştırılır.
+
+### rules
+
+`pattern` sadeleştirilmiş metin; `match_type IN ('contains', 'equals',
+'starts_with')`. En az biri dolu olmalıdır: `set_category_id`,
+`set_payment_method_id`, `set_description`. `sort_order` küçük olan önce
+denenir; bir alanı ilk dolduran kural kazanır.
+
+### statement_reconciliations
+
+`(payment_method_id, statement_date)` UNIQUE. Bankanın tutarı
+(`bank_total_minor`) ile kayıt anında sistemin hesabı (`ours_total_minor`)
+saklanır. `expense_installments.cleared` satırın bankada görüldüğünü işaretler;
+tutara ve raporlara etkisi yoktur.
+
+### accounts, account_entries
+
+`accounts.kind IN ('bank', 'cash', 'savings', 'investment', 'other')`.
+`account_entries.kind`:
+
+- `balance`: o günkü mutlak bakiye,
+- `transfer`: işaretli fark; iki ayak aynı `transfer_group` ile bağlanır ve
+  birlikte silinir. Kart ödemesinde tek ayak vardır, `payment_method_id` dolar,
+- `adjustment`: faiz, masraf gibi işaretli fark.
+
+Bir tarihteki bakiye: o tarihe kadarki son `balance` kaydı + sonrasındaki
+farklar. Transferler harcama veya gelir raporlarına girmez.
+
 ### expenses
 
 | Sütun | Kural |

@@ -1,10 +1,14 @@
 /**
- * Harcamalar: arama, filtre ve sayfalama (§25).
+ * Harcamalar: arama, filtre, sayfalama (§25) ve toplu düzenleme.
+ *
+ * "Seç" açılınca satırlar işaretlenebilir; işaretlenenlere kategori, sahip,
+ * etiket veya silme tek seferde uygulanır ve geri alınabilir.
  */
 
 import { useEffect, useMemo, useState } from "react";
 
 import { api, type SearchFilters } from "../api";
+import { BulkBar } from "../components/BulkBar";
 import { ExpenseDetail } from "../components/ExpenseDetail";
 import { Icon } from "../components/icons";
 import { ExpenseRow } from "../components/reportParts";
@@ -47,6 +51,21 @@ export function Expenses() {
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(() => new Set());
+
+  const toggle = (id: number) =>
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const stopSelecting = () => {
+    setSelecting(false);
+    setSelected(new Set());
+  };
+  const openOrToggle = (id: number) => (selecting ? toggle(id) : setOpenId(id));
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -141,7 +160,29 @@ export function Expenses() {
               Temizle
             </button>
           )}
+          <button
+            type="button"
+            className={selecting ? "btn secondary" : "btn ghost"}
+            aria-pressed={selecting}
+            onClick={() => (selecting ? stopSelecting() : setSelecting(true))}
+          >
+            <Icon name="check" size={16} />
+            {selecting ? "Seçimi bitir" : "Seç"}
+          </button>
         </div>
+
+        {selecting && (
+          <div className="card-pad">
+            <BulkBar
+              ids={[...selected]}
+              onClear={() => setSelected(new Set())}
+              onSelectAll={() =>
+                setSelected(new Set((result?.items ?? []).map((expense) => expense.id)))
+              }
+              onDone={state.reload}
+            />
+          </div>
+        )}
 
         {showFilters && (
           <div className="filters">
@@ -246,6 +287,7 @@ export function Expenses() {
               <table className="table">
                 <thead>
                   <tr>
+                    {selecting && <th className="select-col" aria-label="Seç" />}
                     <th>Tarih</th>
                     <th>Açıklama</th>
                     <th>Kategori</th>
@@ -260,11 +302,23 @@ export function Expenses() {
                       key={expense.id}
                       className="clickable"
                       tabIndex={0}
-                      onClick={() => setOpenId(expense.id)}
+                      aria-selected={selecting ? selected.has(expense.id) : undefined}
+                      onClick={() => openOrToggle(expense.id)}
                       onKeyDown={(event) => {
-                        if (event.key === "Enter") setOpenId(expense.id);
+                        if (event.key === "Enter") openOrToggle(expense.id);
                       }}
                     >
+                      {selecting && (
+                        <td className="select-col">
+                          <input
+                            type="checkbox"
+                            aria-label={`${expense.public_id} seç`}
+                            checked={selected.has(expense.id)}
+                            onClick={(event) => event.stopPropagation()}
+                            onChange={() => toggle(expense.id)}
+                          />
+                        </td>
+                      )}
                       <td>{shortDate(expense.transaction_date)}</td>
                       <td className="wrap">
                         {expense.description || <span className="muted">—</span>}
@@ -275,7 +329,15 @@ export function Expenses() {
                         )}
                       </td>
                       <td>
-                        {expense.category.emoji} {expense.category.name}
+                        {expense.splits.length > 1 ? (
+                          <span title={expense.splits.map((part) => `${part.category_name} ${part.amount.formatted}`).join(" · ")}>
+                            <Icon name="split" size={14} /> {expense.splits.length} kategori
+                          </span>
+                        ) : (
+                          <>
+                            {expense.category.emoji} {expense.category.name}
+                          </>
+                        )}
                       </td>
                       <td>
                         {expense.payment_method_name}
@@ -292,9 +354,22 @@ export function Expenses() {
             </div>
 
             <div className="list mobile-only">
-              {result.items.map((expense) => (
-                <ExpenseRow key={expense.id} expense={expense} onOpen={() => setOpenId(expense.id)} />
-              ))}
+              {result.items.map((expense) =>
+                selecting ? (
+                  <div className="selectable-row" key={expense.id}>
+                    <input
+                      type="checkbox"
+                      className="list-check"
+                      aria-label={`${expense.public_id} seç`}
+                      checked={selected.has(expense.id)}
+                      onChange={() => toggle(expense.id)}
+                    />
+                    <ExpenseRow expense={expense} onOpen={() => toggle(expense.id)} />
+                  </div>
+                ) : (
+                  <ExpenseRow key={expense.id} expense={expense} onOpen={() => setOpenId(expense.id)} />
+                ),
+              )}
             </div>
 
             {result.total_pages > 1 && (

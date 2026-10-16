@@ -388,19 +388,35 @@ export function ConfirmButton({
 }
 
 type ToastTone = "success" | "danger";
-const ToastContext = createContext<(message: string, tone?: ToastTone) => void>(() => undefined);
+
+/** Bildirimdeki düğme; "Geri al" için kullanılır. */
+export interface ToastAction {
+  label: string;
+  run: () => Promise<void> | void;
+}
+
+type ShowToast = (message: string, tone?: ToastTone, action?: ToastAction) => void;
+const ToastContext = createContext<ShowToast>(() => undefined);
+
+const TOAST_MS = 3200;
+/** Geri alınabilir işlemde kişiye düğmeye basacak zaman tanınır. */
+const ACTION_TOAST_MS = 8000;
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [toast, setToast] = useState<{ id: number; message: string; tone: ToastTone } | null>(
-    null,
-  );
-  const show = useCallback((message: string, tone: ToastTone = "success") => {
-    setToast({ id: Date.now(), message, tone });
+  const [toast, setToast] = useState<{
+    id: number;
+    message: string;
+    tone: ToastTone;
+    action?: ToastAction;
+  } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const show = useCallback<ShowToast>((message, tone = "success", action) => {
+    setToast({ id: Date.now(), message, tone, action });
   }, []);
 
   useEffect(() => {
     if (!toast) return;
-    const timer = window.setTimeout(() => setToast(null), 3200);
+    const timer = window.setTimeout(() => setToast(null), toast.action ? ACTION_TOAST_MS : TOAST_MS);
     return () => window.clearTimeout(timer);
   }, [toast]);
 
@@ -410,7 +426,30 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {toast && (
         <div key={toast.id} className={`toast ${toast.tone}`} role="status">
           <Icon name={toast.tone === "success" ? "check" : "alert"} size={18} />
-          {toast.message}
+          <span>{toast.message}</span>
+          {toast.action && (
+            <button
+              type="button"
+              className="toast-action"
+              disabled={busy}
+              onClick={async () => {
+                const action = toast.action;
+                if (!action) return;
+                setBusy(true);
+                try {
+                  await action.run();
+                  setToast(null);
+                } catch {
+                  setToast({ id: Date.now(), message: "Geri alınamadı.", tone: "danger" });
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <Icon name="undo" size={16} />
+              {toast.action.label}
+            </button>
+          )}
         </div>
       )}
     </ToastContext.Provider>

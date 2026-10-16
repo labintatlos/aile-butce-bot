@@ -1,5 +1,72 @@
 # Değişiklik Günlüğü
 
+## 2.4.0
+
+**Bölünmüş harcama.** Tek bir fiş birden çok kategoriye paylaştırılabiliyor:
+1.200 TL'lik market fişinin 900 TL'si Market, 300 TL'si Temizlik. Harcama
+tek kalır (tek tutar, tek kart, tek taksit planı); raporlar ve bütçe
+hedefleri her parçayı kendi kategorisine yazar. Parçaların toplamı tutara
+eşit olmadan kayıt yapılmaz. Bölünmüş harcamadan yapılan iade parçalara
+tutarlarıyla orantılı, kuruş kaybı olmadan paylaştırılır.
+
+**Kurallar.** "Açıklamada *shell* geçiyorsa kategori Yakıt olsun, açıklama
+*Shell* yazılsın" gibi kurallar tanımlanabiliyor. Kural formda ve hızlı
+girişte kategori önerir (geçmiş kayıtlardan önce bakılır), ekstre içe
+aktarmada önizlemeyi doldurur ve istenirse geçmiş harcamalara uygulanır.
+Kural hiçbir zaman sormadan kayıt yapmaz. Eşleşme deterministik metin
+karşılaştırmasıdır; büyük/küçük harf, Türkçe karakter ve `#etiket` farkı yok
+sayılır.
+
+**Açıklamaları birleştirme.** "MIGROS 1234", "Migros" ve "migros kadıköy"
+gibi yazımlar seçilip tek ada çevrilebiliyor; etiketler korunur ve aynı
+yazımlar tekrar gelirse diye kural öğrenilir.
+
+**Ekstre içe aktarma (CSV).** Bankanın internet şubesinden indirilen ekstre
+veya hesap dökümü yüklenebiliyor. Tarih, açıklama ve tutar sütunları
+başlıktan tahmin edilir ve düzeltilebilir; Türkçe Windows kodlaması
+kendiliğinden tanınır. Önizlemede aynı kartta aynı tutarlı ve en fazla üç gün
+arayla girilmiş harcama **kopya** sayılır, "2/6" gibi önceki alışverişlerin
+taksitleri ve kart ödemeleri seçili gelmez. Aktarma tek seferdir: bir satır
+hatalıysa hiçbiri kaydedilmez. Aktarılan harcamalar "Geri al" ile silinebilir.
+
+**Ekstre mutabakatı.** Bankanın kestiği ekstre tutarı yazılınca sistemin
+hesabıyla karşılaştırılır ve fark gösterilir; ekstre satırları bankada
+görüldükçe işaretlenir. Mutabakattan sonra o ekstreye düşen bir kayıt
+değişirse liste bunu söyler. Fark kendiliğinden "düzeltme" kaydıyla
+kapatılmaz.
+
+**Hesaplar ve net varlık.** Vadesiz, nakit, birikim ve yatırım hesapları
+eklenip bakiyeleri zaman zaman güncellenebiliyor. Hesaplar arası transfer ve
+hesaptan kart ödemesi harcama ya da gelir sayılmaz. Net varlık = hesap
+bakiyeleri − ödenmemiş kart taksitleri; son on iki ayın ay sonları grafikle
+gösterilir.
+
+**Devreden bütçe ve kategori grupları.** Kategoride devir açılırsa ay sonunda
+harcanmayan hedef sonraki aya eklenir, aşım ise düşülür. Devir açıldığı aydan
+itibaren birikir. Kategoriler "Ev", "Ulaşım" gibi gruplara ayrılabiliyor;
+bütçe ve raporlar gruplu gösterilir.
+
+**Hedefleri geçmişten öner.** Son 1, 3, 6 veya 12 tam ayın ortalama net
+harcamasından kategori hedefi önerilir (10 TL'ye yukarı yuvarlanır); seçilen
+öneriler tek seferde uygulanır.
+
+**Yaklaşanlar.** Önümüzdeki 2 hafta ile 90 gün arasındaki sabit giderler,
+ekstre kesimleri, son ödemeler ve birikim hedefi tarihleri tek listede;
+özet ekranında da ilk beşi görünür.
+
+**Yeni raporlar.** Gelir ve harcamanın aylara göre karşılaştırması, gelirin
+harcama gruplarına akışı, yılın kategori × ay tablosu ve ayın günlere göre
+harcama ısı haritası.
+
+**Toplu düzenleme ve geri alma.** Harcamalar listesinde "Seç" ile birden çok
+harcamanın kategorisi, ortak/kişisel bilgisi veya etiketi tek seferde
+değiştirilebiliyor ya da silinebiliyor. Toplu işlemler, kural uygulama,
+açıklama birleştirme ve tek harcama silme bildirimin üzerindeki **Geri al**
+ile geri alınabiliyor.
+
+**Veritabanı.** Yeni göç (`f7a8b9c0d1e2`) yalnızca tablo ve sütun ekler;
+mevcut tablolar yeniden oluşturulmaz.
+
 ## 2.3.0
 
 **Harcama ayrıntısı telefonda sayfanın dibinde açılıyordu.** Sayfa geçiş

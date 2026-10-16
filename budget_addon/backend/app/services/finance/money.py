@@ -94,6 +94,35 @@ def split_minor(total_minor: int, count: int) -> list[int]:
     return amounts
 
 
+def allocate_proportionally(total_minor: int, weights: list[int]) -> list[int]:
+    """Tutarı ağırlıklara oranla, kuruş kaybı olmadan dağıtır.
+
+    Bölünmüş bir harcamadan yapılan iadenin parçalara paylaştırılması
+    gibi durumlarda kullanılır. Her pay önce aşağı yuvarlanır; artan kuruşlar
+    en büyük kalanı olan paylara, eşitlikte listedeki sıraya göre verilir
+    (en büyük kalan yöntemi). Dönen listenin toplamı her zaman `total_minor`
+    değerine eşittir.
+    """
+    if not weights:
+        raise ValueError("Dağıtılacak en az bir pay olmalıdır")
+    if any(weight < 0 for weight in weights):
+        raise ValueError("Ağırlıklar negatif olamaz")
+    weight_sum = sum(weights)
+    if weight_sum == 0:
+        raise ValueError("Ağırlıkların toplamı sıfır olamaz")
+    shares = []
+    remainders = []
+    for index, weight in enumerate(weights):
+        share, remainder = divmod(total_minor * weight, weight_sum)
+        shares.append(share)
+        remainders.append((-remainder, index))
+    for _, index in sorted(remainders)[: total_minor - sum(shares)]:
+        shares[index] += 1
+    if sum(shares) != total_minor:  # pragma: no cover - matematiksel olarak imkânsız
+        raise AssertionError("Orantılı dağıtım toplamı bozdu")
+    return shares
+
+
 def format_try(minor: int) -> str:
     """Kuruş tutarını `12.450,75 TL` biçiminde gösterir."""
     major, cents = divmod(abs(minor), MINOR_UNITS_PER_MAJOR)

@@ -99,6 +99,14 @@ async def expenses_csv(
     for expense in rows:
         refunded = await refunds.refunded_total(session, expense.id)
         category = categories.get(expense.category_id)
+        if expense.splits:
+            category_text = " + ".join(
+                f"{categories[part.category_id].name} {format_amount(part.amount_minor)}"
+                for part in expense.splits
+                if part.category_id in categories
+            )
+        else:
+            category_text = category.name if category else ""
         person = people.get(expense.created_by_user_id)
         writer.writerow(
             [
@@ -107,7 +115,7 @@ async def expenses_csv(
                 format_amount(expense.total_amount_minor),
                 format_amount(refunded),
                 format_amount(expense.total_amount_minor - refunded),
-                category.name if category else "",
+                category_text,
                 expense.payment_method_name_snapshot,
                 expense.installment_count,
                 person.display_name if person else "",

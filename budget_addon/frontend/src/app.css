@@ -2091,3 +2091,582 @@ body { background-image: radial-gradient(ellipse at 90% 0, var(--soft), transpar
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* --------------------------------------------------------------------------
+ * Grafik renkleri
+ *
+ * Gelir ve harcama iki seridir: dogrulanmis kategorik paletin ilk iki slotu
+ * (mavi, turuncu). Isi haritasi ve kategori tablosu tek tonlu mavi skaladir;
+ * koyu temada kendi adimlari kullanilir, otomatik ters cevrilmez.
+ * ------------------------------------------------------------------------ */
+
+:root {
+  --viz-income: #2a78d6;
+  --viz-spend: #eb6834;
+  --viz-net: #087c60;
+  --viz-grid: #e1e0d9;
+  --viz-seq-1: #cde2fb;
+  --viz-seq-2: #9ec5f4;
+  --viz-seq-3: #5598e7;
+  --viz-seq-4: #256abf;
+  --viz-seq-5: #104281;
+  --viz-seq-ink: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --viz-income: #3987e5;
+    --viz-spend: #d95926;
+    --viz-net: #34d399;
+    --viz-grid: #2c2c2a;
+    --viz-seq-1: #183552;
+    --viz-seq-2: #1c5cab;
+    --viz-seq-3: #2a78d6;
+    --viz-seq-4: #5598e7;
+    --viz-seq-5: #9ec5f4;
+    --viz-seq-ink: #0b1a2e;
+  }
+}
+
+:root[data-theme="dark"] {
+  --viz-income: #3987e5;
+  --viz-spend: #d95926;
+  --viz-net: #34d399;
+  --viz-grid: #2c2c2a;
+  --viz-seq-1: #183552;
+  --viz-seq-2: #1c5cab;
+  --viz-seq-3: #2a78d6;
+  --viz-seq-4: #5598e7;
+  --viz-seq-5: #9ec5f4;
+  --viz-seq-ink: #0b1a2e;
+}
+
+.toast-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.toast-action:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Gelir / harcama sutunlari */
+.chart.flow .chart-bar.income {
+  background: var(--viz-income);
+}
+
+.chart.flow .chart-bar.spend {
+  background: var(--viz-spend);
+}
+
+.legend i.income {
+  background: var(--viz-income);
+}
+
+.legend i.spend {
+  background: var(--viz-spend);
+}
+
+.legend i.net {
+  background: var(--viz-net);
+}
+
+.chart-col {
+  cursor: default;
+}
+
+.chart-col.is-hovered .chart-label {
+  color: var(--c-text);
+  font-weight: 650;
+}
+
+.chart-tip {
+  min-height: 42px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-tip .tip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-tip i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+/* Net varlik cizgisi */
+.line-chart {
+  display: block;
+  width: 100%;
+  height: 210px;
+  overflow: visible;
+}
+
+.line-chart .grid-line {
+  stroke: var(--viz-grid);
+  stroke-width: 1;
+}
+
+.line-chart .baseline {
+  stroke: var(--c-hint);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
+.line-chart .series {
+  fill: none;
+  stroke: var(--viz-net);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.line-chart .area {
+  fill: var(--viz-net);
+  opacity: 0.1;
+}
+
+.line-chart .dot {
+  fill: var(--viz-net);
+  stroke: var(--c-bg);
+  stroke-width: 2;
+}
+
+.line-chart .hit {
+  fill: transparent;
+}
+
+.line-chart .crosshair {
+  stroke: var(--c-hint);
+  stroke-width: 1;
+}
+
+.line-chart text {
+  fill: var(--c-hint);
+  font-size: 11px;
+}
+
+/* Gunluk harcama isi haritasi */
+.heatmap {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.heatmap .weekday {
+  color: var(--c-hint);
+  font-size: 11px;
+  text-align: center;
+}
+
+.heat-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+  min-height: 46px;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--track) 55%, transparent);
+  color: var(--c-text);
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+}
+
+.heat-cell.blank {
+  background: transparent;
+}
+
+.heat-cell.is-hovered {
+  outline: 2px solid var(--c-text);
+  outline-offset: 1px;
+}
+
+.heat-cell.l1 { background: var(--viz-seq-1); }
+.heat-cell.l2 { background: var(--viz-seq-2); }
+.heat-cell.l3 { background: var(--viz-seq-3); color: var(--viz-seq-ink); }
+.heat-cell.l4 { background: var(--viz-seq-4); color: var(--viz-seq-ink); }
+.heat-cell.l5 { background: var(--viz-seq-5); color: var(--viz-seq-ink); }
+
+.heat-cell .day {
+  font-weight: 650;
+}
+
+.heat-cell .amount {
+  overflow: hidden;
+  font-size: 10px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 479.98px) {
+  .heat-cell .amount {
+    display: none;
+  }
+}
+
+.heat-scale {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  color: var(--c-hint);
+  font-size: 11px;
+}
+
+.heat-scale i {
+  display: inline-block;
+  width: 16px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+/* Kategori x ay tablosu */
+.matrix th,
+.matrix td {
+  padding: 6px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.matrix .group-row td {
+  padding-top: 14px;
+  color: var(--c-hint);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.matrix td.cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.matrix td.cell.s1 { background: color-mix(in srgb, var(--viz-seq-2) 22%, transparent); }
+.matrix td.cell.s2 { background: color-mix(in srgb, var(--viz-seq-2) 42%, transparent); }
+.matrix td.cell.s3 { background: color-mix(in srgb, var(--viz-seq-3) 42%, transparent); }
+.matrix td.cell.s4 { background: color-mix(in srgb, var(--viz-seq-3) 62%, transparent); }
+
+.matrix .sticky {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--c-bg);
+}
+
+.matrix tfoot td {
+  border-top: 1px solid var(--border);
+  font-weight: 700;
+}
+
+/* Gelirden gruplara para akisi */
+.flow-diagram {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+
+.flow-diagram .node-income { fill: var(--viz-income); }
+.flow-diagram .node-spend { fill: var(--viz-spend); }
+.flow-diagram .node-rest { fill: var(--viz-net); }
+.flow-diagram .link { fill: var(--viz-spend); opacity: 0.18; }
+.flow-diagram .link.rest { fill: var(--viz-net); opacity: 0.16; }
+.flow-diagram .link.is-hovered { opacity: 0.38; }
+.flow-diagram text { fill: var(--c-text); font-size: 12px; }
+.flow-diagram text.value { fill: var(--c-hint); font-size: 11px; }
+
+/* Toplu secim */
+.select-col {
+  width: 36px;
+}
+
+.select-col input,
+.list-check {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  accent-color: var(--c-button);
+}
+
+.bulk-bar {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--c-bg);
+  box-shadow: var(--shadow);
+}
+
+.bulk-bar .select,
+.bulk-bar .input {
+  width: auto;
+  min-width: 0;
+  max-width: 180px;
+  min-height: 36px;
+}
+
+.selectable-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 14px;
+}
+
+.selectable-row > .list-item {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Bolunmus harcama parcalari */
+.split-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.split-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.split-line .note {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 720px) {
+  .split-line {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr) minmax(0, 1fr) auto;
+  }
+
+  .split-line .note {
+    grid-column: auto;
+  }
+}
+
+.split-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ice aktarma onizlemesi */
+.import-table td {
+  vertical-align: middle;
+}
+
+.import-table .select,
+.import-table .input {
+  min-height: 34px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  font-size: 13px;
+}
+
+.import-table tr.is-off td {
+  opacity: 0.55;
+}
+
+.mapping-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (min-width: 720px) {
+  .mapping-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.file-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 22px;
+  border: 1.5px dashed var(--border);
+  border-radius: 14px;
+  color: var(--c-hint);
+  text-align: center;
+  cursor: pointer;
+}
+
+.file-drop:hover {
+  border-color: var(--c-link);
+}
+
+.file-drop input {
+  display: none;
+}
+
+/* Yaklasanlar */
+.day-group + .day-group {
+  margin-top: 14px;
+}
+
+.day-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px 6px;
+  color: var(--c-hint);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.event-icon.card_due { color: var(--c-danger); }
+.event-icon.recurring { color: var(--c-link); }
+.event-icon.savings_goal { color: var(--warning); }
+
+.diff-box {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.diff-box > div {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.diff-box span {
+  display: block;
+  color: var(--c-hint);
+  font-size: 12px;
+}
+
+.diff-box strong {
+  display: block;
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 479.98px) {
+  .diff-box {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bulk-bar .spacer {
+  flex: 1;
+}
+
+.mb-sm {
+  margin-bottom: 8px;
+}
+
+.line-wrap {
+  position: relative;
+}
+
+.line-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--c-bg);
+  border-radius: 50%;
+  background: var(--viz-net);
+  transform: translate(-50%, -50%);
+  box-sizing: content-box;
+  pointer-events: none;
+}
+
+.line-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--c-hint);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.line-max {
+  position: absolute;
+  top: -4px;
+  left: 4px;
+  color: var(--c-hint);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.flow-diagram {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.day-group .list-title,
+.day-group .list-sub {
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+}
+
+.rule-item {
+  flex-wrap: wrap;
+}
+
+.rule-item .list-main {
+  min-width: 180px;
+}
+
+.rule-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+@media (min-width: 720px) {
+  .split-line .note {
+    order: 1;
+  }
+
+  .split-line .icon-btn {
+    order: 2;
+  }
+}
+
+.import-table td > .muted.small {
+  display: block;
+  margin-top: 2px;
+}
+
+.import-table td .select[aria-label="Taksit"] {
+  min-width: 100px;
+}

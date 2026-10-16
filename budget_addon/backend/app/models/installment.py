@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -64,6 +65,10 @@ class ExpenseInstallment(Base):
     due_date: Mapped[date] = mapped_column(Date, index=True)
     status: Mapped[str] = mapped_column(String(16), default=STATUS_SCHEDULED, index=True)
 
+    cleared: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    """Mutabakatta bankanın ekstresinde görülüp işaretlendi mi.
+
+    Yalnızca kontrol bilgisidir; tutara, tarihe ve raporlara etkisi yoktur."""
     created_at: Mapped[date] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

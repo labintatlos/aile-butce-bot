@@ -201,9 +201,15 @@ export function Settings() {
                   <span className="list-main">
                     <span className="list-title">{category.name}</span>
                     <span className="list-sub">
-                      {category.monthly_budget_minor
-                        ? `Aylık hedef ${formatMinor(category.monthly_budget_minor)}`
-                        : "Bütçe hedefi yok"}
+                      {[
+                        category.group_name,
+                        category.monthly_budget_minor
+                          ? `Aylık hedef ${formatMinor(category.monthly_budget_minor)}`
+                          : "Bütçe hedefi yok",
+                        category.rollover ? "devreder" : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </span>
                   </span>
                   {!category.is_active && <span className="badge">Pasif</span>}
@@ -230,6 +236,13 @@ export function Settings() {
       {categoryEditing && (
         <CategoryForm
           category={categoryEditing === "new" ? null : categoryEditing}
+          groups={[
+            ...new Set(
+              (state.data?.categories ?? [])
+                .map((item) => item.group_name)
+                .filter((name): name is string => Boolean(name)),
+            ),
+          ]}
           onClose={() => setCategoryEditing(null)}
           onSaved={(message) => {
             setCategoryEditing(null);
@@ -531,13 +544,17 @@ function PaymentMethodForm({
 
 function CategoryForm({
   category,
+  groups,
   onClose,
   onSaved,
 }: {
   category: Category | null;
+  groups: string[];
   onClose: () => void;
   onSaved: (message: string) => void;
 }) {
+  const [groupName, setGroupName] = useState(category?.group_name ?? "");
+  const [rollover, setRollover] = useState(category?.rollover ?? false);
   const toast = useToast();
   const [name, setName] = useState(category?.name ?? "");
   const [emoji, setEmoji] = useState(category?.emoji ?? "");
@@ -561,6 +578,8 @@ function CategoryForm({
         await api.updateCategory(category.id, {
           name: name.trim(),
           emoji: emoji.trim(),
+          group_name: groupName.trim(),
+          rollover,
           is_active: isActive,
           // Sunucuda sifir "hedefi kaldir" demektir.
           monthly_budget_minor: budgetValue ?? 0,
@@ -570,6 +589,8 @@ function CategoryForm({
         await api.addCategory({
           name: name.trim(),
           emoji: emoji.trim(),
+          group_name: groupName.trim() || undefined,
+          rollover,
           monthly_budget_minor: budgetValue,
         });
         onSaved("Kategori eklendi.");
@@ -655,6 +676,27 @@ function CategoryForm({
             <span className="suffix">TL</span>
           </div>
         </Field>
+        <Field label="Grup" hint="Raporlarda aynı gruptaki kategoriler birlikte toplanır. Örn. Ev, Ulaşım.">
+          <input
+            className="input"
+            maxLength={64}
+            list="category-groups"
+            placeholder="Grup yok"
+            value={groupName}
+            onChange={(event) => setGroupName(event.target.value)}
+          />
+          <datalist id="category-groups">
+            {groups.map((group) => (
+              <option key={group} value={group} />
+            ))}
+          </datalist>
+        </Field>
+        <Toggle
+          checked={rollover}
+          onChange={setRollover}
+          label="Harcanmayan hedef sonraki aya devretsin"
+          hint="Ay sonunda artan tutar sonraki ayın hedefine eklenir, aşım ise düşülür. Bu aydan başlar."
+        />
         {category && (
           <Toggle
             checked={isActive}

@@ -17,20 +17,27 @@ from .database import get_session
 from .models.payment_method import PaymentMethod
 from .models.user import User
 from .schemas import (
+    BulkIdsIn,
+    BulkResultOut,
+    BulkRevertIn,
+    BulkUpdateIn,
     CategoryOut,
     ExpenseCreateIn,
     ExpenseOut,
     ExpenseUpdateIn,
     InstallmentOut,
     Money,
+    PreviousValuesOut,
     RefundCreateIn,
     RefundOut,
     SchedulePreviewIn,
     SchedulePreviewOut,
     SearchResultOut,
+    SplitOut,
 )
 from .security.identity import current_user
 from .services import (
+    bulk,
     refunds,
 )
 from .services import (
@@ -39,8 +46,10 @@ from .services import (
 from .services.expenses import (
     ExpenseError,
     ExpenseInput,
+    SplitInput,
     create_expense,
     get_expense,
+    restore_expense,
     soft_delete_expense,
     update_expense,
 )
@@ -68,6 +77,16 @@ def expense_out(expense) -> ExpenseOut:
         owner_user_id=expense.owner_user_id,
         owner_name=expense.owner.display_name if expense.owner else None,
         has_receipt=bool(expense.receipt_path),
+        splits=[
+            SplitOut(
+                category_id=part.category_id,
+                category_name=part.category.name if part.category else "",
+                category_emoji=part.category.emoji if part.category else "",
+                amount=Money.of(part.amount_minor),
+                note=part.note,
+            )
+            for part in expense.splits
+        ],
         installments=[
             InstallmentOut(
                 number=line.installment_number,
@@ -145,6 +164,10 @@ async def create(
                 description=payload.description,
                 is_shared=payload.is_shared,
                 owner_user_id=payload.owner_user_id,
+                splits=tuple(
+                    SplitInput(category_id=part.category_id, amount=part.amount, note=part.note)
+                    for part in payload.splits
+                ),
             ),
         )
     except (ExpenseError, ValueError) as exc:
@@ -164,7 +187,9 @@ async def reload_expense(session: AsyncSession, expense_id: int):
             selectinload(Expense.installments),
             selectinload(Expense.category),
             selectinload(Expense.created_by),
+            selectinload(Expense.splits),
         )
+        .execution_options(populate_existing=True)
     )
 
 
@@ -192,6 +217,11 @@ async def edit(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Harcama bulunamadı")
 
     changes = payload.model_dump(exclude_unset=True, exclude_none=True)
+    if payload.splits is not None:
+        changes["splits"] = [
+            SplitInput(category_id=part.category_id, amount=part.amount, note=part.note)
+            for part in payload.splits
+        ]
     if not changes:
         return expense_out(await reload_expense(session, expense_id))
     try:
@@ -211,6 +241,98 @@ async def remove(
     if expense is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Harcama bulunamadı")
     await soft_delete_expense(session, user=user, expense=expense)
+
+
+def bulk_out(result: bulk.BulkResult) -> BulkResultOut:
+    return BulkResultOut(
+        changed=result.changed,
+        skipped=result.skipped,
+        previous=[
+            PreviousValuesOut(
+                expense_id=item.expense_id,
+                category_id=item.category_id,
+                description=item.description,
+                is_shared=item.is_shared,
+                owner_user_id=item.owner_user_id,
+            )
+            for item in result.previous
+        ],
+    )
+
+
+@router.post("/expenses/bulk/update", response_model=BulkResultOut)
+async def bulk_update(
+    payload: BulkUpdateIn,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> BulkResultOut:
+    """Seçilen harcamalara aynı değişikliği uygular; önceki değerleri döndürür."""
+    changes = payload.model_dump(exclude={"ids"}, exclude_none=True)
+    if payload.is_shared is False and payload.owner_user_id is None:
+        changes["owner_user_id"] = None
+    try:
+        result = await bulk.bulk_update(session, user=user, ids=payload.ids, changes=changes)
+    except (bulk.BulkError, ExpenseError, ValueError) as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    return bulk_out(result)
+
+
+@router.post("/expenses/bulk/revert", response_model=BulkResultOut)
+async def bulk_revert(
+    payload: BulkRevertIn,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> BulkResultOut:
+    """Toplu işlemden önceki değerleri geri yazar ("Geri al")."""
+    try:
+        result = await bulk.revert(
+            session, user=user, items=[item.model_dump() for item in payload.items]
+        )
+    except (bulk.BulkError, ExpenseError, ValueError) as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    return bulk_out(result)
+
+
+@router.post("/expenses/bulk/delete", response_model=BulkResultOut)
+async def bulk_delete(
+    payload: BulkIdsIn,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> BulkResultOut:
+    try:
+        result = await bulk.bulk_delete(session, user=user, ids=payload.ids)
+    except bulk.BulkError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    return bulk_out(result)
+
+
+@router.post("/expenses/bulk/restore", response_model=BulkResultOut)
+async def bulk_restore(
+    payload: BulkIdsIn,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> BulkResultOut:
+    try:
+        result = await bulk.bulk_restore(session, user=user, ids=payload.ids)
+    except bulk.BulkError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    return bulk_out(result)
+
+
+# Toplu yollardan SONRA tanimlanir: once tanimlansaydi `/expenses/bulk/restore`
+# istegi buraya duser ve "bulk" kimlik olarak okunamadigi icin 422 donerdi.
+@router.post("/expenses/{expense_id}/restore", response_model=ExpenseOut)
+async def restore(
+    expense_id: int,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> ExpenseOut:
+    """Silinmiş harcamayı geri getirir ("Geri al")."""
+    expense = await get_expense(session, expense_id, include_deleted=True)
+    if expense is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Harcama bulunamadı")
+    await restore_expense(session, user=user, expense=expense)
+    return expense_out(await reload_expense(session, expense_id))
 
 
 @router.get("/expenses", response_model=SearchResultOut)

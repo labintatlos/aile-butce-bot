@@ -157,6 +157,40 @@ devam eder.
 
 ---
 
+## 8. Kurallar, ekstre ve hesaplar
+
+**Kurallar** (Menü → Kurallar). "Açıklamada *shell* geçiyorsa kategori Yakıt
+olsun" gibi kurallar ekleyin. Kural formda kategori önerir, içe aktarmada
+önizlemeyi doldurur; "Geçmişe uygula" ile eski harcamalara da uygulanır ve
+bildirimdeki **Geri al** ile geri alınır. Aynı sayfadaki "Açıklamaları
+birleştir" bölümü farklı yazılmış satıcı adlarını tek ada çevirir.
+
+**Ekstre içe aktarma** (Menü → Ekstre). Bankanın internet şubesinden ekstreyi
+veya hesap hareketlerini CSV olarak indirin (Excel dosyasını "CSV (noktalı
+virgülle ayrılmış)" olarak kaydedin), kartı seçip yükleyin. Önizlemede kopya
+olduğu düşünülen satırlar, önceki alışverişlerin taksitleri ("2/6") ve kart
+ödemeleri seçili gelmez. Kategorisi bulunamayan satır için ya varsayılan
+kategori seçin ya da satırda kendiniz seçin.
+
+**Ekstre mutabakatı** (Ekstre → Ekstre mutabakatı). Kartı ve ekstreyi seçin,
+bankanın ekstre tutarını yazın. Fark varsa satırları bankadaki dökümle
+karşılaştırıp işaretleyin; eksik harcamayı normal yoldan ekleyin.
+
+**Hesaplar** (Menü → Hesaplar). Vadesiz, birikim ve nakit hesaplarınızı
+ekleyip bakiyesini ara ara güncelleyin. Hesaplar arası aktarım ve karttan
+ödeme "Transfer" ile girilir; harcama ya da gelir sayılmaz. Net varlık,
+bakiyelerden ödenmemiş kart taksitlerinin düşülmesidir.
+
+**Bölünmüş harcama.** Harcama formunda "Birden çok kategoriye böl" ile
+parçaları girin; parçaların toplamı tutara eşit olmalıdır.
+
+**Devreden bütçe ve gruplar.** Ayarlar → Kategoriler'de bir kategoriye grup
+("Ev", "Ulaşım") verin ve isterseniz "Harcanmayan hedef sonraki aya devretsin"
+seçeneğini açın. Raporlar → Bütçe sekmesindeki "Hedefleri geçmişten öner"
+son ayların ortalamasından hedef önerir.
+
+---
+
 ## Ayarlar
 
 | Alan | Ne işe yarar |

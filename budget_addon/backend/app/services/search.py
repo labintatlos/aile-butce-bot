@@ -12,11 +12,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import Select, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..models.expense import Expense
+from ..models.expense_split import ExpenseSplit
 
 DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 100
@@ -81,7 +82,15 @@ def _apply_filters(statement: Select, filters: SearchFilters) -> Select:
     if filters.date_to:
         statement = statement.where(Expense.transaction_date <= filters.date_to)
     if filters.category_id:
-        statement = statement.where(Expense.category_id == filters.category_id)
+        statement = statement.where(
+            or_(
+                Expense.category_id == filters.category_id,
+                exists().where(
+                    ExpenseSplit.expense_id == Expense.id,
+                    ExpenseSplit.category_id == filters.category_id,
+                ),
+            )
+        )
     if filters.payment_method_id:
         statement = statement.where(Expense.payment_method_id == filters.payment_method_id)
     if filters.created_by_user_id:

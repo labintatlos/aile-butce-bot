@@ -48,12 +48,12 @@ export function BudgetBars({ items }: { items: BudgetStatus[] }) {
         <BarRow
           key={item.category_id}
           label={`${item.emoji} ${item.name}`}
-          value={`${item.spent.formatted} / ${item.budget.formatted}`}
+          value={`${item.spent.formatted} / ${(item.available ?? item.budget).formatted}`}
           ratio={item.ratio}
           tone={item.is_exceeded ? "danger" : item.ratio >= 80 ? "warning" : undefined}
           meta={`%${item.ratio} · ${
             item.is_exceeded ? "hedef aşıldı" : `kalan ${item.remaining.formatted}`
-          }`}
+          }${item.carry_in.minor !== 0 ? ` · devreden ${item.carry_in.formatted}` : ""}`}
         />
       ))}
     </>

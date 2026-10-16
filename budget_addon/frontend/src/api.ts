@@ -29,6 +29,8 @@ export interface Category {
   emoji: string;
   is_active: boolean;
   monthly_budget_minor: number | null;
+  group_name: string | null;
+  rollover: boolean;
 }
 
 export type PaymentMethodType = "cash" | "credit_card";
@@ -207,6 +209,21 @@ export interface Expense {
   tags: string[];
   has_receipt: boolean;
   installments: Installment[];
+  splits: Split[];
+}
+
+export interface Split {
+  category_id: number;
+  category_name: string;
+  category_emoji: string;
+  amount: Money;
+  note: string | null;
+}
+
+export interface SplitInput {
+  category_id: number;
+  amount: string;
+  note: string | null;
 }
 
 export interface ExpenseInput {
@@ -218,6 +235,8 @@ export interface ExpenseInput {
   description: string | null;
   is_shared: boolean;
   owner_user_id: number | null;
+  /** İki veya daha fazla parça varsa harcama bölünür; boş liste bölmeyi kaldırır. */
+  splits?: SplitInput[];
 }
 
 export interface SearchFilters {
@@ -296,6 +315,8 @@ export interface PaymentMethodInput {
 export interface CategoryInput {
   name: string;
   emoji: string;
+  group_name?: string;
+  rollover?: boolean;
   monthly_budget_minor?: number | null;
   sort_order?: number;
   is_active?: boolean;
@@ -358,6 +379,21 @@ export interface BudgetStatus {
   remaining: Money;
   ratio: number;
   is_exceeded: boolean;
+  carry_in: Money;
+  available: Money | null;
+  group_name: string | null;
+  rollover: boolean;
+}
+
+export interface TargetSuggestion {
+  category_id: number;
+  name: string;
+  emoji: string;
+  group_name: string | null;
+  current: Money | null;
+  average: Money;
+  suggested: Money | null;
+  months: number;
 }
 
 export interface CardUsage {
@@ -432,6 +468,237 @@ export interface Obligations {
 }
 
 // ---------------------------------------------------------------------------
+// Kurallar, toplu islemler, ice aktarma, mutabakat, hesaplar, takvim
+// ---------------------------------------------------------------------------
+
+export type MatchType = "contains" | "equals" | "starts_with";
+
+export interface Rule {
+  id: number;
+  pattern: string;
+  match_type: MatchType;
+  set_category_id: number | null;
+  set_payment_method_id: number | null;
+  set_description: string | null;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface RuleInput {
+  pattern: string;
+  match_type: MatchType;
+  set_category_id?: number | null;
+  set_payment_method_id?: number | null;
+  set_description?: string | null;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
+export interface RuleTest {
+  category_id: number | null;
+  payment_method_id: number | null;
+  description: string | null;
+  rule_ids: number[];
+}
+
+export interface PreviousValues {
+  expense_id: number;
+  category_id: number;
+  description: string | null;
+  is_shared: boolean;
+  owner_user_id: number | null;
+}
+
+export interface BulkResult {
+  changed: number[];
+  skipped: Record<string, string>;
+  /** Geri almak için aynen geri gönderilir. */
+  previous: PreviousValues[];
+}
+
+export interface BulkChanges {
+  category_id?: number;
+  is_shared?: boolean;
+  owner_user_id?: number;
+  add_tag?: string;
+  remove_tag?: string;
+}
+
+export interface DescriptionGroup {
+  key: string;
+  sample: string;
+  count: number;
+  total: Money;
+}
+
+export interface ColumnMapping {
+  date_column: number;
+  description_column: number;
+  amount_column: number;
+  first_row: number;
+}
+
+export type ImportSign = "auto" | "negative" | "positive";
+
+export interface ImportPreviewRow {
+  index: number;
+  transaction_date: string | null;
+  description: string;
+  amount: Money;
+  category_id: number | null;
+  category_source: "rule" | "history" | "default" | null;
+  payment_method_id: number | null;
+  installment_count: number;
+  installment_current: number | null;
+  duplicate_of: string | null;
+  skip_reason: "opposite_sign" | "zero" | "unreadable" | null;
+  selected: boolean;
+  note: string | null;
+}
+
+export interface ImportPreview {
+  delimiter: string;
+  mapping: ColumnMapping;
+  sign: ImportSign;
+  columns: string[];
+  rows: ImportPreviewRow[];
+}
+
+export interface ImportRow {
+  transaction_date: string;
+  description: string | null;
+  amount_minor: number;
+  category_id: number;
+  payment_method_id: number;
+  installment_count: number;
+  is_shared: boolean;
+}
+
+export interface ReconcileSummary {
+  statement_date: string;
+  due_date: string;
+  ours_total: Money;
+  line_count: number;
+  cleared_count: number;
+  bank_total: Money | null;
+  difference: Money | null;
+  is_reconciled: boolean;
+  changed_since: boolean;
+}
+
+export interface ReconcileLine {
+  kind: "installment" | "refund";
+  id: number;
+  expense_id: number;
+  public_id: string;
+  description: string | null;
+  transaction_date: string;
+  amount: Money;
+  installment_number: number | null;
+  installment_count: number | null;
+  cleared: boolean;
+}
+
+export interface ReconcileDetail {
+  summary: ReconcileSummary;
+  lines: ReconcileLine[];
+  cleared_total: Money;
+  note: string | null;
+}
+
+export type AccountKind = "bank" | "cash" | "savings" | "investment" | "other";
+
+export interface Account {
+  id: number;
+  name: string;
+  kind: AccountKind;
+  is_active: boolean;
+  notes: string | null;
+  balance: Money;
+  last_balance_date: string | null;
+}
+
+export interface NetWorthPoint {
+  when: string;
+  assets: Money;
+  card_debt: Money;
+  net: Money;
+}
+
+export interface AccountsOverview {
+  accounts: Account[];
+  today: NetWorthPoint;
+  history: NetWorthPoint[];
+}
+
+export interface AccountEntry {
+  id: number;
+  account_id: number;
+  entry_date: string;
+  kind: "balance" | "transfer" | "adjustment";
+  amount: Money;
+  transfer_group: string | null;
+  payment_method_id: number | null;
+  note: string | null;
+}
+
+export type EventKind = "recurring" | "statement" | "card_due" | "savings_goal";
+
+export interface UpcomingEvent {
+  when: string;
+  kind: EventKind;
+  title: string;
+  amount: Money | null;
+  detail: string | null;
+  payment_method_id: number | null;
+}
+
+export interface CategoryMatrix {
+  year: number;
+  rows: {
+    category_id: number;
+    name: string;
+    emoji: string;
+    group_name: string;
+    months: Money[];
+    total: Money;
+  }[];
+  month_totals: Money[];
+  total: Money;
+}
+
+export interface FlowMonth {
+  year: number;
+  month: number;
+  income: Money;
+  spending: Money;
+  net: Money;
+}
+
+export interface DailySpending {
+  year: number;
+  month: number;
+  days: Money[];
+  total: Money;
+}
+
+export interface FlowNode {
+  name: string;
+  amount: Money;
+  categories: { name: string; amount: Money }[];
+}
+
+export interface MoneyFlow {
+  year: number;
+  month: number;
+  sources: FlowNode[];
+  targets: FlowNode[];
+  income: Money;
+  spending: Money;
+  remaining: Money;
+}
+
+// ---------------------------------------------------------------------------
 // Tasima
 // ---------------------------------------------------------------------------
 
@@ -500,6 +767,8 @@ const post = <T>(path: string, body?: unknown) =>
   request<T>(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) });
 const patch = <T>(path: string, body: unknown) =>
   request<T>(path, { method: "PATCH", body: JSON.stringify(body) });
+const put = <T>(path: string, body: unknown) =>
+  request<T>(path, { method: "PUT", body: JSON.stringify(body) });
 const remove = (path: string) => request<void>(path, { method: "DELETE" });
 
 async function download(path: string, filename: string): Promise<void> {
@@ -653,6 +922,97 @@ export const api = {
   depositSavings: (id: number, amount_minor: number) =>
     post<SavingsOverview>(`savings-goals/${id}/deposits`, { amount_minor }),
   deleteSavingsGoal: (id: number) => remove(`savings-goals/${id}`),
+
+  // Butce hedefleri
+  budgetSuggestions: (months: number) =>
+    get<TargetSuggestion[]>("reports/budgets/suggestions", { months }),
+  applyBudgets: (items: { category_id: number; monthly_budget_minor: number }[]) =>
+    post<BudgetStatus[]>("budgets/apply", { items }),
+
+  // Ayrintili raporlar ve takvim
+  upcomingEvents: (days: number) => get<UpcomingEvent[]>("reports/upcoming", { days }),
+  categoryMatrix: (year: number) => get<CategoryMatrix>("reports/category-matrix", { year }),
+  cashflowHistory: (months: number) => get<FlowMonth[]>("reports/cashflow-history", { months }),
+  daily: (query: YearMonthQuery) => get<DailySpending>("reports/daily", query),
+  flow: (query: YearMonthQuery) => get<MoneyFlow>("reports/flow", query),
+
+  // Geri alma ve toplu islemler
+  restoreExpense: (id: number) => post<Expense>(`expenses/${id}/restore`),
+  bulkUpdate: (ids: number[], changes: BulkChanges) =>
+    post<BulkResult>("expenses/bulk/update", { ids, ...changes }),
+  bulkRevert: (items: PreviousValues[]) => post<BulkResult>("expenses/bulk/revert", { items }),
+  bulkDelete: (ids: number[]) => post<BulkResult>("expenses/bulk/delete", { ids }),
+  bulkRestore: (ids: number[]) => post<BulkResult>("expenses/bulk/restore", { ids }),
+
+  // Kurallar ve aciklamalar
+  rules: () => get<Rule[]>("rules"),
+  addRule: (payload: RuleInput) => post<Rule>("rules", payload),
+  updateRule: (id: number, changes: Partial<RuleInput> & { clear?: string[] }) =>
+    patch<Rule>(`rules/${id}`, changes),
+  deleteRule: (id: number) => remove(`rules/${id}`),
+  testRules: (description: string) => get<RuleTest>("rules/test", { description }),
+  previewRule: (id: number) => get<number[]>(`rules/${id}/preview`),
+  applyRule: (id: number) => post<BulkResult>(`rules/${id}/apply`),
+  descriptions: (q: string) => get<DescriptionGroup[]>("descriptions", { q }),
+  mergeDescriptions: (keys: string[], target: string, create_rule: boolean) =>
+    post<BulkResult>("descriptions/merge", { keys, target, create_rule }),
+
+  // Ice aktarma
+  importPreview: (payload: {
+    text: string;
+    payment_method_id: number;
+    default_category_id: number | null;
+    sign: ImportSign;
+    mapping: ColumnMapping | null;
+  }) => post<ImportPreview>("import/preview", payload),
+  importCommit: (rows: ImportRow[]) =>
+    post<{ created: number; total: Money; expense_ids: number[] }>("import/commit", { rows }),
+
+  // Mutabakat
+  reconcileStatements: (cardId: number) => get<ReconcileSummary[]>(`reconcile/${cardId}`),
+  reconcileDetail: (cardId: number, statementDate: string) =>
+    get<ReconcileDetail>(`reconcile/${cardId}/${statementDate}`),
+  reconcileMark: (cardId: number, statementDate: string, ids: number[], cleared: boolean) =>
+    post<ReconcileDetail>(`reconcile/${cardId}/${statementDate}/cleared`, {
+      installment_ids: ids,
+      cleared,
+    }),
+  reconcileSave: (cardId: number, statementDate: string, bankTotalMinor: number, note: string | null) =>
+    put<ReconcileDetail>(`reconcile/${cardId}/${statementDate}`, {
+      bank_total_minor: bankTotalMinor,
+      note,
+    }),
+  reconcileForget: (cardId: number, statementDate: string) =>
+    remove(`reconcile/${cardId}/${statementDate}`),
+
+  // Hesaplar
+  accounts: () => get<AccountsOverview>("accounts"),
+  addAccount: (payload: {
+    name: string;
+    kind: AccountKind;
+    opening_balance_minor: number | null;
+    opening_date: string | null;
+    notes: string | null;
+  }) => post<AccountsOverview>("accounts", payload),
+  updateAccount: (
+    id: number,
+    changes: { name?: string; kind?: AccountKind; is_active?: boolean; notes?: string },
+  ) => patch<AccountsOverview>(`accounts/${id}`, changes),
+  deleteAccount: (id: number) => remove(`accounts/${id}`),
+  accountEntries: (id: number) => get<AccountEntry[]>(`accounts/${id}/entries`),
+  setBalance: (id: number, balance_minor: number, entry_date: string, note: string | null) =>
+    post<AccountEntry>(`accounts/${id}/balance`, { balance_minor, entry_date, note }),
+  addAdjustment: (id: number, amount_minor: number, entry_date: string, note: string | null) =>
+    post<AccountEntry>(`accounts/${id}/adjustments`, { amount_minor, entry_date, note }),
+  transfer: (payload: {
+    from_account_id: number;
+    to_account_id: number | null;
+    payment_method_id: number | null;
+    amount_minor: number;
+    entry_date: string;
+    note: string | null;
+  }) => post<AccountEntry[]>("transfers", payload),
+  deleteAccountEntry: (id: number) => remove(`account-entries/${id}`),
 
   // Disa aktarma
   exportCsv: (kind: "expenses" | "incomes", query: YearMonthQuery, filename: string) =>

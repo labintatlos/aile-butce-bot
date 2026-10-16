@@ -143,6 +143,8 @@ async def edit_category(
     if category is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Kategori bulunamadı")
     changes = payload.model_dump(exclude_unset=True, exclude_none=True)
+    if payload.group_name is not None:
+        changes["group_name"] = payload.group_name
     if changes.get("monthly_budget_minor") == 0:
         # Sifir "hedefi kaldir" demektir: exclude_none bir null govdeyi zaten
         # eliyor, dolayisiyla silme niyetini tasiyacak baska bir deger yok.

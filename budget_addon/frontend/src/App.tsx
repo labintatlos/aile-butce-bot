@@ -29,7 +29,11 @@ import { errorMessage, useHashRoute, type Route } from "./hooks";
 import { isNetworkError, useOfflineQueue } from "./offline";
 import { Dashboard } from "./pages/Dashboard";
 import { Expenses } from "./pages/Expenses";
+import { Accounts } from "./pages/Accounts";
 import { Incomes } from "./pages/Incomes";
+import { Rules } from "./pages/Rules";
+import { Statements } from "./pages/Statements";
+import { Upcoming } from "./pages/Upcoming";
 import { Login } from "./pages/Login";
 import { More } from "./pages/More";
 import { NewExpense } from "./pages/NewExpense";
@@ -54,6 +58,10 @@ const NAV: readonly { route: Route; label: string; icon: IconName; admin?: boole
   { route: "gelirler", label: "Gelirler", icon: "income" },
   { route: "raporlar", label: "Raporlar", icon: "chart" },
   { route: "sabit", label: "Sabit Giderler", icon: "repeat" },
+  { route: "takvim", label: "Yaklaşanlar", icon: "calendar" },
+  { route: "hesaplar", label: "Hesaplar", icon: "bank" },
+  { route: "aktar", label: "Ekstre", icon: "upload" },
+  { route: "kurallar", label: "Kurallar", icon: "wand" },
   { route: "bildirimler", label: "Bildirimler", icon: "bell" },
   { route: "ayarlar", label: "Ayarlar", icon: "settings" },
   { route: "kisiler", label: "Kişiler", icon: "users", admin: true },
@@ -67,7 +75,17 @@ const MOBILE_NAV: readonly { route: Route; label: string; icon: IconName }[] = [
   { route: "diger", label: "Menü", icon: "more" },
 ];
 
-const MENU_ROUTES: readonly Route[] = ["diger", "gelirler", "sabit", "ayarlar", "kisiler"];
+const MENU_ROUTES: readonly Route[] = [
+  "diger",
+  "gelirler",
+  "sabit",
+  "ayarlar",
+  "kisiler",
+  "hesaplar",
+  "aktar",
+  "kurallar",
+  "takvim",
+];
 
 const TITLES: Record<Route, string> = {
   ozet: "Özet",
@@ -79,6 +97,10 @@ const TITLES: Record<Route, string> = {
   ayarlar: "Ayarlar",
   kisiler: "Kişiler",
   bildirimler: "Bildirimler",
+  hesaplar: "Hesaplar",
+  aktar: "Ekstre",
+  kurallar: "Kurallar",
+  takvim: "Yaklaşanlar",
   diger: "Menü",
 };
 
@@ -436,6 +458,14 @@ function Page({ route }: { route: Route }) {
       return me.is_admin ? <People /> : <Dashboard />;
     case "bildirimler":
       return <Notifications />;
+    case "hesaplar":
+      return <Accounts />;
+    case "aktar":
+      return <Statements />;
+    case "kurallar":
+      return <Rules />;
+    case "takvim":
+      return <Upcoming />;
     case "diger":
       return <More />;
   }

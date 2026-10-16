@@ -8,7 +8,9 @@
 import { useState } from "react";
 
 import { api, type MonthlySpending, type ObligationBasis, type Obligations } from "../api";
+import { DailyHeatmap } from "../components/charts";
 import { Icon } from "../components/icons";
+import { BudgetPanel, FlowPanel, MatrixPanel } from "../components/insightPanels";
 import {
   BarRow,
   BudgetBars,
@@ -33,10 +35,13 @@ import { useSession } from "../context";
 import { longDate, monthName, shortMonthName, yearMonthOf } from "../format";
 import { errorMessage, useAsync } from "../hooks";
 
-type Tab = "monthly" | "cards" | "yearly" | "export";
+type Tab = "monthly" | "budget" | "flow" | "matrix" | "cards" | "yearly" | "export";
 
 const TABS: readonly { value: Tab; label: string }[] = [
   { value: "monthly", label: "Aylık" },
+  { value: "budget", label: "Bütçe" },
+  { value: "flow", label: "Nakit akışı" },
+  { value: "matrix", label: "Kategori tablosu" },
   { value: "cards", label: "Kartlar ve taksitler" },
   { value: "yearly", label: "Yıllık" },
   { value: "export", label: "Dışa aktar" },
@@ -56,6 +61,9 @@ export function Reports() {
         <Segmented options={TABS} value={tab} onChange={setTab} />
       </div>
       {tab === "monthly" && <MonthlyReport />}
+      {tab === "budget" && <BudgetPanel />}
+      {tab === "flow" && <FlowPanel />}
+      {tab === "matrix" && <MatrixPanel />}
       {tab === "cards" && <CardsReport />}
       {tab === "yearly" && <YearlyReport />}
       {tab === "export" && <ExportPanel />}
@@ -77,12 +85,13 @@ function MonthlyReport() {
     })),
   ];
   const state = useAsync(async () => {
-    const [spending, budgets, tags] = await Promise.all([
+    const [spending, budgets, tags, daily] = await Promise.all([
       api.spending({ ...period, owner: owner === "all" ? undefined : owner }),
       api.budgets(period),
       api.tags(period),
+      api.daily(period),
     ]);
-    return { spending, budgets, tags };
+    return { spending, budgets, tags, daily };
   }, [period.year, period.month, owner]);
 
   return (
@@ -136,6 +145,10 @@ function MonthlyReport() {
               )}
             </Card>
           </div>
+
+          <Card title="Günlere göre harcama">
+            <DailyHeatmap data={state.data.daily} />
+          </Card>
 
           <div className="grid two">
             {state.data.budgets.length > 0 && (

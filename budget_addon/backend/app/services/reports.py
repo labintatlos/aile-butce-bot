@@ -30,6 +30,7 @@ from ..models.payment_method import TYPE_CASH, TYPE_CREDIT_CARD
 from ..models.user import User
 from ..utils.time import local_today, month_bounds
 from . import refunds
+from .allocation import spent_by_category
 from .finance.dates import MONTHS_PER_YEAR
 
 BASIS_STATEMENT = "statement"
@@ -109,6 +110,38 @@ def owner_filter(owner: str | None) -> tuple:
     return (Expense.owner_user_id == int(owner),)
 
 
+async def category_totals(
+    session: AsyncSession, *, start: date, end: date, expense_filter: tuple = ()
+) -> list[NamedTotal]:
+    """Kategori toplamları, en yüksekten başlayarak; iadeler düşülmez.
+
+    Bölünmüş harcamanın her parçası kendi kategorisine yazılır.
+    """
+    totals = await spent_by_category(
+        session, start=start, end=end, expense_filter=expense_filter
+    )
+    if not totals:
+        return []
+    categories = {
+        category.id: category
+        for category in (
+            await session.scalars(select(Category).where(Category.id.in_(totals)))
+        ).all()
+    }
+    items = [
+        NamedTotal(
+            id=category_id,
+            name=categories[category_id].name,
+            emoji=categories[category_id].emoji,
+            total_minor=total,
+            transaction_count=count,
+        )
+        for category_id, (total, count) in totals.items()
+        if category_id in categories
+    ]
+    return sorted(items, key=lambda item: (-item.total_minor, item.name))
+
+
 async def monthly_spending(
     session: AsyncSession, *, year: int, month: int, owner: str | None = None
 ) -> MonthlySpendingReport:
@@ -162,30 +195,7 @@ async def monthly_spending(
         ).all()
     ]
 
-    by_category = [
-        NamedTotal(
-            id=row.id,
-            name=row.name,
-            emoji=row.emoji,
-            total_minor=row.total,
-            transaction_count=row.row_count,
-        )
-        for row in (
-            await session.execute(
-                select(
-                    Category.id,
-                    Category.name,
-                    Category.emoji,
-                    func.coalesce(func.sum(Expense.total_amount_minor), 0).label("total"),
-                    func.count(Expense.id).label("row_count"),
-                )
-                .join(Expense, Expense.category_id == Category.id)
-                .where(Expense.deleted_at.is_(None), *in_month)
-                .group_by(Category.id, Category.name, Category.emoji)
-                .order_by(func.sum(Expense.total_amount_minor).desc())
-            )
-        ).all()
-    ]
+    by_category = await category_totals(session, start=start, end=end, expense_filter=scope)
 
     largest = await session.scalar(
         _live_expenses()

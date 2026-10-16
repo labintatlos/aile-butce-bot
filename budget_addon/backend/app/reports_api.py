@@ -15,22 +15,33 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .config import Settings, get_settings
 from .database import get_session
 from .expenses_api import expense_out, reload_expense
+from .models.category import Category
 from .models.user import User
 from .schemas import (
     BudgetStatusOut,
     CardUsageOut,
+    CategoryMatrixOut,
+    DailySpendingOut,
+    FlowMonthOut,
+    FlowNodeOut,
     InstallmentPlanOut,
+    MatrixRowOut,
     Money,
+    MoneyFlowOut,
     MonthComparisonOut,
     MonthForecastOut,
     MonthlyPositionOut,
     MonthlySpendingOut,
+    NamedAmountOut,
     NamedTotalOut,
     ObligationOut,
     ObligationsOut,
     PersonalBudgetOut,
     StatementOut,
     TagTotalOut,
+    TargetApplyIn,
+    TargetSuggestionOut,
+    UpcomingEventOut,
     YearComparisonOut,
 )
 from .security.identity import current_user
@@ -40,9 +51,12 @@ from .services import (
     cashflow,
     exporting,
     forecast,
+    insights,
     personal_budgets,
     reports,
+    settings_service,
     tags,
+    upcoming,
 )
 from .utils.time import local_today
 
@@ -229,9 +243,199 @@ async def budget_report(
             remaining=Money.of(status.remaining_minor),
             ratio=status.ratio,
             is_exceeded=status.is_exceeded,
+            carry_in=Money.of(status.carry_in_minor),
+            available=Money.of(status.available_minor),
+            group_name=status.group_name,
+            rollover=status.rollover,
         )
         for status in statuses
     ]
+
+
+@router.get("/reports/budgets/suggestions", response_model=list[TargetSuggestionOut])
+async def budget_suggestions(
+    months: int = Query(default=3),
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> list[TargetSuggestionOut]:
+    """Son ayların ortalamasından kategori hedefi önerir. Hiçbir şey değiştirmez."""
+    try:
+        items = await budgets.suggest_targets(
+            session, today=local_today(settings.timezone), months=months
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    return [
+        TargetSuggestionOut(
+            category_id=item.category_id,
+            name=item.name,
+            emoji=item.emoji,
+            group_name=item.group_name,
+            current=Money.of(item.current_minor) if item.current_minor is not None else None,
+            average=Money.of(item.average_minor),
+            suggested=Money.of(item.suggested_minor) if item.suggested_minor is not None else None,
+            months=item.months,
+        )
+        for item in items
+    ]
+
+
+@router.post("/budgets/apply", response_model=list[BudgetStatusOut])
+async def apply_budget_targets(
+    payload: TargetApplyIn,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> list[BudgetStatusOut]:
+    """Seçilen kategorilerin aylık hedeflerini birlikte yazar."""
+    # Once hepsi bulunur: biri eksikse hicbir hedef yarim yazilmaz.
+    found = []
+    for item in payload.items:
+        category = await session.get(Category, item.category_id)
+        if category is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Kategori bulunamadı")
+        found.append((category, item))
+    for category, item in found:
+        await settings_service.update_category(
+            session,
+            user=user,
+            category=category,
+            changes={"monthly_budget_minor": item.monthly_budget_minor or None},
+        )
+    return await budget_report(
+        year=None, month=None, _user=user, session=session, settings=settings
+    )
+
+
+@router.get("/reports/upcoming", response_model=list[UpcomingEventOut])
+async def upcoming_events(
+    days: int = Query(default=upcoming.DEFAULT_DAYS, ge=1, le=upcoming.MAX_DAYS),
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> list[UpcomingEventOut]:
+    """Önümüzdeki günlerin sabit giderleri, ekstreleri ve son ödemeleri."""
+    events = await upcoming.upcoming(
+        session, today=local_today(settings.timezone), days=days
+    )
+    return [
+        UpcomingEventOut(
+            when=event.when,
+            kind=event.kind,
+            title=event.title,
+            amount=Money.of(event.amount_minor) if event.amount_minor is not None else None,
+            detail=event.detail,
+            payment_method_id=event.payment_method_id,
+        )
+        for event in events
+    ]
+
+
+@router.get("/reports/category-matrix", response_model=CategoryMatrixOut)
+async def category_matrix_report(
+    year: int | None = None,
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> CategoryMatrixOut:
+    """Yılın kategori × ay net harcama tablosu."""
+    matrix = await insights.category_matrix(
+        session, year=year or local_today(settings.timezone).year
+    )
+    return CategoryMatrixOut(
+        year=matrix.year,
+        rows=[
+            MatrixRowOut(
+                category_id=row.category_id,
+                name=row.name,
+                emoji=row.emoji,
+                group_name=row.group_name,
+                months=[Money.of(value) for value in row.months],
+                total=Money.of(row.total_minor),
+            )
+            for row in matrix.rows
+        ],
+        month_totals=[Money.of(value) for value in matrix.month_totals],
+        total=Money.of(matrix.total_minor),
+    )
+
+
+@router.get("/reports/cashflow-history", response_model=list[FlowMonthOut])
+async def cashflow_history_report(
+    months: int = Query(default=12, ge=2, le=36),
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> list[FlowMonthOut]:
+    """Son ayların geliri, net harcaması ve farkı."""
+    rows = await insights.cashflow_history(
+        session, today=local_today(settings.timezone), months=months
+    )
+    return [
+        FlowMonthOut(
+            year=row.year,
+            month=row.month,
+            income=Money.of(row.income_minor),
+            spending=Money.of(row.spending_minor),
+            net=Money.of(row.net_minor),
+        )
+        for row in rows
+    ]
+
+
+@router.get("/reports/daily", response_model=DailySpendingOut)
+async def daily_report(
+    year: int | None = None,
+    month: int | None = Query(default=None, ge=1, le=12),
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> DailySpendingOut:
+    """Ayın her gününün net harcaması (takvim ısı haritası için)."""
+    today = local_today(settings.timezone)
+    result = await insights.daily_spending(
+        session, year=year or today.year, month=month or today.month
+    )
+    return DailySpendingOut(
+        year=result.year,
+        month=result.month,
+        days=[Money.of(value) for value in result.days],
+        total=Money.of(result.total_minor),
+    )
+
+
+@router.get("/reports/flow", response_model=MoneyFlowOut)
+async def money_flow_report(
+    year: int | None = None,
+    month: int | None = Query(default=None, ge=1, le=12),
+    _user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> MoneyFlowOut:
+    """Ayın gelirinin kaynaklardan harcama gruplarına akışı."""
+    today = local_today(settings.timezone)
+    flow = await insights.money_flow(session, year=year or today.year, month=month or today.month)
+
+    def node(item) -> FlowNodeOut:
+        return FlowNodeOut(
+            name=item.name,
+            amount=Money.of(item.amount_minor),
+            categories=[
+                NamedAmountOut(name=name, amount=Money.of(amount))
+                for name, amount in item.categories
+            ],
+        )
+
+    return MoneyFlowOut(
+        year=flow.year,
+        month=flow.month,
+        sources=[node(item) for item in flow.sources],
+        targets=[node(item) for item in flow.targets],
+        income=Money.of(flow.income_minor),
+        spending=Money.of(flow.spending_minor),
+        remaining=Money.of(flow.remaining_minor),
+    )
 
 
 @router.get("/reports/position", response_model=MonthlyPositionOut)

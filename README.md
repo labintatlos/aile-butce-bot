@@ -21,7 +21,11 @@ Sürüm notları: [CHANGELOG.md](budget_addon/CHANGELOG.md).
 - Fiş fotoğrafını harcamaya yükler.
 - İnternet yokken girilen harcamayı telefonda saklar, bağlantı gelince
   girildiği günün tarihiyle kaydeder.
-- Açıklamaya göre, aynı açıklamayla en son kullanılan kategoriyi önerir.
+- Açıklamaya göre önce kullanıcının kurallarından, yoksa aynı açıklamayla en
+  son kullanılan kategoriden öneri yapar.
+- Tek fişi birden çok kategoriye böler (bölünmüş harcama).
+- Bankanın CSV ekstresini içe aktarır; kopyaları ve önceki taksitleri ayıklar.
+- Toplu düzenleme, açıklama birleştirme ve "Geri al".
 
 **Kendiliğinden haber verir**
 
@@ -34,7 +38,13 @@ Sürüm notları: [CHANGELOG.md](budget_addon/CHANGELOG.md).
 
 - Aylık harcama, ekstre, aktif taksit ve gelecek 12 aylık ödeme yükü.
 - Ay sonunda ne kalacağı, ay sonu harcama tahmini, geçen yılla karşılaştırma.
-- Kategori hedefleri, kart limitleri, etiket toplamları.
+- Kategori hedefleri (gruplu, isteğe bağlı devreden bütçe, geçmişten öneri),
+  kart limitleri, etiket toplamları.
+- Gelir ve harcama karşılaştırması, gelirin gruplara akışı, kategori × ay
+  tablosu, günlük harcama ısı haritası.
+- Yaklaşan sabit giderler, ekstre kesimleri ve son ödemeler.
+- Ekstre mutabakatı: bankanın ekstre tutarıyla sistemin hesabı yan yana.
+- Hesap bakiyeleri, hesaplar arası transfer ve net varlık.
 - Kişisel yıllık bütçeler: kimin ne kadar harcadığı ve ne kaldığı.
 - Birikim hedefleri: hedefe zamanında ulaşmak için ayda ne kadar gerektiği.
 - CSV dışa aktarma; Home Assistant'a altı sensör.

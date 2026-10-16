@@ -20,6 +20,10 @@ export type Route =
   | "ayarlar"
   | "kisiler"
   | "bildirimler"
+  | "hesaplar"
+  | "aktar"
+  | "kurallar"
+  | "takvim"
   | "diger";
 
 export function isRoute(name: string): name is Route {
@@ -36,6 +40,10 @@ const ROUTES: readonly Route[] = [
   "ayarlar",
   "kisiler",
   "bildirimler",
+  "hesaplar",
+  "aktar",
+  "kurallar",
+  "takvim",
   "diger",
 ];
 

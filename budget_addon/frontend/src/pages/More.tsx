@@ -16,6 +16,10 @@ const ITEMS: readonly {
 }[] = [
   { route: "gelirler", label: "Gelirler", hint: "Maaş ve diğer gelirler", icon: "income" },
   { route: "sabit", label: "Sabit giderler", hint: "Kira, aidat, abonelikler", icon: "repeat" },
+  { route: "takvim", label: "Yaklaşanlar", hint: "Önümüzdeki ödemeler ve ekstreler", icon: "calendar" },
+  { route: "hesaplar", label: "Hesaplar", hint: "Bakiyeler, transferler, net varlık", icon: "bank" },
+  { route: "aktar", label: "Ekstre", hint: "CSV içe aktarma ve ekstre mutabakatı", icon: "upload" },
+  { route: "kurallar", label: "Kurallar", hint: "Otomatik kategori ve açıklama düzeltme", icon: "wand" },
   { route: "ayarlar", label: "Ayarlar", hint: "Kartlar, kategoriler ve hesap", icon: "settings" },
   { route: "kisiler", label: "Kişiler", hint: "Giriş, şifre ve yönetici yetkisi", icon: "users", admin: true },
 ];

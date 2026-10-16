@@ -20,7 +20,7 @@ from datetime import date, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Category, Expense, User
+from ..models import Expense, User
 from . import reports
 
 KIND_STATEMENT_CUT = "statement_cut"
@@ -206,32 +206,7 @@ async def period_summary(
         ).all()
     ]
 
-    by_category = [
-        reports.NamedTotal(
-            id=row.id,
-            name=row.name,
-            total_minor=row.total,
-            transaction_count=row.row_count,
-            emoji=row.emoji or "",
-        )
-        for row in (
-            await session.execute(
-                select(
-                    Category.id,
-                    Category.name,
-                    Category.emoji,
-                    func.coalesce(func.sum(Expense.total_amount_minor), 0).label(
-                        "total"
-                    ),
-                    func.count(Expense.id).label("row_count"),
-                )
-                .join(Expense, Expense.category_id == Category.id)
-                .where(*live)
-                .group_by(Category.id, Category.name, Category.emoji)
-                .order_by(func.sum(Expense.total_amount_minor).desc())
-            )
-        ).all()
-    ]
+    by_category = await reports.category_totals(session, start=start, end=end)
 
     return PeriodSummary(
         kind=kind,

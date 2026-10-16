@@ -11,6 +11,8 @@ kaydedilmez; kullanıcı formda görür ve onaylar.
 
 Kurallar:
 
+0. Kullanıcının tanımladığı bir kural (bkz. `services/rules.py`) açıklamaya
+   uyuyor ve kategori belirliyorsa o kazanır; geçmişe bakılmaz.
 1. Açıklama karşılaştırılmadan önce sadeleştirilir: Türkçe karakter ve
    büyük/küçük harf farkı yok sayılır, `#etiket`ler çıkarılır.
 2. Sadeleşmiş açıklaması **aynı** olan en yeni harcamanın kategorisi önerilir.
@@ -51,6 +53,15 @@ async def suggest_category(session: AsyncSession, description: str | None) -> Ca
     key = normalise(description)
     if not key:
         return None
+
+    # Dongusel ice aktarmayi onlemek icin burada yuklenir: kurallar da
+    # `normalise` islevini bu modulden kullanir.
+    from .rules import outcome_for
+
+    by_rule = await outcome_for(session, description)
+    if by_rule.category_id is not None:
+        return await session.get(Category, by_rule.category_id)
+
     first_word = key.split()[0]
     use_first_word = len(first_word) >= MIN_FIRST_WORD_LENGTH and not first_word.isdigit()
 

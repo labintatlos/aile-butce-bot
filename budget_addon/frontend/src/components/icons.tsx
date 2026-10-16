@@ -40,6 +40,12 @@ const PATHS = {
   tag: "M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8zM7 7h.01",
   bell: "M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0",
   lock: "M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4",
+  bank: "M3 10h18M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18M12 3l9 5H3z",
+  upload: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12",
+  wand: "M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M12.2 6.2 11 5M3 21l9-9",
+  split: "M16 3h5v5M8 3H3v5M21 3l-7 7M3 3l7 7M12 21v-9",
+  undo: "M3 7v6h6M21 17a9 9 0 0 0-15-6.7L3 13",
+  transfer: "M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7",
 } as const;
 
 export type IconName = keyof typeof PATHS;

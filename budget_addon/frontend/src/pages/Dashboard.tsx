@@ -21,13 +21,14 @@ import { Card, Empty, ErrorNote, Loading, Meter, PageHeader, Stat } from "../com
 import { useSession } from "../context";
 import { longDate, monthName } from "../format";
 import { useAsync } from "../hooks";
+import { UpcomingList } from "./Upcoming";
 
 export function Dashboard() {
   const { me, bootstrap, navigate } = useSession();
   const [openId, setOpenId] = useState<number | null>(null);
 
   const state = useAsync(async () => {
-    const [position, forecast, spending, budgets, cards, statements, recent] =
+    const [position, forecast, spending, budgets, cards, statements, recent, upcoming] =
       await Promise.all([
         api.position(),
         api.forecast(),
@@ -36,8 +37,9 @@ export function Dashboard() {
         api.cards(),
         api.statements(),
         api.searchExpenses({ page_size: 6 }),
+        api.upcomingEvents(14),
       ]);
-    return { position, forecast, spending, budgets, cards, statements, recent };
+    return { position, forecast, spending, budgets, cards, statements, recent, upcoming };
   }, []);
 
   const header = (
@@ -62,7 +64,7 @@ export function Dashboard() {
     );
   }
 
-  const { position, forecast, spending, budgets, cards, statements, recent } = state.data;
+  const { position, forecast, spending, budgets, cards, statements, recent, upcoming } = state.data;
   const short = position.remaining.minor < 0;
   const monthProgress = share(forecast.days_elapsed, forecast.days_in_month);
   const topCategories = spending.by_category.slice(0, 6);
@@ -176,6 +178,18 @@ export function Dashboard() {
         <PersonalBudgetsCard year={position.year} />
 
         <SavingsGoalsCard />
+
+        <Card
+          title="Önümüzdeki 2 hafta"
+          action={
+            <button type="button" className="btn ghost sm" onClick={() => navigate("takvim")}>
+              Tümü
+              <Icon name="chevronRight" size={16} />
+            </button>
+          }
+        >
+          <UpcomingList events={upcoming.slice(0, 5)} today={bootstrap.today} />
+        </Card>
 
         <Card title="Yaklaşan ekstreler" flush>
           <StatementList items={statements} limit={4} />

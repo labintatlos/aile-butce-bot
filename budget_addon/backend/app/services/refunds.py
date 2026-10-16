@@ -204,16 +204,16 @@ async def total_in_month(
 async def by_category_in_month(
     session: AsyncSession, *, year: int, month: int, expense_filter: tuple = ()
 ) -> dict[int, int]:
-    """Kategori kimliğine göre ay içindeki iade toplamları."""
+    """Kategori kimliğine göre ay içindeki iade toplamları.
+
+    Bölünmüş harcamanın iadesi parçalara orantılı paylaştırılır
+    (bkz. `services/allocation.py`)."""
+    from .allocation import refunded_by_category
+
     start, end = month_bounds(year, month)
-    rows = await session.execute(
-        _with_expense_filter(
-            select(Refund.category_id, func.coalesce(func.sum(Refund.amount_minor), 0))
-            .where(Refund.refund_date >= start, Refund.refund_date <= end, *_live()),
-            expense_filter,
-        ).group_by(Refund.category_id)
+    return await refunded_by_category(
+        session, start=start, end=end, expense_filter=expense_filter
     )
-    return dict(rows.tuples().all())
 
 
 async def cash_total_in_month(

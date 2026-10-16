@@ -5,6 +5,14 @@ buradan geçer; böylece iki giriş arasında hesaplama farkı oluşamaz.
 
 Harcama ve taksitleri **tek transaction** içinde yazılır: yarım veri (taksitsiz
 harcama) oluşamaz.
+
+Bölünmüş harcamada parçaların toplamı harcamanın tutarına eşit olmak
+zorundadır ve bu, harcamayla aynı transaction içinde doğrulanır. Harcamanın
+`category_id` alanı en büyük parçanın kategorisini taşır.
+
+Toplu işlemler (içe aktarma, toplu düzenleme) `commit=False` ile birden çok
+harcamayı tek transaction'da yazar; o durumda commit ve geri alma çağıran
+tarafa aittir.
 """
 
 from __future__ import annotations
@@ -25,14 +33,16 @@ from ..models.audit_log import (
     ACTION_UPDATE,
     ENTITY_EXPENSE,
 )
+from ..models.category import Category
 from ..models.expense import Expense, format_public_id
+from ..models.expense_split import ExpenseSplit
 from ..models.installment import STATUS_PAID, ExpenseInstallment
 from ..models.payment_method import TYPE_CASH, PaymentMethod
 from ..models.user import User
 from . import tags
 from .audit import record_audit
 from .finance.installments import build_schedule
-from .finance.money import parse_amount_to_minor
+from .finance.money import format_try, parse_amount_to_minor
 
 SINGLE_INSTALLMENT = 1
 
@@ -49,8 +59,21 @@ EDITABLE_FIELDS = FINANCIAL_FIELDS | {
 }
 
 
+MIN_SPLIT_PARTS = 2
+MAX_SPLIT_PARTS = 20
+
+
 class ExpenseError(Exception):
     """Kullanıcıya gösterilebilir, iş kuralı kaynaklı hata."""
+
+
+@dataclass(frozen=True, slots=True)
+class SplitInput:
+    """Bölünmüş harcamanın bir parçası."""
+
+    category_id: int
+    amount: str | int | Decimal
+    note: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +91,8 @@ class ExpenseInput:
     yanlış verilip sahip boş bırakılırsa sahip kaydı giren kişidir."""
     client_ref: str | None = None
     """Çevrimdışı kuyruktan gelen kaydın tekil anahtarı (bkz. `Expense.client_ref`)."""
+    splits: tuple[SplitInput, ...] = ()
+    """Doluysa harcama bölünmüştür ve `category_id` yok sayılır."""
 
 
 async def _resolve_owner(
@@ -158,6 +183,51 @@ def _build_installments(
     ]
 
 
+def _as_split(value: SplitInput | dict[str, Any]) -> SplitInput:
+    if isinstance(value, SplitInput):
+        return value
+    return SplitInput(
+        category_id=int(value["category_id"]),
+        amount=value["amount"],
+        note=value.get("note"),
+    )
+
+
+async def _build_splits(
+    session: AsyncSession, parts: list[SplitInput], *, total_minor: int
+) -> tuple[int, list[ExpenseSplit]]:
+    """Parçaları doğrular; ana kategoriyi ve parça satırlarını döndürür.
+
+    Tek parça bölünme sayılmaz: kategori o parçanınkidir ve satır üretilmez.
+    """
+    if len(parts) > MAX_SPLIT_PARTS:
+        raise ExpenseError(f"Bir harcama en fazla {MAX_SPLIT_PARTS} parçaya bölünebilir")
+    amounts = [parse_amount_to_minor(part.amount) for part in parts]
+    for part in parts:
+        category = await session.get(Category, part.category_id)
+        if category is None:
+            raise ExpenseError("Parçadaki kategori bulunamadı")
+    if len(parts) < MIN_SPLIT_PARTS:
+        return parts[0].category_id, []
+    if sum(amounts) != total_minor:
+        raise ExpenseError(
+            f"Parçaların toplamı ({format_try(sum(amounts))}) harcama tutarına "
+            f"({format_try(total_minor)}) eşit olmalıdır"
+        )
+    # En buyuk parca ana kategoridir; esitlikte ilk yazilan kazanir.
+    primary_index = max(range(len(parts)), key=lambda index: (amounts[index], -index))
+    rows = [
+        ExpenseSplit(
+            category_id=part.category_id,
+            amount_minor=amount,
+            note=(part.note or "").strip() or None,
+            position=position,
+        )
+        for position, (part, amount) in enumerate(zip(parts, amounts, strict=True))
+    ]
+    return parts[primary_index].category_id, rows
+
+
 def _audit_payload(expense: Expense) -> dict[str, Any]:
     return {
         "public_id": expense.public_id,
@@ -169,6 +239,10 @@ def _audit_payload(expense: Expense) -> dict[str, Any]:
         "description": expense.description,
         "is_shared": expense.is_shared,
         "owner_user_id": expense.owner_user_id,
+        "splits": [
+            {"category_id": part.category_id, "amount_minor": part.amount_minor}
+            for part in expense.splits
+        ],
     }
 
 
@@ -177,7 +251,7 @@ def _has_paid_installment(expense: Expense) -> bool:
 
 
 async def create_expense(
-    session: AsyncSession, *, user: User, data: ExpenseInput
+    session: AsyncSession, *, user: User, data: ExpenseInput, commit: bool = True
 ) -> Expense:
     """Harcamayı ve taksit planını tek transaction içinde oluşturur."""
     method = await _load_payment_method(session, data.payment_method_id)
@@ -190,12 +264,19 @@ async def create_expense(
         fallback_user_id=user.id,
     )
 
+    category_id = data.category_id
+    split_rows: list[ExpenseSplit] = []
+    if data.splits:
+        category_id, split_rows = await _build_splits(
+            session, [_as_split(part) for part in data.splits], total_minor=total_minor
+        )
+
     snapshot = _snapshot_of(method)
     expense = Expense(
         public_id="",
         created_by_user_id=user.id,
         payment_method_id=method.id,
-        category_id=data.category_id,
+        category_id=category_id,
         transaction_date=data.transaction_date,
         total_amount_minor=total_minor,
         installment_count=installment_count,
@@ -212,6 +293,7 @@ async def create_expense(
             transaction_date=data.transaction_date,
             snapshot=snapshot,
         ),
+        splits=split_rows,
         **snapshot,
     )
 
@@ -230,12 +312,16 @@ async def create_expense(
             action=ACTION_CREATE,
             new_data=_audit_payload(expense),
         )
+        if not commit:
+            await session.flush()
+            return expense
         await session.commit()
     except Exception:
-        await session.rollback()
+        if commit:
+            await session.rollback()
         raise
 
-    await session.refresh(expense, attribute_names=["installments"])
+    await session.refresh(expense, attribute_names=["installments", "splits"])
     return expense
 
 
@@ -245,7 +331,7 @@ async def get_expense(
     statement = (
         select(Expense)
         .where(Expense.id == expense_id)
-        .options(selectinload(Expense.installments))
+        .options(selectinload(Expense.installments), selectinload(Expense.splits))
     )
     if not include_deleted:
         statement = statement.where(Expense.deleted_at.is_(None))
@@ -253,7 +339,12 @@ async def get_expense(
 
 
 async def update_expense(
-    session: AsyncSession, *, user: User, expense: Expense, changes: dict[str, Any]
+    session: AsyncSession,
+    *,
+    user: User,
+    expense: Expense,
+    changes: dict[str, Any],
+    commit: bool = True,
 ) -> Expense:
     """Harcamayı günceller ve gerekiyorsa taksit planını yeniden üretir.
 
@@ -267,9 +358,33 @@ async def update_expense(
     if "amount" in changes:
         changes["total_amount_minor"] = parse_amount_to_minor(changes.pop("amount"))
 
+    new_splits = changes.pop("splits", None)
     unknown = set(changes) - EDITABLE_FIELDS
     if unknown:
         raise ExpenseError(f"Düzenlenemeyen alan: {', '.join(sorted(unknown))}")
+
+    await session.refresh(expense, attribute_names=["splits"])
+    split_rows: list[ExpenseSplit] | None = None
+    if new_splits is not None:
+        parts = [_as_split(part) for part in new_splits]
+        if parts:
+            total = changes.get("total_amount_minor", expense.total_amount_minor)
+            changes["category_id"], split_rows = await _build_splits(
+                session, parts, total_minor=total
+            )
+        else:
+            split_rows = []
+    elif expense.splits:
+        if changes.get("total_amount_minor", expense.total_amount_minor) != (
+            expense.total_amount_minor
+        ):
+            raise ExpenseError(
+                "Bölünmüş harcamanın tutarı değişince parçaları da yeniden girin"
+            )
+        if changes.get("category_id", expense.category_id) != expense.category_id:
+            raise ExpenseError(
+                "Bölünmüş harcamanın kategorisi parçalarından değiştirilir"
+            )
 
     if {"is_shared", "owner_user_id"} & set(changes):
         requested_owner = changes.pop("owner_user_id", None)
@@ -294,6 +409,12 @@ async def update_expense(
     try:
         for field, value in changes.items():
             setattr(expense, field, value)
+
+        if split_rows is not None:
+            # Taksitlerdeki gibi: once eskiler silinip flush edilir.
+            expense.splits.clear()
+            await session.flush()
+            expense.splits.extend(split_rows)
 
         if touches_finance:
             method = await _load_payment_method(session, expense.payment_method_id)
@@ -334,17 +455,21 @@ async def update_expense(
             old_data=before,
             new_data=_audit_payload(expense),
         )
+        if not commit:
+            await session.flush()
+            return expense
         await session.commit()
     except Exception:
-        await session.rollback()
+        if commit:
+            await session.rollback()
         raise
 
-    await session.refresh(expense, attribute_names=["installments"])
+    await session.refresh(expense, attribute_names=["installments", "splits"])
     return expense
 
 
 async def soft_delete_expense(
-    session: AsyncSession, *, user: User, expense: Expense
+    session: AsyncSession, *, user: User, expense: Expense, commit: bool = True
 ) -> Expense:
     """Harcamayı yumuşak siler. Taksit satırları durur, raporlardan düşer."""
     if expense.deleted_at is not None:
@@ -359,17 +484,23 @@ async def soft_delete_expense(
             action=ACTION_DELETE,
             old_data=_audit_payload(expense),
         )
-        await session.commit()
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
     except Exception:
-        await session.rollback()
+        if commit:
+            await session.rollback()
         raise
     return expense
 
 
 async def restore_expense(
-    session: AsyncSession, *, user: User, expense: Expense
+    session: AsyncSession, *, user: User, expense: Expense, commit: bool = True
 ) -> Expense:
     """Yumuşak silinmiş harcamayı geri alır."""
+    if expense.deleted_at is None:
+        return expense
     try:
         expense.deleted_at = None
         record_audit(
@@ -380,8 +511,12 @@ async def restore_expense(
             action=ACTION_RESTORE,
             new_data=_audit_payload(expense),
         )
-        await session.commit()
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
     except Exception:
-        await session.rollback()
+        if commit:
+            await session.rollback()
         raise
     return expense

@@ -51,6 +51,20 @@ function changedFields(item: Expense, input: ExpenseInput): Partial<ExpenseInput
     changes.is_shared = input.is_shared;
     if (input.owner_user_id !== null) changes.owner_user_id = input.owner_user_id;
   }
+  if (input.splits !== undefined) {
+    const before = item.splits.map((part) => [part.category_id, part.amount.minor, part.note ?? ""]);
+    const after = input.splits.map((part) => [
+      part.category_id,
+      parseAmountToMinor(part.amount),
+      part.note ?? "",
+    ]);
+    // Tutar degisince parcalar da gonderilir: sunucu bolunmus harcamanin
+    // tutarini parcalarsiz degistirmez.
+    if (JSON.stringify(before) !== JSON.stringify(after) || changes.amount !== undefined) {
+      changes.splits = input.splits;
+      delete changes.category_id;
+    }
+  }
   return changes;
 }
 
@@ -123,7 +137,13 @@ export function ExpenseDetail({
             onConfirm={async () => {
               try {
                 await api.deleteExpense(item.id);
-                toast("Harcama silindi.");
+                toast("Harcama silindi.", "success", {
+                  label: "Geri al",
+                  run: async () => {
+                    await api.restoreExpense(item.id);
+                    onChanged();
+                  },
+                });
                 onChanged();
                 onClose();
               } catch (cause: unknown) {
@@ -183,7 +203,9 @@ export function ExpenseDetail({
         <div>
           <dt>Kategori</dt>
           <dd>
-            {item.category.emoji} {item.category.name}
+            {item.splits.length > 1
+              ? `${item.splits.length} kategoriye bölünmüş`
+              : `${item.category.emoji} ${item.category.name}`}
           </dd>
         </div>
         <div>
@@ -205,6 +227,26 @@ export function ExpenseDetail({
           </div>
         )}
       </dl>
+
+      {item.splits.length > 1 && (
+        <>
+          <h3 className="section-title">Parçalar</h3>
+          <div className="list bordered">
+            {item.splits.map((part, index) => (
+              <div className="list-item" key={index}>
+                <span className="list-icon">{part.category_emoji || "🧾"}</span>
+                <span className="list-main">
+                  <span className="list-title">{part.category_name}</span>
+                  {part.note && <span className="list-sub">{part.note}</span>}
+                </span>
+                <span className="list-end">
+                  <span className="list-amount">{part.amount.formatted}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {item.installments.length > 1 && (
         <>
