@@ -14,7 +14,7 @@ ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base-python:3.12-alpine3.20
 # Cikti (JS/CSS) mimariden bagimsizdir; bu asama derleyen makinenin kendi
 # mimarisinde calisir. GitHub'da aarch64 imaji derlenirken npm ve Vite
 # emulasyon (QEMU) altinda yavaslamaz.
-FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend
+FROM --platform=$BUILDPLATFORM node:26-alpine AS frontend
 
 WORKDIR /build
 COPY frontend/package.json frontend/package-lock.json ./
