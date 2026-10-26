@@ -14,14 +14,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import Settings, get_settings
 from .database import get_session
-from .expenses_api import expense_out, reload_expense
+from .expenses_api import expense_out, reload_expense, search
 from .models.category import Category
 from .models.user import User
+from .savings_api import _overview as savings_overview
 from .schemas import (
     BudgetStatusOut,
     CardUsageOut,
     CategoryMatrixOut,
     DailySpendingOut,
+    DashboardOut,
     FlowMonthOut,
     FlowNodeOut,
     InstallmentPlanOut,
@@ -591,3 +593,50 @@ async def export_incomes(
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/reports/dashboard", response_model=DashboardOut)
+async def dashboard_report(
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> DashboardOut:
+    """Özet ekranının tüm bileşenlerini tek bir HTTP isteğinde döndürür."""
+    today = local_today(settings.timezone)
+    return DashboardOut(
+        position=await position_report(_user=user, session=session, settings=settings),
+        forecast=await forecast_report(_user=user, session=session, settings=settings),
+        spending=await monthly_spending_report(
+            year=today.year, month=today.month, owner=None, _user=user, session=session, settings=settings
+        ),
+        shared_spending=await monthly_spending_report(
+            year=today.year, month=today.month, owner="shared", _user=user, session=session, settings=settings
+        ),
+        budgets=await budget_report(
+            year=today.year, month=today.month, _user=user, session=session, settings=settings
+        ),
+        cards=await card_usage_report(_user=user, session=session),
+        statements=await statements_report(
+            since=today, until=None, _user=user, session=session, settings=settings
+        ),
+        recent=await search(
+            text=None,
+            date_from=None,
+            date_to=None,
+            category_id=None,
+            payment_method_id=None,
+            created_by_user_id=None,
+            min_amount_minor=None,
+            max_amount_minor=None,
+            page=1,
+            page_size=6,
+            _user=user,
+            session=session,
+        ),
+        upcoming=await upcoming_events(days=14, _user=user, session=session, settings=settings),
+        personal_budgets=await personal_budget_report(
+            year=today.year, _user=user, session=session, settings=settings
+        ),
+        savings_goals=await savings_overview(session, settings),
+    )
+

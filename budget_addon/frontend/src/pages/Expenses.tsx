@@ -45,7 +45,7 @@ const EMPTY_FILTERS: Filters = {
 const optionalId = (value: string) => (value ? Number(value) : undefined);
 
 export function Expenses() {
-  const { bootstrap, users, navigate } = useSession();
+  const { bootstrap, users } = useSession();
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [text, setText] = useState("");
   const [page, setPage] = useState(1);
@@ -99,7 +99,11 @@ export function Expenses() {
     [filters, page],
   );
 
-  const state = useAsync(() => api.searchExpenses(query), [query]);
+  const state = useAsync(
+    () => api.searchExpenses(query),
+    [query],
+    `expenses-${JSON.stringify(query)}`,
+  );
 
   const activeFilters = [
     filters.date_from,
@@ -124,12 +128,6 @@ export function Expenses() {
       <PageHeader
         title="Harcamalar"
         subtitle={result ? `${result.total} kayıt` : "Yükleniyor…"}
-        actions={
-          <button type="button" className="btn primary desktop-only" onClick={() => navigate("yeni")}>
-            <Icon name="plus" size={18} />
-            Harcama ekle
-          </button>
-        }
       />
 
       <Card flush>
@@ -137,9 +135,10 @@ export function Expenses() {
           <div className="search">
             <Icon name="search" size={18} />
             <input
+              id="expense-search-input"
               className="input"
               type="search"
-              placeholder="Harcama ara"
+              placeholder="Harcama ara (kısayol: /)"
               aria-label="Açıklama, etiket veya kayıt numarasıyla ara"
               value={text}
               onChange={(event) => setText(event.target.value)}
@@ -305,7 +304,10 @@ export function Expenses() {
                       aria-selected={selecting ? selected.has(expense.id) : undefined}
                       onClick={() => openOrToggle(expense.id)}
                       onKeyDown={(event) => {
-                        if (event.key === "Enter") openOrToggle(expense.id);
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openOrToggle(expense.id);
+                        }
                       }}
                     >
                       {selecting && (

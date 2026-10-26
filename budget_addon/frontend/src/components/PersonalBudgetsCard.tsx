@@ -10,8 +10,20 @@ import { minorToInput } from "../format";
 import { errorMessage, useAsync } from "../hooks";
 import { Card, ErrorNote, Field, Loading, Meter, Modal, useToast } from "./ui";
 
-export function PersonalBudgetsCard({ year }: { year: number }) {
-  const state = useAsync(() => api.personalBudgets(year), [year]);
+export function PersonalBudgetsCard({
+  year,
+  initialData,
+  onChanged,
+}: {
+  year: number;
+  initialData?: PersonalBudget[];
+  onChanged?: () => void;
+}) {
+  const state = useAsync(
+    () => (initialData ? Promise.resolve(initialData) : api.personalBudgets(year)),
+    [year, initialData],
+    `personal-budgets-${year}`,
+  );
   const [editing, setEditing] = useState(false);
 
   return (
@@ -41,7 +53,8 @@ export function PersonalBudgetsCard({ year }: { year: number }) {
           onClose={() => setEditing(false)}
           onSaved={() => {
             setEditing(false);
-            state.reload();
+            if (onChanged) onChanged();
+            else state.reload();
           }}
         />
       )}

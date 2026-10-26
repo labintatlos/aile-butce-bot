@@ -27,10 +27,13 @@ export type Draft = {
 export function QuickEntry({
   onSaved,
   onDraft,
+  inline,
 }: {
   /** Verilmezse (çevrimdışı açılış) her kayıt doğrudan kuyruğa yazılır. */
   onSaved?: (expense: Expense) => void;
   onDraft?: (draft: Draft) => void;
+  /** Özet ekranında tek satırlık hızlı giriş çubuğu olarak göster. */
+  inline?: boolean;
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -57,6 +60,7 @@ export function QuickEntry({
       setBusy(true);
       const result = await api.quickEntry(value);
       if (result.expense) {
+        setText("");
         onSaved(result.expense);
         return;
       }
@@ -80,6 +84,40 @@ export function QuickEntry({
       setBusy(false);
     }
   };
+
+  if (inline) {
+    return (
+      <form className="quick-bar" onSubmit={submit} noValidate>
+        <div className="quick-bar-row">
+          <span className="quick-bar-icon" aria-hidden="true">
+            <Icon name="wand" size={18} />
+          </span>
+          <input
+            className="input"
+            placeholder="Hızlı harcama yazın (örn. 500 market, 1200 yakıt #kisisel)…"
+            aria-label="Hızlı harcama girişi"
+            autoComplete="off"
+            enterKeyHint="send"
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+          />
+          <button type="submit" className="btn primary sm" disabled={busy || !text.trim()}>
+            {busy ? "Kaydediliyor…" : "Hızlı ekle"}
+          </button>
+        </div>
+        {queued && (
+          <div className="alert info mt-sm" role="status">
+            İnternet bağlantısı yok. “{queued}” bu cihazda sıraya alındı.
+          </div>
+        )}
+        {error && (
+          <div className="alert danger mt-sm" role="alert">
+            {error}
+          </div>
+        )}
+      </form>
+    );
+  }
 
   return (
     <Card title="Hızlı giriş">

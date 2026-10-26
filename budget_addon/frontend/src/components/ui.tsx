@@ -164,16 +164,49 @@ export function Modal({
 }) {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.contains(document.activeElement)) {
+      const firstInput = dialog.querySelector<HTMLElement>(
+        "input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled])",
+      );
+      (firstInput ?? dialog).focus();
+    }
+
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeRef.current();
+      if (event.key === "Escape") {
+        closeRef.current();
+        return;
+      }
+      if (event.key === "Tab" && dialogRef.current) {
+        const focusable = Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(
+            'button:not([disabled]):not([hidden]), [href], input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          ),
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
     };
     document.addEventListener("keydown", onKey);
     document.body.classList.add("modal-open");
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.classList.remove("modal-open");
+      if (previousFocus && document.body.contains(previousFocus)) {
+        previousFocus.focus();
+      }
     };
   }, []);
 
@@ -188,7 +221,14 @@ export function Modal({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className={wide ? "modal wide" : "modal"} role="dialog" aria-modal="true" aria-label={title}>
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        className={wide ? "modal wide" : "modal"}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+      >
         <div className="modal-head">
           <h2>{title}</h2>
           <button type="button" className="icon-btn" onClick={onClose} aria-label="Kapat">
@@ -270,25 +310,34 @@ export function Segmented<T extends string>({
   options,
   value,
   onChange,
+  mode = "group",
+  ariaLabel,
 }: {
   options: readonly { value: T; label: string }[];
   value: T;
   onChange: (value: T) => void;
+  mode?: "tablist" | "group";
+  ariaLabel?: string;
 }) {
+  const isTab = mode === "tablist";
   return (
-    <div className="segmented" role="tablist">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          role="tab"
-          aria-selected={option.value === value}
-          className={option.value === value ? "active" : undefined}
-          onClick={() => onChange(option.value)}
-        >
-          {option.label}
-        </button>
-      ))}
+    <div className="segmented" role={mode} aria-label={ariaLabel}>
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role={isTab ? "tab" : undefined}
+            aria-selected={isTab ? active : undefined}
+            aria-pressed={!isTab ? active : undefined}
+            className={active ? "active" : undefined}
+            onClick={() => onChange(option.value)}
+          >
+            {option.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

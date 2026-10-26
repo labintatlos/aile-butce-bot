@@ -1,5 +1,14 @@
 # Değişiklik Günlüğü
 
+## 2.5.0
+
+**Arayüz, UX, Erişilebilirlik ve Performans Yenilemesi.**
+- Kenar çubuğu (Sidebar) *Günlük*, *Planlama & Banka* ve *Sistem* gruplarına ayrıldı.
+- Özet ekranına satır içi hızlı harcama çubuğu, ortak gider dengesi kartı ve tek istekli `/api/reports/dashboard` uç noktası eklendi.
+- Her ekrandan `N` kısayoluyla açılan hızlı harcama penceresi ve `/` kısayoluyla harcama arama eklendi.
+- 320px dar ekran tutar taşmaları, koyu tema kontrastı, modal odak tuzağı (focus trap) ve klavyeyle grafik gezintisi iyileştirildi.
+- İkincil sayfalar dinamik paketlere (`React.lazy`) ayrılarak açılış paketi küçültüldü ve bellek içi önbellek (`useAsync`) eklendi.
+
 ## 2.4.0
 
 **Bölünmüş harcama.** Tek bir fiş birden çok kategoriye paylaştırılabiliyor:

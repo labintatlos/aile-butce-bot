@@ -56,9 +56,20 @@ export function Reports() {
   const [tab, setTab] = useState<Tab>("monthly");
   return (
     <>
-      <PageHeader title="Raporlar" subtitle="Harcamalar, kart yükü ve yıllık karşılaştırma" />
+      <PageHeader
+        title="Raporlar"
+        subtitle="Harcamalar, kart yükü ve yıllık karşılaştırma"
+        actions={
+          tab !== "export" ? (
+            <button type="button" className="btn secondary sm" onClick={() => setTab("export")}>
+              <Icon name="download" size={16} />
+              CSV İndir
+            </button>
+          ) : undefined
+        }
+      />
       <div className="tabs-row">
-        <Segmented options={TABS} value={tab} onChange={setTab} />
+        <Segmented options={TABS} value={tab} onChange={setTab} mode="tablist" />
       </div>
       {tab === "monthly" && <MonthlyReport />}
       {tab === "budget" && <BudgetPanel />}

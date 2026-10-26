@@ -99,27 +99,51 @@ export interface AsyncState<T> {
   reload: () => void;
 }
 
+const ASYNC_CACHE = new Map<string, unknown>();
+
+/** Tüm bellek içi veri önbelleğini temizler (ör. çıkış yapıldığında veya kayıt değiştiğinde). */
+export function clearAsyncCache(prefix?: string): void {
+  if (!prefix) {
+    ASYNC_CACHE.clear();
+    return;
+  }
+  for (const key of ASYNC_CACHE.keys()) {
+    if (key.startsWith(prefix)) ASYNC_CACHE.delete(key);
+  }
+}
+
 /**
  * Veriyi yükler; bağımlılıklar değişince yeniden yükler.
  *
- * Yeniden yükleme sırasında eski veri ekranda kalır. Her filtre değişiminde
- * sayfanın boşalıp dolması, göz için yavaşlıktan daha yorucudur.
+ * `cacheKey` verilirse sayfa geçişlerinde son bilinen veri anında gösterilir
+ * ve arka planda sessizce tazelenir (stale-while-revalidate).
  */
-export function useAsync<T>(load: () => Promise<T>, deps: readonly unknown[]): AsyncState<T> {
-  const [data, setData] = useState<T | null>(null);
+export function useAsync<T>(
+  load: () => Promise<T>,
+  deps: readonly unknown[],
+  cacheKey?: string,
+): AsyncState<T> {
+  const fullKey = cacheKey ? `${cacheKey}:${JSON.stringify(deps)}` : undefined;
+  const [data, setData] = useState<T | null>(() =>
+    fullKey && ASYNC_CACHE.has(fullKey) ? (ASYNC_CACHE.get(fullKey) as T) : null,
+  );
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !(fullKey && ASYNC_CACHE.has(fullKey)));
   const [tick, setTick] = useState(0);
   const loadRef = useRef(load);
   loadRef.current = load;
 
   useEffect(() => {
     let cancelled = false;
+    if (fullKey && ASYNC_CACHE.has(fullKey)) {
+      setData(ASYNC_CACHE.get(fullKey) as T);
+    }
     setLoading(true);
     setError(null);
     loadRef.current().then(
       (value) => {
         if (cancelled) return;
+        if (fullKey) ASYNC_CACHE.set(fullKey, value);
         setData(value);
         setLoading(false);
       },
@@ -133,8 +157,11 @@ export function useAsync<T>(load: () => Promise<T>, deps: readonly unknown[]): A
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, tick]);
+  }, [...deps, tick, fullKey]);
 
-  const reload = useCallback(() => setTick((value) => value + 1), []);
+  const reload = useCallback(() => {
+    if (fullKey) ASYNC_CACHE.delete(fullKey);
+    setTick((value) => value + 1);
+  }, [fullKey]);
   return { data, error, loading, reload };
 }

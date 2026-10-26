@@ -41,8 +41,10 @@ const matchLabel = (type: MatchType) =>
 export function Rules() {
   const { bootstrap } = useSession();
   const toast = useToast();
-  const state = useAsync(() => api.rules(), []);
+  const state = useAsync(() => api.rules(), [], "rules");
   const [editing, setEditing] = useState<Rule | "new" | null>(null);
+  const [confirmingRule, setConfirmingRule] = useState<{ rule: Rule; count: number } | null>(null);
+  const [applyingRule, setApplyingRule] = useState(false);
 
   const categoryName = (id: number | null) => {
     const category = bootstrap.categories.find((item) => item.id === id);
@@ -72,11 +74,23 @@ export function Rules() {
         toast("Bu kurala uyan ve değişecek geçmiş harcama yok.");
         return;
       }
-      if (!window.confirm(`${ids.length} geçmiş harcama değişecek. Devam edilsin mi?`)) return;
-      const result = await api.applyRule(rule.id);
+      setConfirmingRule({ rule, count: ids.length });
+    } catch (cause: unknown) {
+      toast(errorMessage(cause), "danger");
+    }
+  };
+
+  const confirmApplyRule = async () => {
+    if (!confirmingRule) return;
+    setApplyingRule(true);
+    try {
+      const result = await api.applyRule(confirmingRule.rule.id);
+      setConfirmingRule(null);
       undoToast(result, `${result.changed.length} harcama güncellendi.`, () => undefined);
     } catch (cause: unknown) {
       toast(errorMessage(cause), "danger");
+    } finally {
+      setApplyingRule(false);
     }
   };
 
@@ -169,6 +183,35 @@ export function Rules() {
             state.reload();
           }}
         />
+      )}
+
+      {confirmingRule && (
+        <Modal
+          title="Kuralı geçmişe uygula"
+          onClose={() => setConfirmingRule(null)}
+          footer={
+            <>
+              <span className="spacer" />
+              <button type="button" className="btn ghost" onClick={() => setConfirmingRule(null)}>
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                className="btn primary"
+                disabled={applyingRule}
+                onClick={() => void confirmApplyRule()}
+              >
+                {applyingRule ? "Uygulanıyor…" : `${confirmingRule.count} harcamayı güncelle`}
+              </button>
+            </>
+          }
+        >
+          <p>
+            <strong>“{confirmingRule.rule.pattern}”</strong> kuralına uyan{" "}
+            <strong>{confirmingRule.count}</strong> geçmiş harcama güncellenecek. İşlem sonrasında
+            tek tıkla geri alabilirsiniz.
+          </p>
+        </Modal>
       )}
     </>
   );

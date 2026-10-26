@@ -1,0 +1,149 @@
+/* --------------------------------------------------------------------------
+ * Modern UI/UX İyileştirmeleri, Gruplu Navigasyon, Hızlı Giriş ve Erişilebilirlik
+ * ------------------------------------------------------------------------ */
+
+/* Gruplanmış Kenar Çubuğu (Sidebar) */
+.nav {
+  gap: 8px;
+}
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.nav-group-title {
+  padding: 4px 12px 2px;
+  color: var(--c-hint);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.sidebar .nav-link {
+  min-height: 38px;
+  padding: 7px 12px;
+  margin-bottom: 1px;
+}
+
+/* Masaüstü Üst Çubuk (Topbar) Kısayol İpucu */
+.topbar-hint kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  margin: 0 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--c-surface);
+  color: var(--c-text);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* Özet (Dashboard) Satır İçi Hızlı Harcama Çubuğu */
+.quick-bar {
+  margin: 14px 0 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--c-bg);
+  box-shadow: var(--shadow);
+}
+
+.quick-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.quick-bar-icon {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--soft);
+  color: var(--c-link);
+}
+
+.quick-bar-row .input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+}
+
+/* Kategori Daraltma / Genişletme Çipi */
+.chip.ghost {
+  border-style: dashed;
+  background: transparent;
+  color: var(--c-link);
+  font-weight: 600;
+}
+
+.chip.ghost:hover {
+  border-style: solid;
+  background: var(--soft);
+}
+
+/* Hero Kartı 320px Tutar Bölünmesi Çözümü */
+.hero-breakdown strong {
+  display: block;
+  margin-top: 4px;
+  font-size: clamp(13px, 4.1vw, 18px);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 379.98px) {
+  .hero {
+    padding: 18px 16px;
+  }
+
+  .hero-breakdown {
+    gap: 12px;
+  }
+
+  .hero-breakdown > div + div {
+    padding-left: 12px;
+  }
+}
+
+/* İstatistik Kartları (Stat): Yanıltıcı alt yeşil çizgiyi kaldır ve mobilde yatay hizayı koru */
+.stat::after {
+  display: none !important;
+}
+
+@media (max-width: 479.98px) {
+  .stat-top {
+    flex-direction: row-reverse !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+  }
+}
+
+/* Raporlar ve Ekstre Sekme Satırı Kaydırma İyileştirmesi */
+.tabs-row {
+  position: relative;
+  margin-bottom: 18px;
+}
+
+.tabs-row .segmented {
+  scrollbar-width: thin;
+  scroll-padding-inline: 12px;
+}
+
+/* Etkileşimli Grafik Öğeleri İçin Klavye Odak Halka Stili (a11y) */
+.chart-col[role="button"]:focus-visible,
+.sankey-node[role="button"]:focus-visible,
+.line-hit[role="button"]:focus-visible,
+.table tr.clickable:focus-visible {
+  outline: 2px solid var(--c-link);
+  outline-offset: 2px;
+}

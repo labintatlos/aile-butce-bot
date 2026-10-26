@@ -30,11 +30,15 @@ type Editing =
   | { kind: "edit"; goal: SavingsGoal }
   | { kind: "deposit"; goal: SavingsGoal };
 
-export function SavingsGoalsCard() {
-  const state = useAsync(() => api.savingsGoals(), []);
+export function SavingsGoalsCard({ initialData }: { initialData?: SavingsOverview }) {
+  const state = useAsync(
+    () => (initialData ? Promise.resolve(initialData) : api.savingsGoals()),
+    [initialData],
+    "savings-goals",
+  );
   const [editing, setEditing] = useState<Editing | null>(null);
   const [data, setData] = useState<SavingsOverview | null>(null);
-  const overview = data ?? state.data;
+  const overview = data ?? initialData ?? state.data;
 
   const done = (next?: SavingsOverview) => {
     setEditing(null);

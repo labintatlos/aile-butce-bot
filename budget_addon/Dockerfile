@@ -32,12 +32,9 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 COPY backend/requirements.txt ./
-# Alpine musl kullanir; bazi paketlerin bu platform icin hazir tekerlegi
-# olmayabilir. Derleme araclari gecici olarak kurulur ve kurulum bitince
-# silinir, boylece calisma imajinda yer kaplamazlar.
-RUN apk add --no-cache --virtual .build-deps gcc musl-dev libffi-dev \
-    && pip install --no-cache-dir -r requirements.txt \
-    && apk del .build-deps
+# Tum bagimliliklarin musllinux_aarch64 ve musllinux_x86_64 icin hazir tekerlegi
+# (wheel) mevcuttur; gcc/musl-dev kurulmasina gerek yoktur.
+RUN pip install --no-cache-dir --only-binary=:all: -r requirements.txt
 
 COPY backend/app ./app
 COPY backend/migrations ./migrations

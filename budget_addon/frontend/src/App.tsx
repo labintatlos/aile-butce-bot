@@ -9,7 +9,7 @@
  * Masaüstünde sol kenar çubuğu, telefonda alt gezinme çubuğu kullanılır.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   api,
@@ -20,29 +20,35 @@ import {
   type Me,
   type UserSummary,
 } from "./api";
+import { ExpenseForm } from "./components/ExpenseForm";
 import { Icon, type IconName } from "./components/icons";
 import { QueueList, QuickEntry } from "./components/QuickEntry";
-import { Loading, ToastProvider, useToast } from "./components/ui";
 import { ThemePicker } from "./components/ThemePicker";
+import { Loading, Modal, ToastProvider, useToast } from "./components/ui";
 import { authSourceLabel, initialOf, SessionContext, useSession, type Session } from "./context";
-import { errorMessage, useHashRoute, type Route } from "./hooks";
+import { clearAsyncCache, errorMessage, useHashRoute, type Route } from "./hooks";
 import { isNetworkError, useOfflineQueue } from "./offline";
 import { Dashboard } from "./pages/Dashboard";
 import { Expenses } from "./pages/Expenses";
-import { Accounts } from "./pages/Accounts";
-import { Incomes } from "./pages/Incomes";
-import { Rules } from "./pages/Rules";
-import { Statements } from "./pages/Statements";
-import { Upcoming } from "./pages/Upcoming";
 import { Login } from "./pages/Login";
 import { More } from "./pages/More";
 import { NewExpense } from "./pages/NewExpense";
-import { Notifications } from "./pages/Notifications";
-import { People } from "./pages/People";
-import { Recurring } from "./pages/Recurring";
-import { Reports } from "./pages/Reports";
 import { Settings } from "./pages/Settings";
 import { Setup } from "./pages/Setup";
+import { Upcoming } from "./pages/Upcoming";
+
+const Reports = lazy(() => import("./pages/Reports").then((m) => ({ default: m.Reports })));
+const Statements = lazy(() =>
+  import("./pages/Statements").then((m) => ({ default: m.Statements })),
+);
+const Accounts = lazy(() => import("./pages/Accounts").then((m) => ({ default: m.Accounts })));
+const Rules = lazy(() => import("./pages/Rules").then((m) => ({ default: m.Rules })));
+const Recurring = lazy(() => import("./pages/Recurring").then((m) => ({ default: m.Recurring })));
+const Incomes = lazy(() => import("./pages/Incomes").then((m) => ({ default: m.Incomes })));
+const People = lazy(() => import("./pages/People").then((m) => ({ default: m.People })));
+const Notifications = lazy(() =>
+  import("./pages/Notifications").then((m) => ({ default: m.Notifications })),
+);
 
 type Phase =
   | { kind: "loading" }
@@ -52,19 +58,41 @@ type Phase =
   | { kind: "offline" }
   | { kind: "ready"; me: Me; bootstrap: Bootstrap; users: UserSummary[] };
 
-const NAV: readonly { route: Route; label: string; icon: IconName; admin?: boolean }[] = [
-  { route: "ozet", label: "Özet", icon: "home" },
-  { route: "harcamalar", label: "Harcamalar", icon: "list" },
-  { route: "gelirler", label: "Gelirler", icon: "income" },
-  { route: "raporlar", label: "Raporlar", icon: "chart" },
-  { route: "sabit", label: "Sabit Giderler", icon: "repeat" },
-  { route: "takvim", label: "Yaklaşanlar", icon: "calendar" },
-  { route: "hesaplar", label: "Hesaplar", icon: "bank" },
-  { route: "aktar", label: "Ekstre", icon: "upload" },
-  { route: "kurallar", label: "Kurallar", icon: "wand" },
-  { route: "bildirimler", label: "Bildirimler", icon: "bell" },
-  { route: "ayarlar", label: "Ayarlar", icon: "settings" },
-  { route: "kisiler", label: "Kişiler", icon: "users", admin: true },
+interface NavItem {
+  route: Route;
+  label: string;
+  icon: IconName;
+  admin?: boolean;
+}
+
+const NAV_GROUPS: readonly { title: string; items: readonly NavItem[] }[] = [
+  {
+    title: "GÜNLÜK",
+    items: [
+      { route: "ozet", label: "Özet", icon: "home" },
+      { route: "harcamalar", label: "Harcamalar", icon: "list" },
+      { route: "gelirler", label: "Gelirler", icon: "income" },
+      { route: "raporlar", label: "Raporlar", icon: "chart" },
+    ],
+  },
+  {
+    title: "PLANLAMA & BANKA",
+    items: [
+      { route: "takvim", label: "Yaklaşanlar", icon: "calendar" },
+      { route: "sabit", label: "Sabit Giderler", icon: "repeat" },
+      { route: "hesaplar", label: "Hesaplar", icon: "bank" },
+      { route: "aktar", label: "Ekstre", icon: "upload" },
+    ],
+  },
+  {
+    title: "SİSTEM",
+    items: [
+      { route: "kurallar", label: "Kurallar", icon: "wand" },
+      { route: "bildirimler", label: "Bildirimler", icon: "bell" },
+      { route: "ayarlar", label: "Ayarlar", icon: "settings" },
+      { route: "kisiler", label: "Kişiler", icon: "users", admin: true },
+    ],
+  },
 ];
 
 const MOBILE_NAV: readonly { route: Route; label: string; icon: IconName }[] = [
@@ -109,6 +137,7 @@ const DEFAULT_ROUTE: Route = "ozet";
 export default function App() {
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const [route, navigate, visit] = useHashRoute(DEFAULT_ROUTE);
+  const [quickModalOpen, setQuickModalOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -143,6 +172,10 @@ export default function App() {
     void load();
   }, [load]);
 
+  const openQuickExpense = useCallback(() => {
+    setQuickModalOpen(true);
+  }, []);
+
   const session = useMemo<Session | null>(() => {
     if (phase.kind !== "ready") return null;
     return {
@@ -150,13 +183,16 @@ export default function App() {
       bootstrap: phase.bootstrap,
       users: phase.users,
       navigate,
+      openQuickExpense,
       refresh: async () => {
+        clearAsyncCache();
         const [bootstrap, users] = await Promise.all([api.bootstrap(), api.users()]);
         setPhase((current) => (current.kind === "ready" ? { ...current, bootstrap, users } : current));
       },
       setMe: (me: Me) =>
         setPhase((current) => (current.kind === "ready" ? { ...current, me } : current)),
       logout: async () => {
+        clearAsyncCache();
         try {
           await api.logout();
         } catch {
@@ -165,7 +201,7 @@ export default function App() {
         setPhase({ kind: "login" });
       },
     };
-  }, [phase, navigate]);
+  }, [phase, navigate, openQuickExpense]);
 
   if (phase.kind === "loading") {
     return (
@@ -209,7 +245,12 @@ export default function App() {
   return (
     <SessionContext.Provider value={session}>
       <ToastProvider>
-        <Shell route={route} visit={visit} />
+        <Shell
+          route={route}
+          visit={visit}
+          quickModalOpen={quickModalOpen}
+          onCloseQuickModal={() => setQuickModalOpen(false)}
+        />
       </ToastProvider>
     </SessionContext.Provider>
   );
@@ -304,10 +345,57 @@ function useUnreadCount(route: Route): number {
   return count;
 }
 
-function Shell({ route, visit }: { route: Route; visit: number }) {
-  const { me, navigate, logout } = useSession();
+function isEditableElement(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    target.isContentEditable
+  );
+}
+
+function Shell({
+  route,
+  visit,
+  quickModalOpen,
+  onCloseQuickModal,
+}: {
+  route: Route;
+  visit: number;
+  quickModalOpen: boolean;
+  onCloseQuickModal: () => void;
+}) {
+  const { me, navigate, openQuickExpense, logout } = useSession();
+  const toast = useToast();
   const initial = initialOf(me.display_name);
   const unread = useUnreadCount(route);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isEditableElement(event.target)) return;
+      if (document.querySelector(".modal-backdrop")) return;
+
+      if (event.key === "n" || event.key === "N") {
+        event.preventDefault();
+        openQuickExpense?.();
+      } else if (event.key === "/") {
+        event.preventDefault();
+        if (route !== "harcamalar") {
+          navigate("harcamalar");
+          window.setTimeout(() => {
+            document.getElementById("expense-search-input")?.focus();
+          }, 60);
+        } else {
+          document.getElementById("expense-search-input")?.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [route, navigate, openQuickExpense]);
 
   return (
     <div className="shell">
@@ -320,30 +408,43 @@ function Shell({ route, visit }: { route: Route; visit: number }) {
           <span>Aile Bütçesi<small className="brand-caption">Birlikte, daha dengeli.</small></span>
         </div>
 
-        <button type="button" className="btn primary block" onClick={() => navigate("yeni")}>
+        <button
+          type="button"
+          className="btn primary block"
+          onClick={() => (openQuickExpense ? openQuickExpense() : navigate("yeni"))}
+          title="Yeni harcama ekle (Kısayol: N)"
+        >
           <Icon name="plus" size={18} />
           Harcama ekle
         </button>
 
-        <div className="nav-caption">ÇALIŞMA ALANINIZ</div>
         <nav className="nav" aria-label="Ana menü">
-          {NAV.filter((item) => !item.admin || me.is_admin).map((item) => (
-            <button
-              key={item.route}
-              type="button"
-              className={route === item.route ? "nav-link active" : "nav-link"}
-              aria-current={route === item.route ? "page" : undefined}
-              onClick={() => navigate(item.route)}
-            >
-              <Icon name={item.icon} />
-              {item.label}
-              {item.route === "bildirimler" && unread > 0 && (
-                <span className="badge danger" style={{ marginLeft: "auto" }}>
-                  {unread}
-                </span>
-              )}
-            </button>
-          ))}
+          {NAV_GROUPS.map((group) => {
+            const visibleItems = group.items.filter((item) => !item.admin || me.is_admin);
+            if (visibleItems.length === 0) return null;
+            return (
+              <div className="nav-group" key={group.title}>
+                <div className="nav-group-title">{group.title}</div>
+                {visibleItems.map((item) => (
+                  <button
+                    key={item.route}
+                    type="button"
+                    className={route === item.route ? "nav-link active" : "nav-link"}
+                    aria-current={route === item.route ? "page" : undefined}
+                    onClick={() => navigate(item.route)}
+                  >
+                    <Icon name={item.icon} />
+                    {item.label}
+                    {item.route === "bildirimler" && unread > 0 && (
+                      <span className="badge danger" style={{ marginLeft: "auto" }}>
+                        {unread}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            );
+          })}
         </nav>
 
         <div className="sidebar-foot">
@@ -368,11 +469,14 @@ function Shell({ route, visit }: { route: Route; visit: number }) {
 
       <div className="content">
         <header className="topbar">
-          <div className="brand">
+          <div className="brand mobile-only">
             <span className="brand-mark">
               <Icon name="wallet" size={18} />
             </span>
             {TITLES[route]}
+          </div>
+          <div className="topbar-hint desktop-only muted small">
+            Kısayollar: <kbd>N</kbd> Yeni harcama · <kbd>/</kbd> Harcama ara
           </div>
           <div className="row topbar-actions">
             <ThemePicker compact />
@@ -402,7 +506,9 @@ function Shell({ route, visit }: { route: Route; visit: number }) {
               sayfa değişiminde yeniden oynar. */}
           <OfflineQueueBanner route={route} />
           <div className="page-enter" key={visit}>
-            <Page route={route} />
+            <Suspense fallback={<Loading />}>
+              <Page route={route} />
+            </Suspense>
           </div>
         </main>
       </div>
@@ -431,6 +537,27 @@ function Shell({ route, visit }: { route: Route; visit: number }) {
           );
         })}
       </nav>
+
+      {quickModalOpen && (
+        <Modal title="Harcama ekle" onClose={onCloseQuickModal} wide>
+          <ExpenseForm
+            submitLabel="Harcamayı kaydet"
+            onCancel={onCloseQuickModal}
+            onSubmit={async (input) => {
+              const created = await api.createExpense(input);
+              clearAsyncCache();
+              toast(`${created.total.formatted} kaydedildi.`, "success", {
+                label: "Geri al",
+                run: async () => {
+                  await api.deleteExpense(created.id);
+                  clearAsyncCache();
+                },
+              });
+              onCloseQuickModal();
+            }}
+          />
+        </Modal>
+      )}
     </div>
   );
 }

@@ -17,6 +17,13 @@ export interface Session {
   refresh: () => Promise<void>;
   setMe: (me: Me) => void;
   navigate: (route: Route) => void;
+  openQuickExpense?: (draft?: {
+    amount: string;
+    description: string;
+    categoryId?: number | null;
+    transactionDate?: string;
+    queueRef?: string;
+  }) => void;
   logout: () => Promise<void>;
 }
 

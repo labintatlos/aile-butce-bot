@@ -140,3 +140,30 @@ async def test_csv_export_is_downloadable(
     assert "text/csv" in response.headers["content-type"]
     assert "butce-harcama-2026-09.csv" in response.headers["content-disposition"]
     assert "1000,00" in response.text
+
+
+async def test_dashboard_report_bundles_every_summary_card(
+    client, seeded_users, seeded_reference_data
+):
+    await _record_expense(client, seeded_reference_data)
+
+    response = await client.get("/api/reports/dashboard", headers=HEADERS)
+
+    assert response.status_code == 200
+    body = response.json()
+    for field in (
+        "position",
+        "forecast",
+        "spending",
+        "shared_spending",
+        "budgets",
+        "cards",
+        "statements",
+        "recent",
+        "upcoming",
+        "personal_budgets",
+        "savings_goals",
+    ):
+        assert field in body, field
+    assert _is_money(body["position"]["remaining"])
+    assert body["recent"]["total"] == 1

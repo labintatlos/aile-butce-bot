@@ -115,6 +115,7 @@ export function ExpenseForm({
   );
 
   const [splitMode, setSplitMode] = useState(Boolean(initial && initial.splits.length > 1));
+  const [showAllCategories, setShowAllCategories] = useState(false);
   const [parts, setParts] = useState<Part[]>(() =>
     initial && initial.splits.length > 1
       ? initial.splits.map((part) => ({
@@ -448,7 +449,10 @@ export function ExpenseForm({
         }
       >
         <div className="chips">
-          {categories.map((category) => (
+          {(categories.length > 8 && !showAllCategories
+            ? categories.filter((c, i) => i < 7 || c.id === categoryId)
+            : categories
+          ).map((category) => (
             <button
               key={category.id}
               type="button"
@@ -463,6 +467,15 @@ export function ExpenseForm({
               {category.name}
             </button>
           ))}
+          {categories.length > 8 && (
+            <button
+              type="button"
+              className="chip ghost"
+              onClick={() => setShowAllCategories((v) => !v)}
+            >
+              {showAllCategories ? "Daha az göster" : `+${categories.length - 7} kategori daha`}
+            </button>
+          )}
         </div>
       </Field>
       )}

@@ -698,6 +698,20 @@ export interface MoneyFlow {
   remaining: Money;
 }
 
+export interface DashboardData {
+  position: MonthlyPosition;
+  forecast: MonthForecast;
+  spending: MonthlySpending;
+  shared_spending: MonthlySpending;
+  budgets: BudgetStatus[];
+  cards: CardUsage[];
+  statements: Statement[];
+  recent: SearchResult;
+  upcoming: UpcomingEvent[];
+  personal_budgets: PersonalBudget[];
+  savings_goals: SavingsOverview;
+}
+
 // ---------------------------------------------------------------------------
 // Tasima
 // ---------------------------------------------------------------------------
@@ -895,6 +909,7 @@ export const api = {
   deleteCategory: (id: number) => remove(`categories/${id}`),
 
   // Raporlar
+  dashboard: () => get<DashboardData>("reports/dashboard"),
   spending: (query: YearMonthQuery & { owner?: string }) =>
     get<MonthlySpending>("reports/spending/monthly", query),
   personalBudgets: (year?: number) => get<PersonalBudget[]>("reports/personal-budgets", { year }),

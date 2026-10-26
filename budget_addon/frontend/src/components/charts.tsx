@@ -36,8 +36,17 @@ export function FlowBars({ months }: { months: FlowMonth[] }) {
           <div
             key={`${month.year}-${month.month}`}
             className={hovered === index ? "chart-col is-hovered" : "chart-col"}
+            tabIndex={0}
+            role="button"
             onMouseEnter={() => setHovered(index)}
+            onFocus={() => setHovered(index)}
             onClick={() => setHovered(index)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setHovered(index);
+              }
+            }}
             aria-label={`${monthName(month.year, month.month)}: gelir ${month.income.formatted}, harcama ${month.spending.formatted}`}
           >
             <div className="chart-bars">
@@ -159,7 +168,11 @@ export function NetWorthLine({ points }: { points: NetWorthPoint[] }) {
             y={0}
             width={step}
             height={LINE_H}
+            tabIndex={0}
+            role="button"
+            aria-label={`${longDate(point.when)}: Net ${point.net.formatted}`}
             onMouseEnter={() => setHovered(index)}
+            onFocus={() => setHovered(index)}
             onClick={() => setHovered(index)}
           />
         ))}
@@ -398,7 +411,11 @@ export function MoneyFlowDiagram({ flow }: { flow: MoneyFlow }) {
         {layout.right.map((node) => (
           <g
             key={`r-${node.name}`}
+            tabIndex={0}
+            role="button"
+            aria-label={`${node.name}: ${node.formatted}`}
             onMouseEnter={() => setHovered(node.name)}
+            onFocus={() => setHovered(node.name)}
             onClick={() => setHovered(node.name)}
           >
             <rect

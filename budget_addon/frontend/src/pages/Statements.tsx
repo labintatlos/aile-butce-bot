@@ -56,7 +56,7 @@ export function Statements() {
     <>
       <PageHeader title="Ekstre" subtitle="Bankanın dökümünü aktarın, ekstreyle karşılaştırın" />
       <div className="tabs-row">
-        <Segmented options={TABS} value={tab} onChange={setTab} />
+        <Segmented options={TABS} value={tab} onChange={setTab} mode="tablist" />
       </div>
       {tab === "import" ? <ImportPanel /> : <ReconcilePanel />}
     </>

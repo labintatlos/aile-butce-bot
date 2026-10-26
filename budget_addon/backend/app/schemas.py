@@ -896,3 +896,20 @@ class MoneyFlowOut(BaseModel):
 
 
 FlowNodeOut.model_rebuild()
+
+
+class DashboardOut(BaseModel):
+    """Özet ekranının ihtiyaç duyduğu tüm raporlar tek yanıtta."""
+
+    position: MonthlyPositionOut
+    forecast: MonthForecastOut
+    spending: MonthlySpendingOut
+    shared_spending: MonthlySpendingOut
+    budgets: list[BudgetStatusOut]
+    cards: list[CardUsageOut]
+    statements: list[StatementOut]
+    recent: SearchResultOut
+    upcoming: list[UpcomingEventOut]
+    personal_budgets: list[PersonalBudgetOut]
+    savings_goals: SavingsOverviewOut
+

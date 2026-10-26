@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ThemeProvider } from "./theme";
 import "./app.css";
+import "./styles/modern-polish.css";
 
 const container = document.getElementById("root");
 if (!container) {

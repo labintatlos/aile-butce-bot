@@ -4,9 +4,10 @@
 
 import { useState } from "react";
 
-import { api } from "../api";
+import { api, type DashboardData, type NamedTotal } from "../api";
 import { ExpenseDetail } from "../components/ExpenseDetail";
 import { PersonalBudgetsCard } from "../components/PersonalBudgetsCard";
+import { QuickEntry } from "../components/QuickEntry";
 import { SavingsGoalsCard } from "../components/SavingsGoalsCard";
 import { Icon } from "../components/icons";
 import {
@@ -17,41 +18,62 @@ import {
   share,
   StatementList,
 } from "../components/reportParts";
-import { Card, Empty, ErrorNote, Loading, Meter, PageHeader, Stat } from "../components/ui";
+import { Card, Empty, ErrorNote, Loading, Meter, PageHeader, Stat, useToast } from "../components/ui";
 import { useSession } from "../context";
-import { longDate, monthName } from "../format";
+import { formatMinor, longDate, monthName } from "../format";
 import { useAsync } from "../hooks";
 import { UpcomingList } from "./Upcoming";
 
+async function loadDashboardFallback(): Promise<DashboardData> {
+  const [position, forecast, spending, budgets, cards, statements, recent, upcoming, personal_budgets, savings_goals] =
+    await Promise.all([
+      api.position(),
+      api.forecast(),
+      api.spending({}),
+      api.budgets({}),
+      api.cards(),
+      api.statements(),
+      api.searchExpenses({ page_size: 6 }),
+      api.upcomingEvents(14).catch(() => []),
+      api.personalBudgets().catch(() => []),
+      api.savingsGoals().catch(() => ({
+        goals: [],
+        monthly_required: { minor: 0, formatted: "0,00 TL" },
+        month_remaining: null,
+        covers: null,
+      })),
+    ]);
+  const shared_spending = await api.spending({ owner: "shared" }).catch(() => spending);
+  return {
+    position,
+    forecast,
+    spending,
+    shared_spending,
+    budgets,
+    cards,
+    statements,
+    recent,
+    upcoming,
+    personal_budgets,
+    savings_goals,
+  };
+}
+
 export function Dashboard() {
-  const { me, bootstrap, navigate } = useSession();
+  const { me, bootstrap, navigate, openQuickExpense } = useSession();
+  const toast = useToast();
   const [openId, setOpenId] = useState<number | null>(null);
 
-  const state = useAsync(async () => {
-    const [position, forecast, spending, budgets, cards, statements, recent, upcoming] =
-      await Promise.all([
-        api.position(),
-        api.forecast(),
-        api.spending({}),
-        api.budgets({}),
-        api.cards(),
-        api.statements(),
-        api.searchExpenses({ page_size: 6 }),
-        api.upcomingEvents(14),
-      ]);
-    return { position, forecast, spending, budgets, cards, statements, recent, upcoming };
-  }, []);
+  const state = useAsync(
+    () => api.dashboard().catch(() => loadDashboardFallback()),
+    [],
+    "dashboard",
+  );
 
   const header = (
     <PageHeader
       title={`Merhaba, ${me.display_name}`}
       subtitle={`Bütçenize birlikte göz atalım · ${longDate(bootstrap.today)}`}
-      actions={
-        <button type="button" className="btn primary desktop-only" onClick={() => navigate("yeni")}>
-          <Icon name="plus" size={18} />
-          Harcama ekle
-        </button>
-      }
     />
   );
 
@@ -64,7 +86,19 @@ export function Dashboard() {
     );
   }
 
-  const { position, forecast, spending, budgets, cards, statements, recent, upcoming } = state.data;
+  const {
+    position,
+    forecast,
+    spending,
+    shared_spending,
+    budgets,
+    cards,
+    statements,
+    recent,
+    upcoming,
+    personal_budgets,
+    savings_goals,
+  } = state.data;
   const short = position.remaining.minor < 0;
   const monthProgress = share(forecast.days_elapsed, forecast.days_in_month);
   const topCategories = spending.by_category.slice(0, 6);
@@ -74,17 +108,43 @@ export function Dashboard() {
     <>
       {header}
 
+      <QuickEntry
+        inline
+        onSaved={(expense) => {
+          toast(`Harcama kaydedildi: ${expense.total.formatted}`, "success", {
+            label: "Geri al",
+            run: async () => {
+              await api.deleteExpense(expense.id);
+              state.reload();
+            },
+          });
+          state.reload();
+        }}
+        onDraft={(draft) => {
+          if (openQuickExpense) openQuickExpense(draft);
+          else navigate("yeni");
+        }}
+      />
+
       <div className="grid main-side">
         <div className={short ? "hero is-negative" : "hero"}>
           <div className="hero-heading">
-            <span className="hero-period"><Icon name="wallet" size={16} /> Aylık bütçeniz</span>
+            <span className="hero-period">
+              <Icon name="wallet" size={16} /> Aylık bütçeniz
+            </span>
             <span className="hero-period">{monthName(position.year, position.month)}</span>
           </div>
           <div className="hero-label">{short ? "Bütçe açığı" : "Kalan bütçe"}</div>
           <div className="hero-value">{position.remaining.formatted}</div>
           <div className="hero-breakdown">
-            <div><span>Toplam gelir</span><strong>{position.income.formatted}</strong></div>
-            <div><span>Toplam çıkış</span><strong>{position.outflow.formatted}</strong></div>
+            <div>
+              <span>Toplam gelir</span>
+              <strong>{position.income.formatted}</strong>
+            </div>
+            <div>
+              <span>Toplam çıkış</span>
+              <strong>{position.outflow.formatted}</strong>
+            </div>
           </div>
           <Meter ratio={monthProgress} />
           <div className="hero-meta mt-sm">
@@ -114,9 +174,36 @@ export function Dashboard() {
       </div>
 
       <div className="quick-actions" aria-label="Hızlı işlemler">
-        <button type="button" onClick={() => navigate("gelirler")}><span className="quick-icon"><Icon name="income" /></span><span><strong>Gelirleri yönet</strong><small>Bütçenizi güncel tutun</small></span><Icon name="chevronRight" size={18} /></button>
-        <button type="button" onClick={() => navigate("sabit")}><span className="quick-icon"><Icon name="repeat" /></span><span><strong>Sabit giderler</strong><small>Düzenli ödemelerinizi takip edin</small></span><Icon name="chevronRight" size={18} /></button>
-        <button type="button" onClick={() => navigate("raporlar")}><span className="quick-icon"><Icon name="chart" /></span><span><strong>Raporları incele</strong><small>Harcama dağılımınızı görüntüleyin</small></span><Icon name="chevronRight" size={18} /></button>
+        <button type="button" onClick={() => navigate("gelirler")}>
+          <span className="quick-icon">
+            <Icon name="income" />
+          </span>
+          <span>
+            <strong>Gelirleri yönet</strong>
+            <small>Bütçenizi güncel tutun</small>
+          </span>
+          <Icon name="chevronRight" size={18} />
+        </button>
+        <button type="button" onClick={() => navigate("sabit")}>
+          <span className="quick-icon">
+            <Icon name="repeat" />
+          </span>
+          <span>
+            <strong>Sabit giderler</strong>
+            <small>Düzenli ödemelerinizi takip edin</small>
+          </span>
+          <Icon name="chevronRight" size={18} />
+        </button>
+        <button type="button" onClick={() => navigate("raporlar")}>
+          <span className="quick-icon">
+            <Icon name="chart" />
+          </span>
+          <span>
+            <strong>Raporları incele</strong>
+            <small>Harcama dağılımınızı görüntüleyin</small>
+          </span>
+          <Icon name="chevronRight" size={18} />
+        </button>
       </div>
 
       <div className="grid two">
@@ -135,7 +222,11 @@ export function Dashboard() {
               title="Henüz harcama yok"
               text="İlk harcamanızı ekleyerek başlayın."
               action={
-                <button type="button" className="btn primary" onClick={() => navigate("yeni")}>
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={() => (openQuickExpense ? openQuickExpense() : navigate("yeni"))}
+                >
                   Harcama ekle
                 </button>
               }
@@ -175,9 +266,21 @@ export function Dashboard() {
       </div>
 
       <div className="grid three">
-        <PersonalBudgetsCard year={position.year} />
+        <PersonalBudgetsCard
+          year={position.year}
+          initialData={personal_budgets}
+          onChanged={state.reload}
+        />
 
-        <SavingsGoalsCard />
+        <SavingsGoalsCard initialData={savings_goals} />
+
+        {bootstrap.people.length >= 2 && (
+          <SharedBalanceCard
+            people={bootstrap.people}
+            byUser={(shared_spending ?? spending).by_user}
+            totalMinor={(shared_spending ?? spending).total.minor}
+          />
+        )}
 
         <Card
           title="Önümüzdeki 2 hafta"
@@ -216,5 +319,53 @@ export function Dashboard() {
         />
       )}
     </>
+  );
+}
+
+function SharedBalanceCard({
+  people,
+  byUser,
+  totalMinor,
+}: {
+  people: { id: number; display_name: string }[];
+  byUser: NamedTotal[];
+  totalMinor: number;
+}) {
+  const spentMap = new Map(byUser.map((u) => [u.id, u.total.minor]));
+  const rows = people.map((p) => ({
+    id: p.id,
+    name: p.display_name,
+    spent: spentMap.get(p.id) ?? 0,
+  }));
+  const fairShare = rows.length > 0 ? Math.round(totalMinor / rows.length) : 0;
+
+  return (
+    <Card title="Ortak gider dengesi">
+      {totalMinor <= 0 ? (
+        <p className="muted small">Bu ay ortak harcama kaydı yok.</p>
+      ) : (
+        <div className="stack">
+          {rows.map((row) => {
+            const diff = row.spent - fairShare;
+            return (
+              <div key={row.id}>
+                <div className="row between">
+                  <strong>{row.name}</strong>
+                  <span className="num">{formatMinor(row.spent)}</span>
+                </div>
+                <Meter ratio={share(row.spent, totalMinor)} />
+                <p className="muted small mt-xs">
+                  {diff === 0
+                    ? "Eşit"
+                    : diff > 0
+                      ? `Ortak ortalamadan +${formatMinor(diff)} fazla ödedi`
+                      : `Ortak ortalamadan ${formatMinor(Math.abs(diff))} az ödedi`}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
   );
 }
