@@ -10,7 +10,11 @@ ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base-python:3.12-alpine3.20
 #
 # Node surumu, package-lock.json'i ureten npm surumuyle ayni ana surumden
 # secilir; eski bir npm yeni bicimli kilit dosyasinda takilabilir.
-FROM node:24-alpine AS frontend
+#
+# Cikti (JS/CSS) mimariden bagimsizdir; bu asama derleyen makinenin kendi
+# mimarisinde calisir. GitHub'da aarch64 imaji derlenirken npm ve Vite
+# emulasyon (QEMU) altinda yavaslamaz.
+FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend
 
 WORKDIR /build
 COPY frontend/package.json frontend/package-lock.json ./
