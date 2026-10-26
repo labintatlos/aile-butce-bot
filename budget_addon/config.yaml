@@ -3,6 +3,10 @@ description: Aile bütçesi ve kredi kartı taksit takibi — kullanıcı adı v
 version: "2.5.0"
 slug: family_budget
 url: https://github.com/labintatlos/aile-butce-bot
+# Imaj GitHub Actions'ta derlenip buraya gonderilir (.github/workflows/publish.yml).
+# Home Assistant cihazda derlemez, yalnizca indirir: cihazda derleme npm ve
+# PyPI'ya ulasmayi gerektiriyor ve cihazin DNS'i takildiginda yarida kaliyordu.
+image: ghcr.io/labintatlos/{arch}-addon-family_budget
 arch:
   - aarch64
   - amd64
