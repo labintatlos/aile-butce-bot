@@ -28,7 +28,7 @@ jobs:
       matrix:
         arch: [aarch64, amd64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Surumu config.yaml'dan oku
         id: meta
